@@ -6,6 +6,8 @@ CREATE TABLE roles (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+INSERT INTO roles (id, name) VALUES (1, 'admin');
+
 CREATE TABLE user_roles (
     user_id INTEGER NOT NULL,
     role_id INTEGER NOT NULL,
