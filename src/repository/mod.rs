@@ -1,0 +1,28 @@
+pub mod hub;
+pub mod mock;
+pub mod role;
+pub mod user;
+
+use crate::domain::hub::{Hub, NewHub};
+use crate::domain::role::{NewRole, Role};
+use crate::domain::user::{NewUser, User};
+
+pub trait UserRepository {
+    fn get_by_email(&mut self, email: &str) -> anyhow::Result<Option<User>>;
+    fn create(&mut self, new_user: NewUser) -> anyhow::Result<User>;
+    fn list(&mut self) -> anyhow::Result<Vec<User>>;
+}
+
+pub trait HubRepository {
+    fn get_by_id(&mut self, id: i32) -> anyhow::Result<Option<Hub>>;
+    fn get_by_name(&mut self, name: &str) -> anyhow::Result<Option<Hub>>;
+    fn create(&mut self, new_hub: &NewHub) -> anyhow::Result<Hub>;
+    fn list(&mut self) -> anyhow::Result<Vec<Hub>>;
+}
+
+pub trait RoleRepository {
+    fn get_by_id(&mut self, id: i32) -> anyhow::Result<Option<Role>>;
+    fn get_by_name(&mut self, name: &str) -> anyhow::Result<Option<Role>>;
+    fn create(&mut self, new_role: &NewRole) -> anyhow::Result<Role>;
+    fn list(&mut self) -> anyhow::Result<Vec<Role>>;
+}
