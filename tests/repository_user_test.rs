@@ -26,7 +26,7 @@ fn test_user_repository_crud() {
     // Create User
     let new_user = NewUser {
         name: Some("TestUser".to_string()),
-        hub_id: 1,
+        hub_id: hub.id,
         email: "test@test.test".to_string(),
         password_hash: "test".to_string(),
     };
