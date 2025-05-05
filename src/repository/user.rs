@@ -17,6 +17,17 @@ impl<'a> DieselUserRepository<'a> {
 }
 
 impl<'a> UserRepository for DieselUserRepository<'a> {
+    fn get_by_id(&mut self, id: i32) -> anyhow::Result<Option<User>> {
+        use crate::schema::users;
+
+        let result = users::table
+            .filter(users::id.eq(id))
+            .first::<DbUser>(self.connection)
+            .optional()?;
+
+        Ok(result.map(|db_user| db_user.into())) // Convert DbUser to DomainUser
+    }
+
     fn get_by_email(&mut self, email: &str, hub_id: i32) -> Result<Option<User>> {
         use crate::schema::users;
 

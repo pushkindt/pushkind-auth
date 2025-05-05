@@ -8,6 +8,7 @@ use crate::domain::role::{NewRole, Role};
 use crate::domain::user::{NewUser, User};
 
 pub trait UserRepository {
+    fn get_by_id(&mut self, id: i32) -> anyhow::Result<Option<User>>;
     fn get_by_email(&mut self, email: &str, hub_id: i32) -> anyhow::Result<Option<User>>;
     fn create(&mut self, new_user: &NewUser) -> anyhow::Result<User>;
     fn list(&mut self) -> anyhow::Result<Vec<User>>;

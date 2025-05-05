@@ -6,6 +6,8 @@ CREATE TABLE hubs (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+INSERT INTO hubs (name) VALUES ('default');
+
 CREATE TABLE users (
     id INTEGER NOT NULL PRIMARY KEY,
     email VARCHAR NOT NULL,
