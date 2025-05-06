@@ -7,13 +7,11 @@ use tera::Context;
 
 use crate::TEMPLATES;
 use crate::db::DbPool;
-use crate::domain::user::NewUser;
 use crate::forms::auth::{LoginForm, RegisterForm};
 use crate::repository::hub::DieselHubRepository;
 use crate::repository::user::DieselUserRepository;
 use crate::repository::{HubRepository, UserRepository};
 use crate::routes::{alert_level_to_str, redirect};
-use crate::services::auth::{LoginError, handle_login};
 
 #[post("/login")]
 pub async fn login(
@@ -30,13 +28,13 @@ pub async fn login(
     };
     let mut repo = DieselUserRepository::new(&mut conn);
 
-    let user = match handle_login(&form, &mut repo) {
-        Ok(user) => user,
-        Err(LoginError::InvalidCredentials) => {
+    let user = match repo.login(&form.email, &form.password, form.hub_id) {
+        Ok(Some(user)) => user,
+        Ok(None) => {
             FlashMessage::error("Неверный логин или пароль.").send();
             return redirect("/auth/signin");
         }
-        Err(LoginError::InternalError(e)) => {
+        Err(e) => {
             error!("Login error: {e}");
             return HttpResponse::InternalServerError().finish();
         }
@@ -64,15 +62,7 @@ pub async fn register(
     };
     let mut repo = DieselUserRepository::new(&mut conn);
 
-    let new_user: NewUser = match form.try_into() {
-        Ok(user) => user,
-        Err(err) => {
-            FlashMessage::error(format!("Ошибка при создании пользователя: {}", err)).send();
-            return redirect("/auth/signup");
-        }
-    };
-
-    match repo.create(&new_user) {
+    match repo.create(&form.into()) {
         Ok(_) => {
             FlashMessage::success("Пользователь может войти.".to_string()).send();
         }

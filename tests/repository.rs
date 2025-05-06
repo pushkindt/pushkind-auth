@@ -48,7 +48,7 @@ fn test_user_repository_crud() {
         name: "TestHub".to_string(),
     };
     let hub = repo.create(&new_hub).unwrap();
-    assert_eq!(hub.name, "TestHub");
+    assert_eq!(hub.name, new_hub.name);
 
     let mut repo = DieselUserRepository::new(&mut conn);
 
@@ -60,18 +60,23 @@ fn test_user_repository_crud() {
         password: "test".to_string(),
     };
     let user = repo.create(&new_user).unwrap();
-    assert_eq!(user.name, Some("TestUser".to_string()));
-    assert_eq!(user.email, "test@test.test");
+    assert_eq!(user.name, new_user.name);
+    assert_eq!(user.email, new_user.email);
 
     // Get by email
-    let found = repo.get_by_email("test@test.test", hub.id).unwrap();
+    let found = repo.get_by_email(&new_user.email, hub.id).unwrap();
     assert!(found.is_some());
 
     // List
     let users = repo.list().unwrap();
     assert_eq!(users.len(), 1);
 
-    assert!(repo.verify_password("test", &user.password_hash))
+    assert!(repo.verify_password(&new_user.password, &user.password_hash));
+
+    assert!(
+        repo.login(&new_user.email, &new_user.password, hub.id)
+            .is_ok_and(|u| u.is_some())
+    );
 }
 
 #[test]

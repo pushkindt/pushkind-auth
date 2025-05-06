@@ -12,6 +12,15 @@ pub trait UserRepository {
     fn create(&mut self, new_user: &NewUser) -> anyhow::Result<User>;
     fn list(&mut self) -> anyhow::Result<Vec<User>>;
     fn verify_password(&self, password: &str, stored_hash: &str) -> bool;
+    fn login(&mut self, email: &str, password: &str, hub_id: i32) -> anyhow::Result<Option<User>> {
+        let user = self.get_by_email(email, hub_id)?;
+        if let Some(user) = user {
+            if self.verify_password(password, &user.password_hash) {
+                return Ok(Some(user));
+            }
+        }
+        Ok(None)
+    }
 }
 
 pub trait HubRepository {
