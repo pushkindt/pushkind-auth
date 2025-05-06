@@ -1,4 +1,5 @@
 use anyhow::Result;
+use bcrypt::verify;
 use diesel::prelude::*;
 
 use crate::db::DbConnection;
@@ -43,7 +44,7 @@ impl<'a> UserRepository for DieselUserRepository<'a> {
     fn create(&mut self, new_user: &NewUser) -> Result<User> {
         use crate::schema::users;
 
-        let new_db_user = NewDbUser::from(new_user); // Convert to DbNewUser
+        let new_db_user = NewDbUser::try_from(new_user)?; // Convert to DbNewUser
         diesel::insert_into(users::table)
             .values(&new_db_user)
             .get_result::<DbUser>(self.connection)
@@ -57,5 +58,9 @@ impl<'a> UserRepository for DieselUserRepository<'a> {
         let results = users::table.load::<DbUser>(self.connection)?;
 
         Ok(results.into_iter().map(|db_user| db_user.into()).collect()) // Convert DbUser to DomainUser
+    }
+
+    fn verify_password(&self, password: &str, stored_hash: &str) -> bool {
+        verify(password, stored_hash).unwrap_or(false)
     }
 }

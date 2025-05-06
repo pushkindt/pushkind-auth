@@ -1,3 +1,4 @@
+use bcrypt::{DEFAULT_COST, hash};
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 
@@ -23,7 +24,7 @@ pub struct NewUser<'a> {
     pub email: &'a str,
     pub name: Option<&'a str>,
     pub hub_id: i32,
-    pub password_hash: &'a str,
+    pub password_hash: String,
 }
 
 impl From<User> for DomainUser {
@@ -40,13 +41,17 @@ impl From<User> for DomainUser {
     }
 }
 
-impl<'a> From<&'a DomainNewUser> for NewUser<'a> {
-    fn from(nu: &'a DomainNewUser) -> Self {
-        NewUser {
+impl<'a> TryFrom<&'a DomainNewUser> for NewUser<'a> {
+    type Error = bcrypt::BcryptError;
+
+    fn try_from(nu: &'a DomainNewUser) -> Result<Self, Self::Error> {
+        let password_hash = hash(&nu.password, DEFAULT_COST)?;
+
+        Ok(NewUser {
             email: &nu.email,
             name: nu.name.as_deref(),
             hub_id: nu.hub_id,
-            password_hash: &nu.password_hash,
-        }
+            password_hash: password_hash,
+        })
     }
 }

@@ -1,7 +1,6 @@
 use actix_identity::Identity;
-use actix_web::http::header;
-use actix_web::{HttpMessage, Responder, get, post, web};
-use actix_web::{HttpRequest, HttpResponse};
+use actix_web::{HttpMessage, HttpRequest, HttpResponse};
+use actix_web::{Responder, get, post, web};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use log::error;
 use tera::Context;
@@ -13,7 +12,8 @@ use crate::forms::auth::{LoginForm, RegisterForm};
 use crate::repository::hub::DieselHubRepository;
 use crate::repository::user::DieselUserRepository;
 use crate::repository::{HubRepository, UserRepository};
-use crate::routes::alert_level_to_str;
+use crate::routes::{alert_level_to_str, redirect};
+use crate::services::auth::{LoginError, handle_login};
 
 #[post("/login")]
 pub async fn login(
@@ -30,29 +30,22 @@ pub async fn login(
     };
     let mut repo = DieselUserRepository::new(&mut conn);
 
-    match repo.get_by_email(&form.email, form.hub_id) {
-        Ok(Some(user)) => {
-            if form.verify_password(&user.password_hash) {
-                if let Err(err) = Identity::login(&request.extensions(), user.id.to_string()) {
-                    error!("Failed to log in user {}: {}", &form.email, err);
-                    return HttpResponse::InternalServerError().finish();
-                }
-
-                HttpResponse::SeeOther()
-                    .insert_header((header::LOCATION, "/"))
-                    .finish()
-            } else {
-                FlashMessage::error("Неверный пароль.".to_string()).send();
-                HttpResponse::SeeOther()
-                    .insert_header((header::LOCATION, "/auth/signin"))
-                    .finish()
-            }
+    let user = match handle_login(&form, &mut repo) {
+        Ok(user) => user,
+        Err(LoginError::InvalidCredentials) => {
+            FlashMessage::error("Неверный логин или пароль.").send();
+            return redirect("/auth/signin");
         }
-        _ => {
-            FlashMessage::error("Пользователь не существует.".to_string()).send();
-            HttpResponse::SeeOther()
-                .insert_header((header::LOCATION, "/auth/signin"))
-                .finish()
+        Err(LoginError::InternalError(e)) => {
+            error!("Login error: {e}");
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    match Identity::login(&request.extensions(), user.id.to_string()) {
+        Ok(_) => redirect("/"),
+        Err(e) => {
+            error!("Failed to login: {}", e);
+            HttpResponse::InternalServerError().finish()
         }
     }
 }
@@ -75,9 +68,7 @@ pub async fn register(
         Ok(user) => user,
         Err(err) => {
             FlashMessage::error(format!("Ошибка при создании пользователя: {}", err)).send();
-            return HttpResponse::SeeOther()
-                .insert_header((header::LOCATION, "/auth/signup"))
-                .finish();
+            return redirect("/auth/signup");
         }
     };
 
@@ -89,17 +80,13 @@ pub async fn register(
             FlashMessage::error(format!("Ошибка при создании пользователя: {}", err)).send();
         }
     }
-    HttpResponse::SeeOther()
-        .insert_header((header::LOCATION, "/auth/signup"))
-        .finish()
+    redirect("/auth/signup")
 }
 
 #[post("/logout")]
 pub async fn logout(user: Identity) -> impl Responder {
     user.logout();
-    HttpResponse::SeeOther()
-        .insert_header((header::LOCATION, "/auth/signin"))
-        .finish()
+    redirect("/auth/signin")
 }
 
 #[get("/signin")]
@@ -109,9 +96,7 @@ pub async fn signin(
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     if user.is_some() {
-        return HttpResponse::SeeOther()
-            .insert_header((header::LOCATION, "/"))
-            .finish();
+        return redirect("/");
     }
 
     let mut conn = match pool.get() {
@@ -158,9 +143,7 @@ pub async fn signup(
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     if user.is_some() {
-        return HttpResponse::SeeOther()
-            .insert_header((header::LOCATION, "/"))
-            .finish();
+        return redirect("/");
     }
 
     let mut conn = match pool.get() {

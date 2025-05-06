@@ -17,5 +17,5 @@ pub struct NewUser {
     pub email: String,
     pub name: Option<String>,
     pub hub_id: i32,
-    pub password_hash: String,
+    pub password: String,
 }

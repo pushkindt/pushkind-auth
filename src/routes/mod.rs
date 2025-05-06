@@ -1,3 +1,5 @@
+use actix_web::HttpResponse;
+use actix_web::http::header;
 use actix_web_flash_messages::Level;
 
 pub mod auth;
@@ -10,4 +12,10 @@ pub fn alert_level_to_str(level: &Level) -> &'static str {
         Level::Success => "success",
         _ => "info",
     }
+}
+
+pub fn redirect(location: &str) -> HttpResponse {
+    HttpResponse::SeeOther()
+        .insert_header((header::LOCATION, location))
+        .finish()
 }
