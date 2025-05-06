@@ -70,6 +70,8 @@ fn test_user_repository_crud() {
     // List
     let users = repo.list().unwrap();
     assert_eq!(users.len(), 1);
+
+    assert!(repo.verify_password("test", &user.password_hash))
 }
 
 #[test]
