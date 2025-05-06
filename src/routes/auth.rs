@@ -10,8 +10,10 @@ use crate::TEMPLATES;
 use crate::db::DbPool;
 use crate::domain::user::NewUser;
 use crate::forms::auth::{LoginForm, RegisterForm};
-use crate::repository::UserRepository;
+use crate::repository::hub::DieselHubRepository;
 use crate::repository::user::DieselUserRepository;
+use crate::repository::{HubRepository, UserRepository};
+use crate::routes::alert_level_to_str;
 
 #[post("/login")]
 pub async fn login(
@@ -104,6 +106,7 @@ pub async fn logout(user: Identity) -> impl Responder {
 pub async fn signin(
     user: Option<Identity>,
     flash_messages: IncomingFlashMessages,
+    pool: web::Data<DbPool>,
 ) -> impl Responder {
     if user.is_some() {
         return HttpResponse::SeeOther()
@@ -111,14 +114,32 @@ pub async fn signin(
             .finish();
     }
 
+    let mut conn = match pool.get() {
+        Ok(conn) => conn,
+        Err(e) => {
+            error!("Failed to get database connection: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    let mut repo = DieselHubRepository::new(&mut conn);
+
+    let hubs = match repo.list() {
+        Ok(hubs) => hubs,
+        Err(e) => {
+            error!("Failed to get hubs: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
     let mut context = Context::new();
 
     let alerts = flash_messages
         .iter()
-        .map(|f| (f.content(), f.level().to_string()))
+        .map(|f| (f.content(), alert_level_to_str(&f.level())))
         .collect::<Vec<_>>();
 
     context.insert("alerts", &alerts);
+    context.insert("hubs", &hubs);
 
     HttpResponse::Ok().body(
         TEMPLATES
@@ -134,6 +155,7 @@ pub async fn signin(
 pub async fn signup(
     user: Option<Identity>,
     flash_messages: IncomingFlashMessages,
+    pool: web::Data<DbPool>,
 ) -> impl Responder {
     if user.is_some() {
         return HttpResponse::SeeOther()
@@ -141,14 +163,32 @@ pub async fn signup(
             .finish();
     }
 
+    let mut conn = match pool.get() {
+        Ok(conn) => conn,
+        Err(e) => {
+            error!("Failed to get database connection: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    let mut repo = DieselHubRepository::new(&mut conn);
+
+    let hubs = match repo.list() {
+        Ok(hubs) => hubs,
+        Err(e) => {
+            error!("Failed to get hubs: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
     let mut context = Context::new();
 
     let alerts = flash_messages
         .iter()
-        .map(|f| (f.content(), f.level().to_string()))
+        .map(|f| (f.content(), alert_level_to_str(&f.level())))
         .collect::<Vec<_>>();
 
     context.insert("alerts", &alerts);
+    context.insert("hubs", &hubs);
 
     HttpResponse::Ok().body(
         TEMPLATES

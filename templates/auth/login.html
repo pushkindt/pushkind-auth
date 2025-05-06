@@ -24,6 +24,17 @@
                             </div>
                         </div>
                         <div class="row mb-3">
+                            <label class="col-md-4 col-form-label" for="hub_id">Хаб</label>
+                            <div class="col-md-6">
+                                <select class="form-select" id="hub_id" name="hub_id" required>
+                                    <option value="" selected disabled>Выбор хаба</option>
+                                    {% for hub in hubs | default(value=[]) %}
+                                        <option value="{{hub.id}}">{{hub.name}}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
                             <div class="col-md-6 offset-md-4">
                                 <input class="btn btn-primary text-white" id="submit" name="submit" type="submit" value="Авторизация">
                                 <a href="/auth/signup" class="btn btn-link">Регистрация</a>
