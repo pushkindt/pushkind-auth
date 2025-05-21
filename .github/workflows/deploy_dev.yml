@@ -19,6 +19,19 @@ jobs:
         with:
           command: build
           args: --release --all-features
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pushkind-auth
+          path: ./target/release/pushkind-auth
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/download-artifact@v4
+        with:
+          name: pushkind-auth
+          path: ./target/release/pushkind-auth
       - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2
         with:
