@@ -1,4 +1,3 @@
-use anyhow::Result;
 use diesel::prelude::*;
 
 use crate::db::DbConnection;
@@ -17,7 +16,7 @@ impl<'a> DieselRoleRepository<'a> {
 }
 
 impl<'a> RoleRepository for DieselRoleRepository<'a> {
-    fn get_by_id(&mut self, id: i32) -> Result<Option<Role>> {
+    fn get_by_id(&mut self, id: i32) -> anyhow::Result<Option<Role>> {
         use crate::schema::roles;
 
         let result = roles::table
@@ -28,7 +27,7 @@ impl<'a> RoleRepository for DieselRoleRepository<'a> {
         Ok(result.map(|db_role| db_role.into())) // Convert DbRole to DomainRole
     }
 
-    fn get_by_name(&mut self, name: &str) -> Result<Option<Role>> {
+    fn get_by_name(&mut self, name: &str) -> anyhow::Result<Option<Role>> {
         use crate::schema::roles;
 
         let result = roles::table
@@ -39,7 +38,7 @@ impl<'a> RoleRepository for DieselRoleRepository<'a> {
         Ok(result.map(|db_role| db_role.into())) // Convert DbRole to DomainRole
     }
 
-    fn create(&mut self, new_role: &NewRole) -> Result<Role> {
+    fn create(&mut self, new_role: &NewRole) -> anyhow::Result<Role> {
         use crate::schema::roles;
 
         let new_db_role = NewDbRole::from(new_role); // Convert to DbNewRole
@@ -50,7 +49,7 @@ impl<'a> RoleRepository for DieselRoleRepository<'a> {
             .map_err(|e| anyhow::anyhow!(e))
     }
 
-    fn list(&mut self) -> Result<Vec<Role>> {
+    fn list(&mut self) -> anyhow::Result<Vec<Role>> {
         use crate::schema::roles;
 
         let results = roles::table.load::<DbRole>(self.connection)?;

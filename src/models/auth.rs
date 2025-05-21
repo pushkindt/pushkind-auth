@@ -19,6 +19,7 @@ use crate::repository::user::DieselUserRepository;
 pub struct AuthenticatedUser {
     pub sub: String, // subject (user ID or UUID)
     pub email: String,
+    pub hub_id: i32,
     pub name: String,
     pub roles: Vec<String>,
     pub exp: usize, // expiration as timestamp
@@ -37,6 +38,7 @@ impl AuthenticatedUser {
         let mut result = Self {
             sub: user.id.to_string(),
             email: user.email.clone(),
+            hub_id: user.hub_id,
             name: user.name.clone().unwrap_or_default(),
             roles: roles.iter().map(|r| r.name.clone()).collect(),
             exp: 0,

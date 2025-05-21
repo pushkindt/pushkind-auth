@@ -3,25 +3,10 @@
 {% block content %}
     {% include 'navigation.html' %}
 
-    <div class="container">
-        <div class="row">
-            <div class="col">
-                <p>Вы успешно авторизовались как <strong>{{current_user.email}}</strong>.<p>
-                {% if current_user.roles %}
-                <p>
-                    Список ваших ролей:
-                </p>
-                <ul>
-                    {% for role in current_user.roles %}
-                        <li>{{role}}</li>
-                    {% endfor %}
-                </ul>
-                {% endif %}
-                <p>
-                    Для продолжения, пожалуйста, откройте тот сайт, который вы хотели открыть,
-                    если это не произошло автоматически.
-                </p>
-            </div>
-        </div>
-    </div>
+    {% if current_user.roles is containing("admin") %}
+        {% include 'main/_admin.html' %}
+    {% else %}
+        {% include 'main/_basic.html' %}
+    {% endif %}
+
 {% endblock %}

@@ -1,4 +1,3 @@
-use anyhow::Result;
 use bcrypt::verify;
 use diesel::prelude::*;
 
@@ -32,7 +31,7 @@ impl<'a> UserRepository for DieselUserRepository<'a> {
         Ok(result.map(|db_user| db_user.into())) // Convert DbUser to DomainUser
     }
 
-    fn get_by_email(&mut self, email: &str, hub_id: i32) -> Result<Option<User>> {
+    fn get_by_email(&mut self, email: &str, hub_id: i32) -> anyhow::Result<Option<User>> {
         use crate::schema::users;
 
         let result = users::table
@@ -44,7 +43,7 @@ impl<'a> UserRepository for DieselUserRepository<'a> {
         Ok(result.map(|db_user| db_user.into())) // Convert DbUser to DomainUser
     }
 
-    fn create(&mut self, new_user: &NewUser) -> Result<User> {
+    fn create(&mut self, new_user: &NewUser) -> anyhow::Result<User> {
         use crate::schema::users;
 
         let new_db_user = NewDbUser::try_from(new_user)?; // Convert to DbNewUser
@@ -55,12 +54,36 @@ impl<'a> UserRepository for DieselUserRepository<'a> {
             .map_err(|e| anyhow::anyhow!(e))
     }
 
-    fn list(&mut self) -> Result<Vec<User>> {
+    fn list(&mut self, hub_id: i32) -> anyhow::Result<Vec<(User, Vec<Role>)>> {
+        use crate::schema::roles;
+        use crate::schema::user_roles;
         use crate::schema::users;
 
-        let results = users::table.load::<DbUser>(self.connection)?;
+        let users = users::table
+            .filter(users::hub_id.eq(hub_id))
+            .load::<DbUser>(self.connection)?;
 
-        Ok(results.into_iter().map(|db_user| db_user.into()).collect()) // Convert DbUser to DomainUser
+        let user_ids: Vec<i32> = users.iter().map(|user| user.id).collect();
+
+        let roles = roles::table
+            .inner_join(user_roles::table)
+            .filter(user_roles::user_id.eq_any(user_ids))
+            .select((user_roles::user_id, roles::all_columns))
+            .load::<(i32, DbRole)>(self.connection)?;
+
+        let user_with_roles = users
+            .into_iter()
+            .map(|user| {
+                let user_roles = roles
+                    .iter()
+                    .filter(|(user_id, _)| *user_id == user.id)
+                    .map(|(_, role)| role.clone().into())
+                    .collect();
+                (user.into(), user_roles)
+            })
+            .collect();
+
+        Ok(user_with_roles) // Convert DbUser to DomainUser
     }
 
     fn verify_password(&self, password: &str, stored_hash: &str) -> bool {

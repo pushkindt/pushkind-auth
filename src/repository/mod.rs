@@ -10,7 +10,7 @@ pub trait UserRepository {
     fn get_by_id(&mut self, id: i32) -> anyhow::Result<Option<User>>;
     fn get_by_email(&mut self, email: &str, hub_id: i32) -> anyhow::Result<Option<User>>;
     fn create(&mut self, new_user: &NewUser) -> anyhow::Result<User>;
-    fn list(&mut self) -> anyhow::Result<Vec<User>>;
+    fn list(&mut self, hub_id: i32) -> anyhow::Result<Vec<(User, Vec<Role>)>>;
     fn verify_password(&self, password: &str, stored_hash: &str) -> bool;
     fn login(&mut self, email: &str, password: &str, hub_id: i32) -> anyhow::Result<Option<User>> {
         let user = self.get_by_email(email, hub_id)?;

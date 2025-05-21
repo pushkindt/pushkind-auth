@@ -1,4 +1,3 @@
-use anyhow::Result;
 use diesel::prelude::*;
 
 use crate::db::DbConnection;
@@ -17,7 +16,7 @@ impl<'a> DieselHubRepository<'a> {
 }
 
 impl<'a> HubRepository for DieselHubRepository<'a> {
-    fn get_by_id(&mut self, id: i32) -> Result<Option<Hub>> {
+    fn get_by_id(&mut self, id: i32) -> anyhow::Result<Option<Hub>> {
         use crate::schema::hubs;
 
         let result = hubs::table
@@ -28,7 +27,7 @@ impl<'a> HubRepository for DieselHubRepository<'a> {
         Ok(result.map(|db_hub| db_hub.into())) // Convert DbHub to DomainHub
     }
 
-    fn get_by_name(&mut self, name: &str) -> Result<Option<Hub>> {
+    fn get_by_name(&mut self, name: &str) -> anyhow::Result<Option<Hub>> {
         use crate::schema::hubs;
 
         let result = hubs::table
@@ -39,7 +38,7 @@ impl<'a> HubRepository for DieselHubRepository<'a> {
         Ok(result.map(|db_hub| db_hub.into())) // Convert DbHub to DomainHub
     }
 
-    fn create(&mut self, new_hub: &NewHub) -> Result<Hub> {
+    fn create(&mut self, new_hub: &NewHub) -> anyhow::Result<Hub> {
         use crate::schema::hubs;
 
         let new_db_hub = NewDbHub::from(new_hub); // Convert to DbNewHub
@@ -50,7 +49,7 @@ impl<'a> HubRepository for DieselHubRepository<'a> {
             .map_err(|e| anyhow::anyhow!(e))
     }
 
-    fn list(&mut self) -> Result<Vec<Hub>> {
+    fn list(&mut self) -> anyhow::Result<Vec<Hub>> {
         use crate::schema::hubs;
 
         let results = hubs::table.load::<DbHub>(self.connection)?;

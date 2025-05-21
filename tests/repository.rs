@@ -84,8 +84,9 @@ fn test_user_repository_crud() {
     assert!(found.is_some());
 
     // List
-    let users = repo.list().unwrap();
+    let users = repo.list(hub.id).unwrap();
     assert_eq!(users.len(), 1);
+    assert_eq!(users[0].1.len(), 1);
 
     assert!(repo.verify_password(&new_user.password, &user.password_hash));
 
