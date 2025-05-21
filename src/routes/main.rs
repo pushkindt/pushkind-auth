@@ -1,12 +1,12 @@
-use actix_web::{HttpResponse, Responder, get, web};
+use actix_web::{HttpResponse, Responder, get};
+use log::error;
 use tera::Context;
 
 use crate::TEMPLATES;
-use crate::db::DbPool;
 use crate::models::auth::AuthenticatedUser;
 
 #[get("/")]
-pub async fn index(user: AuthenticatedUser, pool: web::Data<DbPool>) -> impl Responder {
+pub async fn index(user: AuthenticatedUser) -> impl Responder {
     let mut context = Context::new();
 
     context.insert("current_user", &user);
@@ -15,6 +15,9 @@ pub async fn index(user: AuthenticatedUser, pool: web::Data<DbPool>) -> impl Res
     HttpResponse::Ok().body(
         TEMPLATES
             .render("main/index.html", &context)
-            .unwrap_or_default(),
+            .unwrap_or_else(|e| {
+                error!("Failed to render template 'main/index.html': {}", e);
+                String::new()
+            }),
     )
 }

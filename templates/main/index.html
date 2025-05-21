@@ -3,5 +3,15 @@
 {% block content %}
     {% include 'navigation.html' %}
 
-    <h1>Hello World</h1>
+    <div class="container">
+        <div class="row">
+            <div class="col">
+                <p>Вы успешно авторизовались как <strong>{{current_user.email}}</strong>.<p>
+                <p>
+                    Для продолжения, пожалуйста, откройте тот сайт, который вы хотели открыть,
+                    если это не произошло автоматически.
+                </p>
+            </div>
+        </div>
+    </div>
 {% endblock %}

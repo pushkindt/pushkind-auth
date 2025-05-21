@@ -3,7 +3,7 @@ pub mod role;
 pub mod user;
 
 use crate::domain::hub::{Hub, NewHub};
-use crate::domain::role::{NewRole, Role};
+use crate::domain::role::{NewRole, NewUserRole, Role, UserRole};
 use crate::domain::user::{NewUser, User};
 
 pub trait UserRepository {
@@ -21,6 +21,8 @@ pub trait UserRepository {
         }
         Ok(None)
     }
+    fn get_roles(&mut self, user_id: i32) -> anyhow::Result<Vec<Role>>;
+    fn assign_role(&mut self, user_role: &NewUserRole) -> anyhow::Result<UserRole>;
 }
 
 pub trait HubRepository {

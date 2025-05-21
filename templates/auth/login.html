@@ -10,7 +10,7 @@
                     Авторизация
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="/auth/login">
+                    <form method="POST" action="/auth/login{%if next%}?next={{next}}{%endif%}">
                         <div class="row mb-3">
                             <label class="col-md-4 col-form-label" for="email">Электронная почта</label>
                             <div class="col-md-6">
@@ -37,7 +37,7 @@
                         <div class="row mb-3">
                             <div class="col-md-6 offset-md-4">
                                 <input class="btn btn-primary text-white" id="submit" name="submit" type="submit" value="Авторизация">
-                                <a href="/auth/signup" class="btn btn-link">Регистрация</a>
+                                <a href="/auth/signup{%if next%}?next={{next}}{%endif%}" class="btn btn-link">Регистрация</a>
                             </div>
                         </div>
                     </form>

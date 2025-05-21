@@ -9,7 +9,9 @@ use dotenvy::dotenv;
 use log::error;
 
 use pushkind_auth::db::establish_connection_pool;
+use pushkind_auth::domain;
 use pushkind_auth::middleware::RedirectUnauthorized;
+use pushkind_auth::models::config::ServerConfig;
 use pushkind_auth::routes::auth::{login, logout, register, signin, signup};
 use pushkind_auth::routes::main::index;
 
@@ -22,12 +24,19 @@ async fn main() -> std::io::Result<()> {
     let port = env::var("PORT").unwrap_or("8080".to_string());
     let port = port.parse::<u16>().unwrap_or(8080);
     let address = env::var("ADDRESS").unwrap_or("127.0.0.1".to_string());
-    let secret = env::var("SECRET_KEY");
 
-    let secret_key = match &secret {
-        Ok(key) => Key::from(key.as_bytes()),
-        Err(_) => Key::generate(),
+    let secret = env::var("SECRET_KEY");
+    let secret = match secret {
+        Ok(secret) => secret,
+        Err(_) => {
+            error!("SECRET_KEY environment variable not set");
+            std::process::exit(1);
+        }
     };
+    let secret_key = Key::from(secret.as_bytes());
+    let server_config = ServerConfig { secret };
+
+    let domain = env::var("DOMAIN").ok();
 
     let pool = match establish_connection_pool(&database_url) {
         Ok(pool) => pool,
@@ -44,10 +53,12 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(message_framework.clone())
             .wrap(IdentityMiddleware::default())
-            .wrap(SessionMiddleware::new(
-                CookieSessionStore::default(),
-                secret_key.clone(),
-            ))
+            .wrap(
+                SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
+                    .cookie_secure(false) // set to true in prod
+                    .cookie_domain(domain.clone())
+                    .build(),
+            )
             .wrap(middleware::Compress::default())
             .wrap(middleware::Logger::default())
             .service(
@@ -60,6 +71,7 @@ async fn main() -> std::io::Result<()> {
             )
             .service(web::scope("").wrap(RedirectUnauthorized).service(index))
             .app_data(web::Data::new(pool.clone()))
+            .app_data(web::Data::new(server_config.clone()))
     })
     .bind((address, port))?
     .run()

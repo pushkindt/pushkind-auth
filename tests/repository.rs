@@ -1,5 +1,6 @@
 use pushkind_auth::domain::hub::NewHub;
 use pushkind_auth::domain::role::NewRole;
+use pushkind_auth::domain::role::NewUserRole;
 use pushkind_auth::domain::user::NewUser;
 use pushkind_auth::repository::HubRepository;
 use pushkind_auth::repository::RoleRepository;
@@ -48,7 +49,14 @@ fn test_user_repository_crud() {
         name: "TestHub".to_string(),
     };
     let hub = repo.create(&new_hub).unwrap();
-    assert_eq!(hub.name, new_hub.name);
+
+    let mut repo = DieselRoleRepository::new(&mut conn);
+
+    let new_role = NewRole {
+        name: "TestRole".to_string(),
+    };
+
+    let role = repo.create(&new_role).unwrap();
 
     let mut repo = DieselUserRepository::new(&mut conn);
 
@@ -62,6 +70,14 @@ fn test_user_repository_crud() {
     let user = repo.create(&new_user).unwrap();
     assert_eq!(user.name, new_user.name);
     assert_eq!(user.email, new_user.email);
+
+    let new_user_role = NewUserRole {
+        user_id: user.id,
+        role_id: role.id,
+    };
+
+    let user_role = repo.assign_role(&new_user_role).unwrap();
+    assert!(user_role.role_id == role.id && user_role.user_id == user.id);
 
     // Get by email
     let found = repo.get_by_email(&new_user.email, hub.id).unwrap();
@@ -77,6 +93,10 @@ fn test_user_repository_crud() {
         repo.login(&new_user.email, &new_user.password, hub.id)
             .is_ok_and(|u| u.is_some())
     );
+
+    let user_roles = repo.get_roles(user.id).unwrap();
+
+    assert!(user_roles.iter().any(|r| r.name == role.name));
 }
 
 #[test]

@@ -2,8 +2,7 @@
     <nav class="navbar navbar-expand-sm bg-body-tertiary">
         <div class="container-fluid">
             <a class="navbar-brand" href="/">
-                <img class="logo d-inline-block align-text-top" src="/assets/logo.png" alt="Logo">
-                Emailer
+                Auth
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
                 aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
@@ -12,13 +11,7 @@
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link {%if current_page == 'index'%}active{%endif%}" href="/">Сообщения</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {%if current_page == 'recipients'%}active{%endif%}" href="/recipients">Получатели</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {%if current_page == 'groups'%}active{%endif%}" href="/groups">Группы</a>
+                        <a class="nav-link {%if current_page == 'index'%}active{%endif%}" href="/">Главная</a>
                     </li>
                 </ul>
             </div>
@@ -29,18 +22,6 @@
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><h6 class="dropdown-header">{{current_user.email}}</h6></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li>
-                        <a class="dropdown-item icon-link" href="/settings">
-                            <i class="bi bi-wrench-adjustable-circle mb-2"></i>
-                            Настройки
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item icon-link" href="/upload">
-                            <i class="bi bi-files mb-2"></i>
-                            Файлы
-                        </a>
-                    </li>
                     <li>
                         <form method="POST" action="/auth/logout">
                             <button type="submit" class="dropdown-item icon-link">
