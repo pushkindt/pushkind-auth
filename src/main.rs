@@ -9,7 +9,6 @@ use dotenvy::dotenv;
 use log::error;
 
 use pushkind_auth::db::establish_connection_pool;
-use pushkind_auth::domain;
 use pushkind_auth::middleware::RedirectUnauthorized;
 use pushkind_auth::models::config::ServerConfig;
 use pushkind_auth::routes::auth::{login, logout, register, signin, signup};

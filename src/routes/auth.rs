@@ -9,7 +9,7 @@ use tera::Context;
 use crate::TEMPLATES;
 use crate::db::DbPool;
 use crate::forms::auth::{LoginForm, RegisterForm};
-use crate::models::auth::Claims;
+use crate::models::auth::AuthenticatedUser;
 use crate::models::config::ServerConfig;
 use crate::repository::hub::DieselHubRepository;
 use crate::repository::user::DieselUserRepository;
@@ -75,7 +75,7 @@ pub async fn login(
         }
     };
 
-    let mut claims = Claims::from_user(&user, &roles);
+    let mut claims = AuthenticatedUser::from_user(&user, &roles);
 
     let jwt = match claims.to_jwt(&server_config.secret) {
         Ok(jwt) => jwt,

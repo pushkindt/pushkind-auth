@@ -16,7 +16,7 @@ use crate::repository::UserRepository;
 use crate::repository::user::DieselUserRepository;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Claims {
+pub struct AuthenticatedUser {
     pub sub: String, // subject (user ID or UUID)
     pub email: String,
     pub name: String,
@@ -24,7 +24,7 @@ pub struct Claims {
     pub exp: usize, // expiration as timestamp
 }
 
-impl Claims {
+impl AuthenticatedUser {
     pub fn set_expiration(&mut self, days: i64) {
         let expiration = Utc::now()
             .checked_add_signed(Duration::days(days))
@@ -34,7 +34,7 @@ impl Claims {
     }
 
     pub fn from_user(user: &User, roles: &Vec<Role>) -> Self {
-        let mut result = Claims {
+        let mut result = Self {
             sub: user.id.to_string(),
             email: user.email.clone(),
             name: user.name.clone().unwrap_or_default(),
@@ -55,7 +55,7 @@ impl Claims {
     }
     fn from_jwt(token: &str, secret: &str) -> Result<Self, jsonwebtoken::errors::Error> {
         let validation = jsonwebtoken::Validation::default();
-        let token_data = jsonwebtoken::decode::<Claims>(
+        let token_data = jsonwebtoken::decode::<Self>(
             token,
             &DecodingKey::from_secret(secret.as_ref()),
             &validation,
@@ -63,9 +63,6 @@ impl Claims {
         Ok(token_data.claims)
     }
 }
-
-#[derive(Serialize)]
-pub struct AuthenticatedUser(pub User);
 
 impl FromRequest for AuthenticatedUser {
     type Error = Error;
@@ -93,14 +90,14 @@ impl FromRequest for AuthenticatedUser {
                 }
             };
 
-            let claims = Claims::from_jwt(&uid, &server_config.secret);
+            let claims = AuthenticatedUser::from_jwt(&uid, &server_config.secret);
 
-            let uid = match claims {
-                Ok(claims) => claims.sub,
+            let claims = match claims {
+                Ok(claims) => claims,
                 Err(_) => return ready(Err(ErrorUnauthorized("Invalid user"))),
             };
 
-            let uid: i32 = match uid.parse() {
+            let uid: i32 = match claims.sub.parse() {
                 Ok(uid) => uid,
                 Err(_) => return ready(Err(ErrorUnauthorized("Invalid user"))),
             };
@@ -108,7 +105,7 @@ impl FromRequest for AuthenticatedUser {
             let mut repo = DieselUserRepository::new(&mut conn);
 
             match repo.get_by_id(uid) {
-                Ok(Some(user)) => return ready(Ok(AuthenticatedUser(user))),
+                Ok(Some(_)) => return ready(Ok(claims)),
                 _ => return ready(Err(ErrorUnauthorized("Invalid user"))),
             }
         }
