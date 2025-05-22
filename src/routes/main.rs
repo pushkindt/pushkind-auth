@@ -5,7 +5,7 @@ use tera::Context;
 
 use crate::TEMPLATES;
 use crate::db::DbPool;
-use crate::forms::main::SaveUserForm;
+use crate::forms::main::{AddRoleForm, AssignUserRoleForm, SaveUserForm};
 use crate::models::auth::AuthenticatedUser;
 use crate::repository::role::DieselRoleRepository;
 use crate::repository::user::DieselUserRepository;
@@ -129,6 +129,70 @@ pub async fn save_user(
         }
         Err(err) => {
             FlashMessage::error(format!("Ошибка при изменений параметров: {}", err)).send();
+        }
+    }
+    redirect("/")
+}
+
+#[post("/role/add")]
+pub async fn add_role(
+    user: AuthenticatedUser,
+    pool: web::Data<DbPool>,
+    web::Form(form): web::Form<AddRoleForm>,
+) -> impl Responder {
+    let mut conn = match pool.get() {
+        Ok(conn) => conn,
+        Err(e) => {
+            error!("Failed to get database connection: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
+    if !user.roles.iter().any(|role| role == "admin") {
+        FlashMessage::error("Недостаточно прав.".to_string()).send();
+        return redirect("/");
+    }
+
+    let mut repo = DieselRoleRepository::new(&mut conn);
+
+    match repo.create(&form.into()) {
+        Ok(_) => {
+            FlashMessage::success("Роль добавлена.".to_string()).send();
+        }
+        Err(err) => {
+            FlashMessage::error(format!("Ошибка при добавлении роли: {}", err)).send();
+        }
+    }
+    redirect("/")
+}
+
+#[post("/role/assign")]
+pub async fn assign_role(
+    user: AuthenticatedUser,
+    pool: web::Data<DbPool>,
+    web::Form(form): web::Form<AssignUserRoleForm>,
+) -> impl Responder {
+    let mut conn = match pool.get() {
+        Ok(conn) => conn,
+        Err(e) => {
+            error!("Failed to get database connection: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
+    if !user.roles.iter().any(|role| role == "admin") {
+        FlashMessage::error("Недостаточно прав.".to_string()).send();
+        return redirect("/");
+    }
+
+    let mut repo = DieselUserRepository::new(&mut conn);
+
+    match repo.assign_role(&form.into()) {
+        Ok(_) => {
+            FlashMessage::success("Роль назначена.".to_string()).send();
+        }
+        Err(err) => {
+            FlashMessage::error(format!("Ошибка при назначении роли: {}", err)).send();
         }
     }
     redirect("/")
