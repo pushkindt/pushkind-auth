@@ -197,3 +197,54 @@ pub async fn assign_role(
     }
     redirect("/")
 }
+
+#[post("/user/modal/{user_id}")]
+pub async fn user_modal(
+    user_id: web::Path<i32>,
+    admin_user: AuthenticatedUser,
+    pool: web::Data<DbPool>,
+) -> impl Responder {
+    let mut conn = match pool.get() {
+        Ok(conn) => conn,
+        Err(e) => {
+            error!("Failed to get database connection: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
+    if !admin_user.roles.iter().any(|role| role == "admin") {
+        return HttpResponse::InternalServerError().finish();
+    }
+
+    let mut context = Context::new();
+
+    let user_id = user_id.into_inner();
+
+    let mut repo = DieselUserRepository::new(&mut conn);
+
+    if let Ok(Some(user)) = repo.get_by_id(user_id) {
+        context.insert("user", &user);
+
+        if let Ok(user_roles) = repo.get_roles(user_id) {
+            let user_roles = user_roles
+                .into_iter()
+                .map(|r| r.name)
+                .collect::<Vec<String>>();
+            context.insert("user_roles", &user_roles);
+        }
+    }
+
+    let mut repo = DieselRoleRepository::new(&mut conn);
+    if let Ok(roles) = repo.list() {
+        context.insert("roles", &roles);
+    }
+
+    HttpResponse::Ok().body(
+        TEMPLATES
+            .render("main/modal_body.html", &context)
+            .unwrap_or_else(|e| {
+                error!("Failed to render template 'main/modal_body.html': {}", e);
+                String::new()
+            }),
+    )
+}

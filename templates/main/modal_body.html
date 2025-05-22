@@ -1,0 +1,40 @@
+<div class="modal-body">
+    <form action="/user/save" method="POST">
+        <input type="hidden" value="{{user.id}}" name="id" required>
+        <div class="row mb-3">
+            <label for="modalUserEmail" class="col-md-2 col-form-label">Электронный адрес</label>
+            <div class="col-md-10">
+                <input type="email" readonly class="form-control-plaintext" id="modalUserEmail" value="{{user.email}}" placeholder="Электронный адрес" required>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <label for="modalUserName" class="col-md-2 col-form-label">Имя</label>
+            <div class="col-md-10">
+                <input name="name" type="text" class="form-control" id="modalUserName" value="{{user.name}}" placeholder="Имя">
+            </div>
+        </div>
+        <div class="row mb-3">
+            <label for="user-assign-form-role-id" class="col-md-2 col-form-label">Роли</label>
+            <div class="col-md-10">
+                <select multiple class="form-control my-1" name="roles" id="user-assign-form-role-id">
+                    {% if roles %}
+                        {% for role in roles %}
+                            <option value="{{role.id}}" {% if user_roles and user_roles is containing(role.name) %} selected {% endif %}>{{role.name}}</option>
+                        {% endfor %}
+                    {% endif %}
+                </select>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col">
+                <button class="btn btn-primary" type="submit">Сохранить</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<form action="/user/delete/{{user.id}}" method="POST">
+    <div class="modal-footer">
+        <button class="btn btn-danger" type="submit" onclick="return confirm('Удалить?')">Удалить</button>
+    </div>
+</form>
