@@ -1,21 +1,37 @@
 <div class="container my-2">
     <div class="row">
         <div class="col">
-            <p>Вы успешно авторизовались как <strong>{{current_user.email}}</strong>.<p>
-            {% if current_user.roles %}
-            <p>
-                Список ваших ролей:
-            </p>
-            <ul>
-                {% for role in current_user.roles %}
-                    <li>{{role}}</li>
-                {% endfor %}
-            </ul>
-            {% endif %}
-            <p>
-                Для продолжения, пожалуйста, откройте тот сайт, который вы хотели открыть,
+            <div class="alert alert-primary">
+                Для продолжения, откройте тот сайт, который вы хотели открыть,
                 если это не произошло автоматически.
-            </p>
+            </div>
+            <form method="POST" action="/user/save">
+                <div class="mb-3 row">
+                    <label for="email" class="col-sm-2 col-form-label">Электронная почта</label>
+                    <div class="col-sm-10">
+                        <input type="text" readonly class="form-control-plaintext" id="email" value="{{current_user.email}}">
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <label for="roles" class="col-sm-2 col-form-label">Роли</label>
+                    <div class="col-sm-10">
+                        <input type="text" readonly class="form-control-plaintext" id="roles" value="{%for role in current_user_roles%}{{role}} {%endfor%}">
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <label for="name" class="col-sm-2 col-form-label">Имя</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="name" name="name" value="{{current_user.name}}">
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <label for="password" class="col-sm-2 col-form-label">Пароль</label>
+                    <div class="col-sm-10">
+                        <input type="password" class="form-control" id="password" name="password" placeholder="*****">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Изменить</button>
+            </form>
         </div>
     </div>
 </div>

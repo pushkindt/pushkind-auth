@@ -27,6 +27,13 @@ pub struct NewUser<'a> {
     pub password_hash: String,
 }
 
+#[derive(AsChangeset)]
+#[diesel(table_name = crate::schema::users)]
+pub struct UpdateUser<'a> {
+    pub name: Option<&'a str>,
+    pub password_hash: String,
+}
+
 impl From<User> for DomainUser {
     fn from(db: User) -> Self {
         Self {

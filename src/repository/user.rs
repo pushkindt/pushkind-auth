@@ -1,13 +1,13 @@
-use bcrypt::verify;
+use bcrypt::{DEFAULT_COST, hash, verify};
 use diesel::prelude::*;
 
 use crate::db::DbConnection;
 use crate::domain::role::{NewUserRole, Role, UserRole};
-use crate::domain::user::{NewUser, User};
+use crate::domain::user::{NewUser, UpdateUser, User};
 use crate::models::role::NewUserRole as NewDbUserRole;
 use crate::models::role::{Role as DbRole, UserRole as DbUserRole};
-use crate::models::user::{NewUser as NewDbUser, User as DbUser};
-use crate::repository::UserRepository;
+use crate::models::user::{NewUser as NewDbUser, UpdateUser as DbUpdateUser, User as DbUser};
+use crate::repository::{RepositoryError, UserRepository};
 
 pub struct DieselUserRepository<'a> {
     pub connection: &'a mut DbConnection,
@@ -110,6 +110,29 @@ impl<'a> UserRepository for DieselUserRepository<'a> {
             .values(&db_user_role)
             .get_result::<DbUserRole>(self.connection)
             .map(|db_user_role| db_user_role.into()) // Convert DbUserRole to DomainUserRole
+            .map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn update_user(&mut self, user_id: i32, updates: &UpdateUser) -> anyhow::Result<User> {
+        use crate::schema::users;
+
+        let user = self.get_by_id(user_id)?.ok_or(RepositoryError::NotFound)?;
+
+        let password_hash = match updates.password.as_ref() {
+            Some(password) if password.len() > 0 => hash(password, DEFAULT_COST)?,
+            _ => user.password_hash,
+        };
+
+        let db_updates = DbUpdateUser {
+            name: updates.name.as_deref(),
+            password_hash: password_hash,
+        };
+
+        diesel::update(users::table)
+            .filter(users::id.eq(user_id))
+            .set(&db_updates)
+            .get_result::<DbUser>(self.connection)
+            .map(|db_user| db_user.into()) // Convert DbUser to DomainUser
             .map_err(|e| anyhow::anyhow!(e))
     }
 }

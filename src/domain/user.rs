@@ -19,3 +19,9 @@ pub struct NewUser {
     pub hub_id: i32,
     pub password: String,
 }
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct UpdateUser {
+    pub name: Option<String>,
+    pub password: Option<String>,
+}

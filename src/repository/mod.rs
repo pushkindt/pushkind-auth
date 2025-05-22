@@ -2,9 +2,23 @@ pub mod hub;
 pub mod role;
 pub mod user;
 
+use thiserror::Error;
+
 use crate::domain::hub::{Hub, NewHub};
 use crate::domain::role::{NewRole, NewUserRole, Role, UserRole};
-use crate::domain::user::{NewUser, User};
+use crate::domain::user::{NewUser, UpdateUser, User};
+
+#[derive(Debug, Error)]
+pub enum RepositoryError {
+    #[error("Entity not found")]
+    NotFound,
+
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] anyhow::Error),
+
+    #[error("Unexpected error: {0}")]
+    Unexpected(String),
+}
 
 pub trait UserRepository {
     fn get_by_id(&mut self, id: i32) -> anyhow::Result<Option<User>>;
@@ -23,6 +37,7 @@ pub trait UserRepository {
     }
     fn get_roles(&mut self, user_id: i32) -> anyhow::Result<Vec<Role>>;
     fn assign_role(&mut self, user_role: &NewUserRole) -> anyhow::Result<UserRole>;
+    fn update_user(&mut self, user_id: i32, updates: &UpdateUser) -> anyhow::Result<User>;
 }
 
 pub trait HubRepository {

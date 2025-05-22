@@ -12,7 +12,7 @@ use pushkind_auth::db::establish_connection_pool;
 use pushkind_auth::middleware::RedirectUnauthorized;
 use pushkind_auth::models::config::ServerConfig;
 use pushkind_auth::routes::auth::{login, logout, register, signin, signup};
-use pushkind_auth::routes::main::index;
+use pushkind_auth::routes::main::{index, save_user};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -68,7 +68,12 @@ async fn main() -> std::io::Result<()> {
                     .service(signup)
                     .service(register),
             )
-            .service(web::scope("").wrap(RedirectUnauthorized).service(index))
+            .service(
+                web::scope("")
+                    .wrap(RedirectUnauthorized)
+                    .service(index)
+                    .service(save_user),
+            )
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(server_config.clone()))
     })

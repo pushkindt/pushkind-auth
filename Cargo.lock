@@ -1803,6 +1803,7 @@ dependencies = [
  "log",
  "serde",
  "tera",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
