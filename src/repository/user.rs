@@ -5,7 +5,7 @@ use crate::db::DbConnection;
 use crate::domain::role::{NewUserRole, Role, UserRole};
 use crate::domain::user::{NewUser, UpdateUser, User};
 use crate::models::role::NewUserRole as NewDbUserRole;
-use crate::models::role::{Role as DbRole, UserRole as DbUserRole};
+use crate::models::role::{NewUserRole as DbNewUserRole, Role as DbRole, UserRole as DbUserRole};
 use crate::models::user::{NewUser as NewDbUser, UpdateUser as DbUpdateUser, User as DbUser};
 use crate::repository::{RepositoryError, UserRepository};
 
@@ -113,7 +113,7 @@ impl<'a> UserRepository for DieselUserRepository<'a> {
             .map_err(|e| anyhow::anyhow!(e))
     }
 
-    fn update_user(&mut self, user_id: i32, updates: &UpdateUser) -> anyhow::Result<User> {
+    fn update(&mut self, user_id: i32, updates: &UpdateUser) -> anyhow::Result<User> {
         use crate::schema::users;
 
         let user = self.get_by_id(user_id)?.ok_or(RepositoryError::NotFound)?;
@@ -133,6 +133,44 @@ impl<'a> UserRepository for DieselUserRepository<'a> {
             .set(&db_updates)
             .get_result::<DbUser>(self.connection)
             .map(|db_user| db_user.into()) // Convert DbUser to DomainUser
+            .map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn delete(&mut self, user_id: i32) -> anyhow::Result<()> {
+        use crate::schema::user_roles;
+        use crate::schema::users;
+
+        diesel::delete(user_roles::table)
+            .filter(user_roles::user_id.eq(user_id))
+            .execute(self.connection)
+            .map_err(|e| anyhow::anyhow!(e))?;
+
+        diesel::delete(users::table)
+            .filter(users::id.eq(user_id))
+            .execute(self.connection)
+            .map(|_| ()) // Convert DbUser to DomainUser
+            .map_err(|e| anyhow::anyhow!(e))
+    }
+
+    fn assign_roles(&mut self, user_id: i32, role_ids: &[i32]) -> anyhow::Result<usize> {
+        use crate::schema::user_roles;
+
+        diesel::delete(user_roles::table)
+            .filter(user_roles::user_id.eq(user_id))
+            .execute(self.connection)
+            .map_err(|e| anyhow::anyhow!(e))?;
+
+        let new_user_roles = role_ids
+            .iter()
+            .map(|role_id| DbNewUserRole {
+                user_id,
+                role_id: *role_id,
+            })
+            .collect::<Vec<DbNewUserRole>>();
+
+        diesel::insert_into(user_roles::table)
+            .values(&new_user_roles)
+            .execute(self.connection)
             .map_err(|e| anyhow::anyhow!(e))
     }
 }

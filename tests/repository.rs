@@ -2,6 +2,7 @@ use pushkind_auth::domain::hub::NewHub;
 use pushkind_auth::domain::role::NewRole;
 use pushkind_auth::domain::role::NewUserRole;
 use pushkind_auth::domain::user::NewUser;
+use pushkind_auth::domain::user::UpdateUser;
 use pushkind_auth::repository::HubRepository;
 use pushkind_auth::repository::RoleRepository;
 use pushkind_auth::repository::UserRepository;
@@ -98,6 +99,25 @@ fn test_user_repository_crud() {
     let user_roles = repo.get_roles(user.id).unwrap();
 
     assert!(user_roles.iter().any(|r| r.name == role.name));
+
+    let user = repo
+        .update(
+            user.id,
+            &UpdateUser {
+                name: Some("new name".to_string()),
+                password: Some("new password".to_string()),
+            },
+        )
+        .unwrap();
+    assert_eq!(user.name, Some("new name".to_string()));
+    assert!(repo.verify_password("new password", &user.password_hash));
+
+    repo.assign_roles(user.id, &[]).unwrap();
+
+    let roles = repo.get_roles(user.id).unwrap();
+    assert!(roles.is_empty());
+
+    repo.delete(user.id).unwrap();
 }
 
 #[test]

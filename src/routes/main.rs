@@ -5,7 +5,7 @@ use tera::Context;
 
 use crate::TEMPLATES;
 use crate::db::DbPool;
-use crate::forms::main::{AddRoleForm, AssignUserRoleForm, SaveUserForm};
+use crate::forms::main::{AddRoleForm, AssignUserRoleForm, SaveUserForm, UpdateUserForm};
 use crate::models::auth::AuthenticatedUser;
 use crate::repository::role::DieselRoleRepository;
 use crate::repository::user::DieselUserRepository;
@@ -123,7 +123,7 @@ pub async fn save_user(
         }
     };
 
-    match repo.update_user(user_id, &form.into()) {
+    match repo.update(user_id, &form.into()) {
         Ok(_) => {
             FlashMessage::success("Параметры изменены.".to_string()).send();
         }
@@ -247,4 +247,84 @@ pub async fn user_modal(
                 String::new()
             }),
     )
+}
+
+#[post("/user/delete/{user_id}")]
+pub async fn delete_user(
+    user_id: web::Path<i32>,
+    user: AuthenticatedUser,
+    pool: web::Data<DbPool>,
+) -> impl Responder {
+    let mut conn = match pool.get() {
+        Ok(conn) => conn,
+        Err(e) => {
+            error!("Failed to get database connection: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
+    if !user.roles.iter().any(|role| role == "admin") {
+        FlashMessage::error("Недостаточно прав.".to_string()).send();
+        return redirect("/");
+    }
+
+    let mut repo = DieselUserRepository::new(&mut conn);
+
+    match repo.delete(user_id.into_inner()) {
+        Ok(_) => {
+            FlashMessage::success("Пользователь удалён.".to_string()).send();
+        }
+        Err(err) => {
+            FlashMessage::error(format!("Ошибка при удалении пользователя: {}", err)).send();
+        }
+    }
+    redirect("/")
+}
+
+#[post("/user/update")]
+pub async fn update_user(
+    user: AuthenticatedUser,
+    pool: web::Data<DbPool>,
+    form: web::Bytes,
+) -> impl Responder {
+    let mut conn = match pool.get() {
+        Ok(conn) => conn,
+        Err(e) => {
+            error!("Failed to get database connection: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
+    if !user.roles.iter().any(|role| role == "admin") {
+        FlashMessage::error("Недостаточно прав.".to_string()).send();
+        return redirect("/");
+    }
+
+    let form: UpdateUserForm = match serde_html_form::from_bytes(&form) {
+        Ok(form) => form,
+        Err(err) => {
+            FlashMessage::error(format!("Ошибка при обработке формы: {}", err)).send();
+            return redirect("/");
+        }
+    };
+
+    let mut repo = DieselUserRepository::new(&mut conn);
+    match repo.assign_roles(form.id, &form.roles) {
+        Ok(_) => {
+            FlashMessage::success("Роли назначены.".to_string()).send();
+        }
+        Err(err) => {
+            FlashMessage::error(format!("Ошибка при назначении ролей: {}", err)).send();
+        }
+    }
+
+    match repo.update(form.id, &form.into()) {
+        Ok(_) => {
+            FlashMessage::success("Пользователь изменен.".to_string()).send();
+        }
+        Err(err) => {
+            FlashMessage::error(format!("Ошибка при изменений пользователя: {}", err)).send();
+        }
+    }
+    redirect("/")
 }

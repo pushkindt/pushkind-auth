@@ -45,3 +45,20 @@ impl From<AssignUserRoleForm> for DomainNewUserRole {
         }
     }
 }
+
+#[derive(Deserialize)]
+pub struct UpdateUserForm {
+    pub id: i32,
+    pub name: Option<String>,
+    #[serde(default)]
+    pub roles: Vec<i32>,
+}
+
+impl From<UpdateUserForm> for DomainUpdateUser {
+    fn from(form: UpdateUserForm) -> Self {
+        Self {
+            name: form.name,
+            password: None,
+        }
+    }
+}

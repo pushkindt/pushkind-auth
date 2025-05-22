@@ -37,7 +37,9 @@ pub trait UserRepository {
     }
     fn get_roles(&mut self, user_id: i32) -> anyhow::Result<Vec<Role>>;
     fn assign_role(&mut self, user_role: &NewUserRole) -> anyhow::Result<UserRole>;
-    fn update_user(&mut self, user_id: i32, updates: &UpdateUser) -> anyhow::Result<User>;
+    fn assign_roles(&mut self, user_id: i32, role_ids: &[i32]) -> anyhow::Result<usize>;
+    fn update(&mut self, user_id: i32, updates: &UpdateUser) -> anyhow::Result<User>;
+    fn delete(&mut self, user_id: i32) -> anyhow::Result<()>;
 }
 
 pub trait HubRepository {
