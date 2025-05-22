@@ -57,7 +57,10 @@ pub async fn index(
     };
 
     let user_roles = match repo.get_roles(user_id) {
-        Ok(user_roles) => user_roles,
+        Ok(user_roles) => user_roles
+            .into_iter()
+            .map(|r| r.name)
+            .collect::<Vec<String>>(),
         Err(e) => {
             error!("Failed to get user roles: {}", e);
             return HttpResponse::InternalServerError().finish();
@@ -67,7 +70,7 @@ pub async fn index(
     let mut repo = DieselRoleRepository::new(&mut conn);
 
     let roles = match repo.list() {
-        Ok(roles) => roles.into_iter().map(|r| r.name).collect::<Vec<String>>(),
+        Ok(roles) => roles,
         Err(e) => {
             error!("Failed to list roles: {}", e);
             return HttpResponse::InternalServerError().finish();
