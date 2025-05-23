@@ -13,7 +13,8 @@ use pushkind_auth::middleware::RedirectUnauthorized;
 use pushkind_auth::models::config::ServerConfig;
 use pushkind_auth::routes::auth::{login, logout, register, signin, signup};
 use pushkind_auth::routes::main::{
-    add_role, assign_role, delete_user, index, save_user, update_user, user_modal,
+    add_hub, add_role, assign_role, delete_hub, delete_role, delete_user, index, save_user,
+    update_user, user_modal,
 };
 
 #[actix_web::main]
@@ -79,7 +80,10 @@ async fn main() -> std::io::Result<()> {
                     .service(assign_role)
                     .service(user_modal)
                     .service(delete_user)
-                    .service(update_user),
+                    .service(update_user)
+                    .service(add_hub)
+                    .service(delete_hub)
+                    .service(delete_role),
             )
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(server_config.clone()))

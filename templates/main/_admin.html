@@ -1,44 +1,68 @@
 <div class="container my-2">
     <div class="row">
-        <div class="col-lg-6">
+        <div class="col">
             <h5>Роли</h5>
             <form method="POST" action="/role/add">
                 <div class="row">
-                    <div class="col-lg">
+                    <div class="col">
                         <input class="form-control my-1" type="text" name="name" placeholder="Название" required>
                     </div>
-                    <div class="col-lg-3 text-end">
-                        <button class="btn btn-primary my-1" type="submit">Добавить</button>
+                    <div class="col-auto">
+                        <button class="btn btn-primary my-1" type="submit"><i class="bi bi-plus"></i></button>
                     </div>
                 </div>
             </form>
         </div>
-        <div class="col-lg-6">
-            <h5>Назначить роли</h5>
-            <form method="POST" action="/role/assign" id="assign-role-form">
-                <div class="row mb-3">
-                    <div class="col-lg">
-                        <select class="form-control my-1" name="role_id" required id="role_id">
-                            <option disabled selected value="">Выбор роли</option>
-                            {% for role in roles %}
-                                 <option value="{{role.id}}">{{role.name}}</option>
-                            {% endfor %}
-                        </select>
+        <div class="col">
+            <h5>Хабы</h5>
+            <form method="POST" action="/hub/add">
+                <div class="row">
+                    <div class="col">
+                        <input class="form-control my-1" type="text" name="name" placeholder="Название" required>
                     </div>
-                    <div class="col-lg">
-                        <select class="form-control my-1" name="user_id" required id="user_id">
-                            <option disabled selected value="">Выбор пользователя</option>
-                            {% for user_roles in users %}
-                                {% set user = user_roles.0 %}
-                                <option value="{{user.id}}">{{user.email}}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-lg-3 text-end">
-                        <button class="btn btn-primary my-1" type="submit">Назначить</button>
+                    <div class="col-auto">
+                        <button class="btn btn-primary my-1" type="submit"><i class="bi bi-plus"></i></button>
                     </div>
                 </div>
             </form>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            {% for role in roles %}
+                {% if role.id != 1 %}
+                    <form action="/role/delete/{{role.id}}" method="POST" style="display: inline-block;">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary" onclick="return confirm('Удалить?')">
+                            {{role.name}}
+                            <span class="badge rounded-pill bg-danger">
+                                <i class="bi bi-x"></i>
+                            </span>
+                        </button>
+                    </form>
+                {% else %}
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                        {{role.name}}
+                    </button>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <div class="col">
+            {% for hub in hubs %}
+                {% if hub.id != 1 %}
+                    <form action="/hub/delete/{{hub.id}}" method="POST" style="display: inline-block;">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary" onclick="return confirm('Удалить?')">
+                            {{hub.name}}
+                            <span class="badge rounded-pill bg-danger">
+                                <i class="bi bi-x"></i>
+                            </span>
+                        </button>
+                    </form>
+                {% else %}
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                        {{hub.name}}
+                    </button>
+                {% endif %}
+            {% endfor %}
         </div>
     </div>
 </div>

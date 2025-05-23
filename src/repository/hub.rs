@@ -56,4 +56,27 @@ impl<'a> HubRepository for DieselHubRepository<'a> {
 
         Ok(results.into_iter().map(|db_hub| db_hub.into()).collect()) // Convert DbHub to DomainHub
     }
+
+    fn delete(&mut self, hub_id: i32) -> anyhow::Result<usize> {
+        use crate::schema::hubs;
+        use crate::schema::user_roles;
+        use crate::schema::users;
+
+        let hub_users = users::table
+            .filter(users::hub_id.eq(hub_id))
+            .select(users::id)
+            .load::<i32>(self.connection)?;
+
+        // delete user_roles for hub users
+        diesel::delete(user_roles::table.filter(user_roles::user_id.eq_any(&hub_users)))
+            .execute(self.connection)?;
+
+        //delete users for hub
+        diesel::delete(users::table.filter(users::hub_id.eq(hub_id))).execute(self.connection)?;
+
+        //delete hub
+        diesel::delete(hubs::table.filter(hubs::id.eq(hub_id)))
+            .execute(self.connection)
+            .map_err(|e| anyhow::anyhow!(e))
+    }
 }

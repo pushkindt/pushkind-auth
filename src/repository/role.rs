@@ -56,4 +56,17 @@ impl<'a> RoleRepository for DieselRoleRepository<'a> {
 
         Ok(results.into_iter().map(|db_role| db_role.into()).collect()) // Convert DbRole to DomainRole
     }
+
+    fn delete(&mut self, role_id: i32) -> anyhow::Result<usize> {
+        use crate::schema::roles;
+        use crate::schema::user_roles;
+
+        diesel::delete(user_roles::table.filter(user_roles::role_id.eq(role_id)))
+            .execute(self.connection)
+            .map_err(|e| anyhow::anyhow!(e))?;
+
+        diesel::delete(roles::table.filter(roles::id.eq(role_id)))
+            .execute(self.connection)
+            .map_err(|e| anyhow::anyhow!(e))
+    }
 }

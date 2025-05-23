@@ -47,6 +47,7 @@ pub trait HubRepository {
     fn get_by_name(&mut self, name: &str) -> anyhow::Result<Option<Hub>>;
     fn create(&mut self, new_hub: &NewHub) -> anyhow::Result<Hub>;
     fn list(&mut self) -> anyhow::Result<Vec<Hub>>;
+    fn delete(&mut self, hub_id: i32) -> anyhow::Result<usize>;
 }
 
 pub trait RoleRepository {
@@ -54,4 +55,5 @@ pub trait RoleRepository {
     fn get_by_name(&mut self, name: &str) -> anyhow::Result<Option<Role>>;
     fn create(&mut self, new_role: &NewRole) -> anyhow::Result<Role>;
     fn list(&mut self) -> anyhow::Result<Vec<Role>>;
+    fn delete(&mut self, role_id: i32) -> anyhow::Result<usize>;
 }
