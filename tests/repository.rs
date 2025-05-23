@@ -35,6 +35,8 @@ fn test_hub_repository_crud() {
     // List
     let hubs = repo.list().unwrap();
     assert_eq!(hubs.len(), 2); // 1 from setup + 1 from test
+
+    repo.delete(hub.id).unwrap();
 }
 
 #[test]
@@ -138,4 +140,6 @@ fn test_role_repository_crud() {
     // List
     let roles = repo.list().unwrap();
     assert_eq!(roles.len(), 2); // admin and TestRole
+
+    repo.delete(role.id).unwrap();
 }
