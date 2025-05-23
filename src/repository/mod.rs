@@ -5,7 +5,7 @@ pub mod user;
 use thiserror::Error;
 
 use crate::domain::hub::{Hub, NewHub};
-use crate::domain::role::{NewRole, NewUserRole, Role, UserRole};
+use crate::domain::role::{NewRole, Role};
 use crate::domain::user::{NewUser, UpdateUser, User};
 
 #[derive(Debug, Error)]
@@ -36,7 +36,6 @@ pub trait UserRepository {
         Ok(None)
     }
     fn get_roles(&mut self, user_id: i32) -> anyhow::Result<Vec<Role>>;
-    fn assign_role(&mut self, user_role: &NewUserRole) -> anyhow::Result<UserRole>;
     fn assign_roles(&mut self, user_id: i32, role_ids: &[i32]) -> anyhow::Result<usize>;
     fn update(&mut self, user_id: i32, updates: &UpdateUser) -> anyhow::Result<User>;
     fn delete(&mut self, user_id: i32) -> anyhow::Result<()>;

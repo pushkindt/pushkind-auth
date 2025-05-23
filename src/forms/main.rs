@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use crate::domain::{
     hub::NewHub as DomainNewHub, role::NewRole as DomainNewRole,
-    role::NewUserRole as DomainNewUserRole, user::UpdateUser as DomainUpdateUser,
+    user::UpdateUser as DomainUpdateUser,
 };
 
 #[derive(Deserialize)]
@@ -28,21 +28,6 @@ pub struct AddRoleForm {
 impl From<AddRoleForm> for DomainNewRole {
     fn from(form: AddRoleForm) -> Self {
         Self { name: form.name }
-    }
-}
-
-#[derive(Deserialize)]
-pub struct AssignUserRoleForm {
-    pub user_id: i32,
-    pub role_id: i32,
-}
-
-impl From<AssignUserRoleForm> for DomainNewUserRole {
-    fn from(form: AssignUserRoleForm) -> Self {
-        Self {
-            user_id: form.user_id,
-            role_id: form.role_id,
-        }
     }
 }
 

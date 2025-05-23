@@ -5,9 +5,7 @@ use tera::Context;
 
 use crate::TEMPLATES;
 use crate::db::DbPool;
-use crate::forms::main::{
-    AddHubForm, AddRoleForm, AssignUserRoleForm, SaveUserForm, UpdateUserForm,
-};
+use crate::forms::main::{AddHubForm, AddRoleForm, SaveUserForm, UpdateUserForm};
 use crate::models::auth::AuthenticatedUser;
 use crate::repository::hub::DieselHubRepository;
 use crate::repository::role::DieselRoleRepository;
@@ -175,38 +173,6 @@ pub async fn add_role(
         }
         Err(err) => {
             FlashMessage::error(format!("Ошибка при добавлении роли: {}", err)).send();
-        }
-    }
-    redirect("/")
-}
-
-#[post("/role/assign")]
-pub async fn assign_role(
-    user: AuthenticatedUser,
-    pool: web::Data<DbPool>,
-    web::Form(form): web::Form<AssignUserRoleForm>,
-) -> impl Responder {
-    let mut conn = match pool.get() {
-        Ok(conn) => conn,
-        Err(e) => {
-            error!("Failed to get database connection: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    if !user.roles.iter().any(|role| role == "admin") {
-        FlashMessage::error("Недостаточно прав.".to_string()).send();
-        return redirect("/");
-    }
-
-    let mut repo = DieselUserRepository::new(&mut conn);
-
-    match repo.assign_role(&form.into()) {
-        Ok(_) => {
-            FlashMessage::success("Роль назначена.".to_string()).send();
-        }
-        Err(err) => {
-            FlashMessage::error(format!("Ошибка при назначении роли: {}", err)).send();
         }
     }
     redirect("/")

@@ -2,10 +2,9 @@ use bcrypt::{DEFAULT_COST, hash, verify};
 use diesel::prelude::*;
 
 use crate::db::DbConnection;
-use crate::domain::role::{NewUserRole, Role, UserRole};
+use crate::domain::role::Role;
 use crate::domain::user::{NewUser, UpdateUser, User};
-use crate::models::role::NewUserRole as NewDbUserRole;
-use crate::models::role::{NewUserRole as DbNewUserRole, Role as DbRole, UserRole as DbUserRole};
+use crate::models::role::{NewUserRole as DbNewUserRole, Role as DbRole};
 use crate::models::user::{NewUser as NewDbUser, UpdateUser as DbUpdateUser, User as DbUser};
 use crate::repository::{RepositoryError, UserRepository};
 
@@ -100,17 +99,6 @@ impl<'a> UserRepository for DieselUserRepository<'a> {
             .select(roles::all_columns)
             .load::<DbRole>(self.connection)?;
         Ok(results.into_iter().map(|db_role| db_role.into()).collect())
-    }
-
-    fn assign_role(&mut self, user_role: &NewUserRole) -> anyhow::Result<UserRole> {
-        use crate::schema::user_roles;
-
-        let db_user_role = NewDbUserRole::try_from(user_role)?;
-        diesel::insert_into(user_roles::table)
-            .values(&db_user_role)
-            .get_result::<DbUserRole>(self.connection)
-            .map(|db_user_role| db_user_role.into()) // Convert DbUserRole to DomainUserRole
-            .map_err(|e| anyhow::anyhow!(e))
     }
 
     fn update(&mut self, user_id: i32, updates: &UpdateUser) -> anyhow::Result<User> {

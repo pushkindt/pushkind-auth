@@ -1,6 +1,5 @@
 use pushkind_auth::domain::hub::NewHub;
 use pushkind_auth::domain::role::NewRole;
-use pushkind_auth::domain::role::NewUserRole;
 use pushkind_auth::domain::user::NewUser;
 use pushkind_auth::domain::user::UpdateUser;
 use pushkind_auth::repository::HubRepository;
@@ -72,13 +71,8 @@ fn test_user_repository_crud() {
     assert_eq!(user.name, new_user.name);
     assert_eq!(user.email, new_user.email);
 
-    let new_user_role = NewUserRole {
-        user_id: user.id,
-        role_id: role.id,
-    };
-
-    let user_role = repo.assign_role(&new_user_role).unwrap();
-    assert!(user_role.role_id == role.id && user_role.user_id == user.id);
+    let inserted = repo.assign_roles(user.id, &[role.id]).unwrap();
+    assert!(inserted == 1);
 
     // Get by email
     let found = repo.get_by_email(&new_user.email, hub.id).unwrap();
