@@ -34,7 +34,7 @@ impl AuthenticatedUser {
         self.exp = expiration;
     }
 
-    pub fn from_user(user: &User, roles: &Vec<Role>) -> Self {
+    pub fn from_user(user: &User, roles: &[Role]) -> Self {
         let mut result = Self {
             sub: user.id.to_string(),
             email: user.email.clone(),

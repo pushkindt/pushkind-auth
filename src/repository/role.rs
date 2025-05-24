@@ -15,7 +15,7 @@ impl<'a> DieselRoleRepository<'a> {
     }
 }
 
-impl<'a> RoleRepository for DieselRoleRepository<'a> {
+impl RoleRepository for DieselRoleRepository<'_> {
     fn get_by_id(&mut self, id: i32) -> anyhow::Result<Option<Role>> {
         use crate::schema::roles;
 

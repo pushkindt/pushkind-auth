@@ -58,7 +58,7 @@ impl<'a> TryFrom<&'a DomainNewUser> for NewUser<'a> {
             email: &nu.email,
             name: nu.name.as_deref(),
             hub_id: nu.hub_id,
-            password_hash: password_hash,
+            password_hash,
         })
     }
 }

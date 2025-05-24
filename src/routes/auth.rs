@@ -7,7 +7,7 @@ use serde::Deserialize;
 use tera::Context;
 
 use crate::TEMPLATES;
-use crate::db::DbPool;
+use crate::db::{DbPool, get_connection};
 use crate::forms::auth::{LoginForm, RegisterForm};
 use crate::models::auth::AuthenticatedUser;
 use crate::models::config::ServerConfig;
@@ -43,12 +43,9 @@ pub async fn login(
     web::Form(form): web::Form<LoginForm>,
     query_params: web::Query<AuthQueryParams>,
 ) -> impl Responder {
-    let mut conn = match pool.get() {
+    let mut conn = match get_connection(&pool) {
         Ok(conn) => conn,
-        Err(e) => {
-            error!("Failed to get database connection: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
+        Err(_) => return HttpResponse::InternalServerError().finish(),
     };
     let mut repo = DieselUserRepository::new(&mut conn);
 
@@ -100,12 +97,9 @@ pub async fn register(
     web::Form(form): web::Form<RegisterForm>,
     query_params: web::Query<AuthQueryParams>,
 ) -> impl Responder {
-    let mut conn = match pool.get() {
+    let mut conn = match get_connection(&pool) {
         Ok(conn) => conn,
-        Err(e) => {
-            error!("Failed to get database connection: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
+        Err(_) => return HttpResponse::InternalServerError().finish(),
     };
     let mut repo = DieselUserRepository::new(&mut conn);
 
@@ -143,12 +137,9 @@ pub async fn signin(
         return redirect("/");
     }
 
-    let mut conn = match pool.get() {
+    let mut conn = match get_connection(&pool) {
         Ok(conn) => conn,
-        Err(e) => {
-            error!("Failed to get database connection: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
+        Err(_) => return HttpResponse::InternalServerError().finish(),
     };
     let mut repo = DieselHubRepository::new(&mut conn);
 
@@ -192,12 +183,9 @@ pub async fn signup(
         return redirect("/");
     }
 
-    let mut conn = match pool.get() {
+    let mut conn = match get_connection(&pool) {
         Ok(conn) => conn,
-        Err(e) => {
-            error!("Failed to get database connection: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
+        Err(_) => return HttpResponse::InternalServerError().finish(),
     };
     let mut repo = DieselHubRepository::new(&mut conn);
 

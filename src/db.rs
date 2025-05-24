@@ -4,6 +4,7 @@ use anyhow::Context;
 use diesel::connection::SimpleConnection;
 use diesel::r2d2::{ConnectionManager, CustomizeConnection, Pool, PooledConnection};
 use diesel::sqlite::SqliteConnection;
+use log::error;
 
 pub type DbPool = Pool<ConnectionManager<SqliteConnection>>;
 pub type DbConnection = PooledConnection<ConnectionManager<SqliteConnection>>;
@@ -43,4 +44,14 @@ pub fn establish_connection_pool(database_url: &str) -> anyhow::Result<DbPool> {
         }))
         .build(manager)
         .context("Failed to build Diesel SQLite connection pool")
+}
+
+pub fn get_connection(pool: &DbPool) -> anyhow::Result<DbConnection> {
+    match pool.get() {
+        Ok(conn) => Ok(conn),
+        Err(e) => {
+            error!("Failed to get connection from pool: {}", e);
+            Err(anyhow::anyhow!("Failed to get connection from pool: {}", e))
+        }
+    }
 }

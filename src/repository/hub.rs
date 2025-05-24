@@ -15,7 +15,7 @@ impl<'a> DieselHubRepository<'a> {
     }
 }
 
-impl<'a> HubRepository for DieselHubRepository<'a> {
+impl HubRepository for DieselHubRepository<'_> {
     fn get_by_id(&mut self, id: i32) -> anyhow::Result<Option<Hub>> {
         use crate::schema::hubs;
 

@@ -18,7 +18,7 @@ impl<'a> DieselUserRepository<'a> {
     }
 }
 
-impl<'a> UserRepository for DieselUserRepository<'a> {
+impl UserRepository for DieselUserRepository<'_> {
     fn get_by_id(&mut self, id: i32) -> anyhow::Result<Option<User>> {
         use crate::schema::users;
 
@@ -107,13 +107,13 @@ impl<'a> UserRepository for DieselUserRepository<'a> {
         let user = self.get_by_id(user_id)?.ok_or(RepositoryError::NotFound)?;
 
         let password_hash = match updates.password.as_ref() {
-            Some(password) if password.len() > 0 => hash(password, DEFAULT_COST)?,
+            Some(password) if !password.is_empty() => hash(password, DEFAULT_COST)?,
             _ => user.password_hash,
         };
 
         let db_updates = DbUpdateUser {
             name: updates.name.as_deref(),
-            password_hash: password_hash,
+            password_hash,
         };
 
         diesel::update(users::table)

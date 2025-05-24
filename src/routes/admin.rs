@@ -4,14 +4,14 @@ use log::error;
 use tera::Context;
 
 use crate::TEMPLATES;
-use crate::db::DbPool;
+use crate::db::{DbPool, get_connection};
 use crate::forms::main::{AddHubForm, AddRoleForm, UpdateUserForm};
 use crate::models::auth::AuthenticatedUser;
 use crate::repository::hub::DieselHubRepository;
 use crate::repository::role::DieselRoleRepository;
 use crate::repository::user::DieselUserRepository;
 use crate::repository::{HubRepository, RoleRepository, UserRepository};
-use crate::routes::redirect;
+use crate::routes::{ensure_role, redirect};
 
 #[post("/role/add")]
 pub async fn add_role(
@@ -19,24 +19,20 @@ pub async fn add_role(
     pool: web::Data<DbPool>,
     web::Form(form): web::Form<AddRoleForm>,
 ) -> impl Responder {
-    let mut conn = match pool.get() {
-        Ok(conn) => conn,
-        Err(e) => {
-            error!("Failed to get database connection: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    if !user.roles.iter().any(|role| role == "admin") {
-        FlashMessage::error("Недостаточно прав.".to_string()).send();
-        return redirect("/");
+    if let Err(resp) = ensure_role(&user, "admin") {
+        return resp;
     }
+
+    let mut conn = match get_connection(&pool) {
+        Ok(conn) => conn,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
 
     let mut repo = DieselRoleRepository::new(&mut conn);
 
     match repo.create(&form.into()) {
         Ok(_) => {
-            FlashMessage::success("Роль добавлена.".to_string()).send();
+            FlashMessage::success("Роль добавлена.").send();
         }
         Err(err) => {
             FlashMessage::error(format!("Ошибка при добавлении роли: {}", err)).send();
@@ -48,20 +44,17 @@ pub async fn add_role(
 #[post("/user/modal/{user_id}")]
 pub async fn user_modal(
     user_id: web::Path<i32>,
-    admin_user: AuthenticatedUser,
+    user: AuthenticatedUser,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    let mut conn = match pool.get() {
-        Ok(conn) => conn,
-        Err(e) => {
-            error!("Failed to get database connection: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    if !admin_user.roles.iter().any(|role| role == "admin") {
-        return HttpResponse::InternalServerError().finish();
+    if let Err(resp) = ensure_role(&user, "admin") {
+        return resp;
     }
+
+    let mut conn = match get_connection(&pool) {
+        Ok(conn) => conn,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
 
     let mut context = Context::new();
 
@@ -102,13 +95,9 @@ pub async fn delete_user(
     user: AuthenticatedUser,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    let mut conn = match pool.get() {
-        Ok(conn) => conn,
-        Err(e) => {
-            error!("Failed to get database connection: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
+    if let Err(resp) = ensure_role(&user, "admin") {
+        return resp;
+    }
 
     let user_id = user_id.into_inner();
 
@@ -120,16 +109,21 @@ pub async fn delete_user(
         }
     };
 
-    if !user.roles.iter().any(|role| role == "admin") || user_id == current_user_id {
-        FlashMessage::error("Недостаточно прав.".to_string()).send();
+    if user_id == current_user_id {
+        FlashMessage::error("Недостаточно прав.").send();
         return redirect("/");
     }
+
+    let mut conn = match get_connection(&pool) {
+        Ok(conn) => conn,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
 
     let mut repo = DieselUserRepository::new(&mut conn);
 
     match repo.delete(user_id) {
         Ok(_) => {
-            FlashMessage::success("Пользователь удалён.".to_string()).send();
+            FlashMessage::success("Пользователь удалён.").send();
         }
         Err(err) => {
             FlashMessage::error(format!("Ошибка при удалении пользователя: {}", err)).send();
@@ -144,18 +138,14 @@ pub async fn update_user(
     pool: web::Data<DbPool>,
     form: web::Bytes,
 ) -> impl Responder {
-    let mut conn = match pool.get() {
-        Ok(conn) => conn,
-        Err(e) => {
-            error!("Failed to get database connection: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    if !user.roles.iter().any(|role| role == "admin") {
-        FlashMessage::error("Недостаточно прав.".to_string()).send();
-        return redirect("/");
+    if let Err(resp) = ensure_role(&user, "admin") {
+        return resp;
     }
+
+    let mut conn = match get_connection(&pool) {
+        Ok(conn) => conn,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
 
     let form: UpdateUserForm = match serde_html_form::from_bytes(&form) {
         Ok(form) => form,
@@ -168,7 +158,7 @@ pub async fn update_user(
     let mut repo = DieselUserRepository::new(&mut conn);
     match repo.assign_roles(form.id, &form.roles) {
         Ok(_) => {
-            FlashMessage::success("Роли назначены.".to_string()).send();
+            FlashMessage::success("Роли назначены.").send();
         }
         Err(err) => {
             FlashMessage::error(format!("Ошибка при назначении ролей: {}", err)).send();
@@ -177,10 +167,10 @@ pub async fn update_user(
 
     match repo.update(form.id, &form.into()) {
         Ok(_) => {
-            FlashMessage::success("Пользователь изменен.".to_string()).send();
+            FlashMessage::success("Пользователь изменён.").send();
         }
         Err(err) => {
-            FlashMessage::error(format!("Ошибка при изменений пользователя: {}", err)).send();
+            FlashMessage::error(format!("Ошибка при изменении пользователя: {}", err)).send();
         }
     }
     redirect("/")
@@ -192,24 +182,20 @@ pub async fn add_hub(
     pool: web::Data<DbPool>,
     web::Form(form): web::Form<AddHubForm>,
 ) -> impl Responder {
-    let mut conn = match pool.get() {
-        Ok(conn) => conn,
-        Err(e) => {
-            error!("Failed to get database connection: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    if !user.roles.iter().any(|role| role == "admin") {
-        FlashMessage::error("Недостаточно прав.".to_string()).send();
-        return redirect("/");
+    if let Err(resp) = ensure_role(&user, "admin") {
+        return resp;
     }
+
+    let mut conn = match get_connection(&pool) {
+        Ok(conn) => conn,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
 
     let mut repo = DieselHubRepository::new(&mut conn);
 
     match repo.create(&form.into()) {
         Ok(_) => {
-            FlashMessage::success("Хаб добавлен.".to_string()).send();
+            FlashMessage::success("Хаб добавлен.").send();
         }
         Err(err) => {
             FlashMessage::error(format!("Ошибка при добавлении хаба: {}", err)).send();
@@ -224,26 +210,27 @@ pub async fn delete_role(
     user: AuthenticatedUser,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    let mut conn = match pool.get() {
-        Ok(conn) => conn,
-        Err(e) => {
-            error!("Failed to get database connection: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
+    if let Err(resp) = ensure_role(&user, "admin") {
+        return resp;
+    }
 
     let role_id = role_id.into_inner();
 
-    if !user.roles.iter().any(|role| role == "admin") || role_id == 1 {
-        FlashMessage::error("Недостаточно прав.".to_string()).send();
+    if role_id == 1 {
+        FlashMessage::error("Недостаточно прав.").send();
         return redirect("/");
     }
+
+    let mut conn = match get_connection(&pool) {
+        Ok(conn) => conn,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
 
     let mut repo = DieselRoleRepository::new(&mut conn);
 
     match repo.delete(role_id) {
         Ok(_) => {
-            FlashMessage::success("Роль удалёна.".to_string()).send();
+            FlashMessage::success("Роль удалена.").send();
         }
         Err(err) => {
             FlashMessage::error(format!("Ошибка при удалении роли: {}", err)).send();
@@ -258,26 +245,27 @@ pub async fn delete_hub(
     user: AuthenticatedUser,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    let mut conn = match pool.get() {
-        Ok(conn) => conn,
-        Err(e) => {
-            error!("Failed to get database connection: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
+    if let Err(resp) = ensure_role(&user, "admin") {
+        return resp;
+    }
 
     let hub_id = hub_id.into_inner();
 
-    if !user.roles.iter().any(|role| role == "admin") || hub_id == 1 || user.hub_id == hub_id {
-        FlashMessage::error("Недостаточно прав.".to_string()).send();
+    if user.hub_id == hub_id {
+        FlashMessage::error("Недостаточно прав.").send();
         return redirect("/");
     }
+
+    let mut conn = match get_connection(&pool) {
+        Ok(conn) => conn,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
 
     let mut repo = DieselHubRepository::new(&mut conn);
 
     match repo.delete(hub_id) {
         Ok(_) => {
-            FlashMessage::success("Хаб удалён.".to_string()).send();
+            FlashMessage::success("Хаб удалён.").send();
         }
         Err(err) => {
             FlashMessage::error(format!("Ошибка при удалении хаба: {}", err)).send();

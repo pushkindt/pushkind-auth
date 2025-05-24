@@ -4,7 +4,7 @@ use log::error;
 use tera::Context;
 
 use crate::TEMPLATES;
-use crate::db::DbPool;
+use crate::db::{DbPool, get_connection};
 use crate::forms::main::SaveUserForm;
 use crate::models::auth::AuthenticatedUser;
 use crate::repository::hub::DieselHubRepository;
@@ -19,12 +19,9 @@ pub async fn index(
     pool: web::Data<DbPool>,
     flash_messages: IncomingFlashMessages,
 ) -> impl Responder {
-    let mut conn = match pool.get() {
+    let mut conn = match get_connection(&pool) {
         Ok(conn) => conn,
-        Err(e) => {
-            error!("Failed to get database connection: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
+        Err(_) => return HttpResponse::InternalServerError().finish(),
     };
 
     let user_id: i32 = match user.sub.parse() {
@@ -118,12 +115,9 @@ pub async fn save_user(
     pool: web::Data<DbPool>,
     web::Form(form): web::Form<SaveUserForm>,
 ) -> impl Responder {
-    let mut conn = match pool.get() {
+    let mut conn = match get_connection(&pool) {
         Ok(conn) => conn,
-        Err(e) => {
-            error!("Failed to get database connection: {}", e);
-            return HttpResponse::InternalServerError().finish();
-        }
+        Err(_) => return HttpResponse::InternalServerError().finish(),
     };
     let mut repo = DieselUserRepository::new(&mut conn);
 
