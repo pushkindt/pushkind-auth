@@ -11,11 +11,11 @@ use log::error;
 use pushkind_auth::db::establish_connection_pool;
 use pushkind_auth::middleware::RedirectUnauthorized;
 use pushkind_auth::models::config::ServerConfig;
-use pushkind_auth::routes::auth::{login, logout, register, signin, signup};
-use pushkind_auth::routes::main::{
-    add_hub, add_role, delete_hub, delete_role, delete_user, index, save_user, update_user,
-    user_modal,
+use pushkind_auth::routes::admin::{
+    add_hub, add_role, delete_hub, delete_role, delete_user, update_user, user_modal,
 };
+use pushkind_auth::routes::auth::{login, logout, register, signin, signup};
+use pushkind_auth::routes::main::{index, save_user};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -72,10 +72,8 @@ async fn main() -> std::io::Result<()> {
                     .service(register),
             )
             .service(
-                web::scope("")
+                web::scope("/admin")
                     .wrap(RedirectUnauthorized)
-                    .service(index)
-                    .service(save_user)
                     .service(add_role)
                     .service(user_modal)
                     .service(delete_user)
@@ -83,6 +81,12 @@ async fn main() -> std::io::Result<()> {
                     .service(add_hub)
                     .service(delete_hub)
                     .service(delete_role),
+            )
+            .service(
+                web::scope("")
+                    .wrap(RedirectUnauthorized)
+                    .service(index)
+                    .service(save_user),
             )
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(server_config.clone()))

@@ -1,5 +1,5 @@
 <div class="modal-body">
-    <form action="/user/update" method="POST">
+    <form action="/admin/user/update" method="POST">
         <input type="hidden" value="{{user.id}}" name="id" required>
         <div class="row mb-3">
             <label for="modalUserEmail" class="col-md-2 col-form-label">Электронный адрес</label>
@@ -39,7 +39,7 @@
     </form>
 </div>
 
-<form action="/user/delete/{{user.id}}" method="POST">
+<form action="/admin/user/delete/{{user.id}}" method="POST">
     <div class="modal-footer">
         <button class="btn btn-danger" type="submit" onclick="return confirm('Удалить?')">Удалить</button>
     </div>

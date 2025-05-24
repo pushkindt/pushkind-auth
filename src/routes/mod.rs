@@ -2,6 +2,7 @@ use actix_web::HttpResponse;
 use actix_web::http::header;
 use actix_web_flash_messages::Level;
 
+pub mod admin;
 pub mod auth;
 pub mod main;
 
