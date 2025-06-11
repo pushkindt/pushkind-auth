@@ -4,7 +4,7 @@ use log::error;
 use tera::Context;
 
 use crate::TEMPLATES;
-use crate::db::{DbPool, get_connection};
+use crate::db::DbPool;
 use crate::forms::main::{AddHubForm, AddRoleForm, UpdateUserForm};
 use crate::models::auth::AuthenticatedUser;
 use crate::repository::hub::DieselHubRepository;
@@ -23,12 +23,7 @@ pub async fn add_role(
         return resp;
     }
 
-    let mut conn = match get_connection(&pool) {
-        Ok(conn) => conn,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
-
-    let mut repo = DieselRoleRepository::new(&mut conn);
+    let repo = DieselRoleRepository::new(&pool);
 
     match repo.create(&form.into()) {
         Ok(_) => {
@@ -51,16 +46,11 @@ pub async fn user_modal(
         return resp;
     }
 
-    let mut conn = match get_connection(&pool) {
-        Ok(conn) => conn,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
-
     let mut context = Context::new();
 
     let user_id = user_id.into_inner();
 
-    let mut repo = DieselUserRepository::new(&mut conn);
+    let repo = DieselUserRepository::new(&pool);
 
     if let Ok(Some(user)) = repo.get_by_id(user_id) {
         context.insert("user", &user);
@@ -74,7 +64,7 @@ pub async fn user_modal(
         }
     }
 
-    let mut repo = DieselRoleRepository::new(&mut conn);
+    let repo = DieselRoleRepository::new(&pool);
     if let Ok(roles) = repo.list() {
         context.insert("roles", &roles);
     }
@@ -114,12 +104,7 @@ pub async fn delete_user(
         return redirect("/");
     }
 
-    let mut conn = match get_connection(&pool) {
-        Ok(conn) => conn,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
-
-    let mut repo = DieselUserRepository::new(&mut conn);
+    let repo = DieselUserRepository::new(&pool);
 
     match repo.delete(user_id) {
         Ok(_) => {
@@ -142,11 +127,6 @@ pub async fn update_user(
         return resp;
     }
 
-    let mut conn = match get_connection(&pool) {
-        Ok(conn) => conn,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
-
     let form: UpdateUserForm = match serde_html_form::from_bytes(&form) {
         Ok(form) => form,
         Err(err) => {
@@ -155,7 +135,7 @@ pub async fn update_user(
         }
     };
 
-    let mut repo = DieselUserRepository::new(&mut conn);
+    let repo = DieselUserRepository::new(&pool);
     match repo.assign_roles(form.id, &form.roles) {
         Ok(_) => {
             FlashMessage::success("Роли назначены.").send();
@@ -186,12 +166,7 @@ pub async fn add_hub(
         return resp;
     }
 
-    let mut conn = match get_connection(&pool) {
-        Ok(conn) => conn,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
-
-    let mut repo = DieselHubRepository::new(&mut conn);
+    let repo = DieselHubRepository::new(&pool);
 
     match repo.create(&form.into()) {
         Ok(_) => {
@@ -221,12 +196,7 @@ pub async fn delete_role(
         return redirect("/");
     }
 
-    let mut conn = match get_connection(&pool) {
-        Ok(conn) => conn,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
-
-    let mut repo = DieselRoleRepository::new(&mut conn);
+    let repo = DieselRoleRepository::new(&pool);
 
     match repo.delete(role_id) {
         Ok(_) => {
@@ -256,12 +226,7 @@ pub async fn delete_hub(
         return redirect("/");
     }
 
-    let mut conn = match get_connection(&pool) {
-        Ok(conn) => conn,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
-
-    let mut repo = DieselHubRepository::new(&mut conn);
+    let repo = DieselHubRepository::new(&pool);
 
     match repo.delete(hub_id) {
         Ok(_) => {

@@ -4,7 +4,7 @@ use log::error;
 use tera::Context;
 
 use crate::TEMPLATES;
-use crate::db::{DbPool, get_connection};
+use crate::db::DbPool;
 use crate::forms::main::SaveUserForm;
 use crate::models::auth::AuthenticatedUser;
 use crate::repository::hub::DieselHubRepository;
@@ -19,11 +19,6 @@ pub async fn index(
     pool: web::Data<DbPool>,
     flash_messages: IncomingFlashMessages,
 ) -> impl Responder {
-    let mut conn = match get_connection(&pool) {
-        Ok(conn) => conn,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
-
     let user_id: i32 = match user.sub.parse() {
         Ok(user_id) => user_id,
         Err(e) => {
@@ -32,7 +27,7 @@ pub async fn index(
         }
     };
 
-    let mut repo = DieselUserRepository::new(&mut conn);
+    let repo = DieselUserRepository::new(&pool);
 
     let users = match repo.list(user.hub_id) {
         Ok(users) => users,
@@ -65,7 +60,7 @@ pub async fn index(
         }
     };
 
-    let mut repo = DieselRoleRepository::new(&mut conn);
+    let repo = DieselRoleRepository::new(&pool);
 
     let roles = match repo.list() {
         Ok(roles) => roles,
@@ -75,7 +70,7 @@ pub async fn index(
         }
     };
 
-    let mut repo = DieselHubRepository::new(&mut conn);
+    let repo = DieselHubRepository::new(&pool);
 
     let hubs = match repo.list() {
         Ok(hubs) => hubs,
@@ -115,11 +110,7 @@ pub async fn save_user(
     pool: web::Data<DbPool>,
     web::Form(form): web::Form<SaveUserForm>,
 ) -> impl Responder {
-    let mut conn = match get_connection(&pool) {
-        Ok(conn) => conn,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
-    let mut repo = DieselUserRepository::new(&mut conn);
+    let repo = DieselUserRepository::new(&pool);
 
     let user_id = match user.sub.parse() {
         Ok(user_id) => user_id,

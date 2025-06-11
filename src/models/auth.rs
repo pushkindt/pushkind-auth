@@ -85,13 +85,6 @@ impl FromRequest for AuthenticatedUser {
         };
 
         if let (Ok(Some(uid)), Some(pool)) = (identity, pool) {
-            let mut conn = match pool.get() {
-                Ok(conn) => conn,
-                Err(_) => {
-                    return ready(Err(ErrorInternalServerError("DB connection error")));
-                }
-            };
-
             let claims = AuthenticatedUser::from_jwt(&uid, &server_config.secret);
 
             let claims = match claims {
@@ -104,7 +97,7 @@ impl FromRequest for AuthenticatedUser {
                 Err(_) => return ready(Err(ErrorUnauthorized("Invalid user"))),
             };
 
-            let mut repo = DieselUserRepository::new(&mut conn);
+            let repo = DieselUserRepository::new(&pool);
 
             match repo.get_by_id(uid) {
                 Ok(Some(_)) => return ready(Ok(claims)),
