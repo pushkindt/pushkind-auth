@@ -13,8 +13,8 @@ mod common;
 
 #[test]
 fn test_hub_repository_crud() {
-    let pool = common::setup_test_pool();
-    let repo = DieselHubRepository::new(&pool);
+    let test_db = common::TestDb::new("test_hub_repository_crud.db");
+    let repo = DieselHubRepository::new(test_db.pool());
 
     // Create
     let new_hub = NewHub {
@@ -40,9 +40,8 @@ fn test_hub_repository_crud() {
 
 #[test]
 fn test_user_repository_crud() {
-    let pool = common::setup_test_pool();
-
-    let repo = DieselHubRepository::new(&pool);
+    let test_db = common::TestDb::new("test_user_repository_crud.db");
+    let repo = DieselHubRepository::new(test_db.pool());
 
     // Create Hub
     let new_hub = NewHub {
@@ -50,7 +49,7 @@ fn test_user_repository_crud() {
     };
     let hub = repo.create(&new_hub).unwrap();
 
-    let repo = DieselRoleRepository::new(&pool);
+    let repo = DieselRoleRepository::new(test_db.pool());
 
     let new_role = NewRole {
         name: "TestRole".to_string(),
@@ -58,7 +57,7 @@ fn test_user_repository_crud() {
 
     let role = repo.create(&new_role).unwrap();
 
-    let repo = DieselUserRepository::new(&pool);
+    let repo = DieselUserRepository::new(test_db.pool());
 
     // Create User
     let new_user = NewUser {
@@ -116,9 +115,8 @@ fn test_user_repository_crud() {
 
 #[test]
 fn test_role_repository_crud() {
-    let pool = common::setup_test_pool();
-
-    let repo = DieselRoleRepository::new(&pool);
+    let test_db = common::TestDb::new("test_role_repository_crud.db");
+    let repo = DieselRoleRepository::new(test_db.pool());
 
     // Create
     let new_role = NewRole {
