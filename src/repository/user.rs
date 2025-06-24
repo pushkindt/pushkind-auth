@@ -1,4 +1,3 @@
-use anyhow::Context;
 use bcrypt::{DEFAULT_COST, hash, verify};
 use diesel::prelude::*;
 
@@ -7,7 +6,8 @@ use crate::domain::role::Role;
 use crate::domain::user::{NewUser, UpdateUser, User};
 use crate::models::role::{NewUserRole as DbNewUserRole, Role as DbRole};
 use crate::models::user::{NewUser as NewDbUser, UpdateUser as DbUpdateUser, User as DbUser};
-use crate::repository::{RepositoryError, UserRepository};
+use crate::repository::UserRepository;
+use crate::repository::errors::{RepositoryError, RepositoryResult};
 
 pub struct DieselUserRepository<'a> {
     pub pool: &'a DbPool,
@@ -20,13 +20,10 @@ impl<'a> DieselUserRepository<'a> {
 }
 
 impl UserRepository for DieselUserRepository<'_> {
-    fn get_by_id(&self, id: i32) -> anyhow::Result<Option<User>> {
+    fn get_by_id(&self, id: i32) -> RepositoryResult<Option<User>> {
         use crate::schema::users;
 
-        let mut connection = self
-            .pool
-            .get()
-            .context("couldn't get db connection from pool")?;
+        let mut connection = self.pool.get()?;
 
         let result = users::table
             .filter(users::id.eq(id))
@@ -36,13 +33,10 @@ impl UserRepository for DieselUserRepository<'_> {
         Ok(result.map(|db_user| db_user.into())) // Convert DbUser to DomainUser
     }
 
-    fn get_by_email(&self, email: &str, hub_id: i32) -> anyhow::Result<Option<User>> {
+    fn get_by_email(&self, email: &str, hub_id: i32) -> RepositoryResult<Option<User>> {
         use crate::schema::users;
 
-        let mut connection = self
-            .pool
-            .get()
-            .context("couldn't get db connection from pool")?;
+        let mut connection = self.pool.get()?;
 
         let result = users::table
             .filter(users::email.eq(email))
@@ -53,31 +47,26 @@ impl UserRepository for DieselUserRepository<'_> {
         Ok(result.map(|db_user| db_user.into())) // Convert DbUser to DomainUser
     }
 
-    fn create(&self, new_user: &NewUser) -> anyhow::Result<User> {
+    fn create(&self, new_user: &NewUser) -> RepositoryResult<User> {
         use crate::schema::users;
 
-        let mut connection = self
-            .pool
-            .get()
-            .context("couldn't get db connection from pool")?;
+        let mut connection = self.pool.get()?;
 
         let new_db_user = NewDbUser::try_from(new_user)?; // Convert to DbNewUser
-        diesel::insert_into(users::table)
+
+        let user = diesel::insert_into(users::table)
             .values(&new_db_user)
             .get_result::<DbUser>(&mut connection)
-            .map(|db_user| db_user.into()) // Convert DbUser to DomainUser
-            .map_err(|e| anyhow::anyhow!(e))
+            .map(|db_user| db_user.into())?; // Convert DbUser to DomainUser
+        Ok(user)
     }
 
-    fn list(&self, hub_id: i32) -> anyhow::Result<Vec<(User, Vec<Role>)>> {
+    fn list(&self, hub_id: i32) -> RepositoryResult<Vec<(User, Vec<Role>)>> {
         use crate::schema::roles;
         use crate::schema::user_roles;
         use crate::schema::users;
 
-        let mut connection = self
-            .pool
-            .get()
-            .context("couldn't get db connection from pool")?;
+        let mut connection = self.pool.get()?;
 
         let users = users::table
             .filter(users::hub_id.eq(hub_id))
@@ -110,14 +99,11 @@ impl UserRepository for DieselUserRepository<'_> {
         verify(password, stored_hash).unwrap_or(false)
     }
 
-    fn get_roles(&self, user_id: i32) -> anyhow::Result<Vec<Role>> {
+    fn get_roles(&self, user_id: i32) -> RepositoryResult<Vec<Role>> {
         use crate::schema::roles;
         use crate::schema::user_roles;
 
-        let mut connection = self
-            .pool
-            .get()
-            .context("couldn't get db connection from pool")?;
+        let mut connection = self.pool.get()?;
 
         let results = roles::table
             .inner_join(user_roles::table)
@@ -127,13 +113,10 @@ impl UserRepository for DieselUserRepository<'_> {
         Ok(results.into_iter().map(|db_role| db_role.into()).collect())
     }
 
-    fn update(&self, user_id: i32, updates: &UpdateUser) -> anyhow::Result<User> {
+    fn update(&self, user_id: i32, updates: &UpdateUser) -> RepositoryResult<User> {
         use crate::schema::users;
 
-        let mut connection = self
-            .pool
-            .get()
-            .context("couldn't get db connection from pool")?;
+        let mut connection = self.pool.get()?;
 
         let user = self.get_by_id(user_id)?.ok_or(RepositoryError::NotFound)?;
 
@@ -147,47 +130,42 @@ impl UserRepository for DieselUserRepository<'_> {
             password_hash,
         };
 
-        diesel::update(users::table)
+        let user = diesel::update(users::table)
             .filter(users::id.eq(user_id))
             .set(&db_updates)
             .get_result::<DbUser>(&mut connection)
-            .map(|db_user| db_user.into()) // Convert DbUser to DomainUser
-            .map_err(|e| anyhow::anyhow!(e))
+            .map(|db_user| db_user.into())?; // Convert DbUser to DomainUser
+        Ok(user)
     }
 
-    fn delete(&self, user_id: i32) -> anyhow::Result<()> {
+    fn delete(&self, user_id: i32) -> RepositoryResult<()> {
         use crate::schema::user_roles;
         use crate::schema::users;
 
-        let mut connection = self
-            .pool
-            .get()
-            .context("couldn't get db connection from pool")?;
+        let mut connection = self.pool.get()?;
 
         diesel::delete(user_roles::table)
             .filter(user_roles::user_id.eq(user_id))
-            .execute(&mut connection)
-            .map_err(|e| anyhow::anyhow!(e))?;
+            .execute(&mut connection)?;
 
-        diesel::delete(users::table)
+        let result = diesel::delete(users::table)
             .filter(users::id.eq(user_id))
-            .execute(&mut connection)
-            .map(|_| ()) // Convert DbUser to DomainUser
-            .map_err(|e| anyhow::anyhow!(e))
+            .execute(&mut connection)?;
+
+        if result == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+        Ok(())
     }
 
-    fn assign_roles(&self, user_id: i32, role_ids: &[i32]) -> anyhow::Result<usize> {
+    fn assign_roles(&self, user_id: i32, role_ids: &[i32]) -> RepositoryResult<usize> {
         use crate::schema::user_roles;
 
-        let mut connection = self
-            .pool
-            .get()
-            .context("couldn't get db connection from pool")?;
+        let mut connection = self.pool.get()?;
 
         diesel::delete(user_roles::table)
             .filter(user_roles::user_id.eq(user_id))
-            .execute(&mut connection)
-            .map_err(|e| anyhow::anyhow!(e))?;
+            .execute(&mut connection)?;
 
         let new_user_roles = role_ids
             .iter()
@@ -197,9 +175,9 @@ impl UserRepository for DieselUserRepository<'_> {
             })
             .collect::<Vec<DbNewUserRole>>();
 
-        diesel::insert_into(user_roles::table)
+        let result = diesel::insert_into(user_roles::table)
             .values(&new_user_roles)
-            .execute(&mut connection)
-            .map_err(|e| anyhow::anyhow!(e))
+            .execute(&mut connection)?;
+        Ok(result)
     }
 }
