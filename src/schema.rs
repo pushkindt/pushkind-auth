@@ -10,6 +10,15 @@ diesel::table! {
 }
 
 diesel::table! {
+    menu (id) {
+        id -> Integer,
+        name -> Text,
+        url -> Text,
+        hub_id -> Integer,
+    }
+}
+
+diesel::table! {
     roles (id) {
         id -> Integer,
         name -> Text,
@@ -37,12 +46,14 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(menu -> hubs (hub_id));
 diesel::joinable!(user_roles -> roles (role_id));
 diesel::joinable!(user_roles -> users (user_id));
 diesel::joinable!(users -> hubs (hub_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     hubs,
+    menu,
     roles,
     user_roles,
     users,

@@ -12,7 +12,8 @@ use pushkind_auth::db::establish_connection_pool;
 use pushkind_auth::middleware::RedirectUnauthorized;
 use pushkind_auth::models::config::ServerConfig;
 use pushkind_auth::routes::admin::{
-    add_hub, add_role, delete_hub, delete_role, delete_user, update_user, user_modal,
+    add_hub, add_menu, add_role, delete_hub, delete_menu, delete_role, delete_user, update_user,
+    user_modal,
 };
 use pushkind_auth::routes::auth::{login, logout, register, signin, signup};
 use pushkind_auth::routes::main::{index, save_user};
@@ -80,7 +81,9 @@ async fn main() -> std::io::Result<()> {
                     .service(update_user)
                     .service(add_hub)
                     .service(delete_hub)
-                    .service(delete_role),
+                    .service(delete_role)
+                    .service(add_menu)
+                    .service(delete_menu),
             )
             .service(
                 web::scope("")

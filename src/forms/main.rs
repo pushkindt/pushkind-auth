@@ -59,3 +59,9 @@ impl From<AddHubForm> for DomainNewHub {
         Self { name: form.name }
     }
 }
+
+#[derive(Deserialize)]
+pub struct AddMenuForm {
+    pub name: String,
+    pub url: String,
+}

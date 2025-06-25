@@ -13,6 +13,12 @@
                     <li class="nav-item">
                         <a class="nav-link {%if current_page == 'index'%}active{%endif%}" href="/">Главная</a>
                     </li>
+
+                    {% for menu_item in menu | default(value=[]) %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{menu_item.url}}">{{menu_item.name}}</a>
+                        </li>
+                    {% endfor %}
                 </ul>
             </div>
             <div class="dropdown-center">

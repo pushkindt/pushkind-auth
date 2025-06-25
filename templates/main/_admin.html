@@ -26,6 +26,22 @@
                 </div>
             </form>
         </div>
+        <div class="col">
+            <h5>Меню</h5>
+            <form method="POST" action="/admin/menu/add">
+                <div class="row">
+                    <div class="col">
+                        <input class="form-control my-1" type="text" name="name" placeholder="Название" required>
+                    </div>
+                    <div class="col">
+                        <input class="form-control my-1" type="text" name="url" placeholder="URL" required>
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-primary my-1" type="submit"><i class="bi bi-plus"></i></button>
+                    </div>
+                </div>
+            </form>
+        </div>
     </div>
     <div class="row">
         <div class="col">
@@ -62,6 +78,18 @@
                         {{hub.name}}
                     </button>
                 {% endif %}
+            {% endfor %}
+        </div>
+        <div class="col">
+            {% for menu_item in menu | default(value=[]) %}
+                <form action="/admin/menu/delete/{{menu_item.id}}" method="POST" style="display: inline-block;">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" onclick="return confirm('Удалить?')">
+                        {{menu_item.name}}
+                        <span class="badge rounded-pill bg-danger">
+                            <i class="bi bi-x"></i>
+                        </span>
+                    </button>
+                </form>
             {% endfor %}
         </div>
     </div>

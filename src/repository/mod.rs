@@ -1,5 +1,6 @@
 pub mod errors;
 pub mod hub;
+pub mod menu;
 pub mod role;
 pub mod user;
 
@@ -43,4 +44,13 @@ pub trait RoleRepository {
     fn create(&self, new_role: &NewRole) -> RepositoryResult<Role>;
     fn list(&self) -> RepositoryResult<Vec<Role>>;
     fn delete(&self, role_id: i32) -> RepositoryResult<usize>;
+}
+
+pub trait MenuRepository {
+    fn create(
+        &self,
+        new_menu: &crate::domain::menu::NewMenu,
+    ) -> RepositoryResult<crate::domain::menu::Menu>;
+    fn list(&self) -> RepositoryResult<Vec<crate::domain::menu::Menu>>;
+    fn delete(&self, menu_id: i32) -> RepositoryResult<usize>;
 }

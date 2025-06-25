@@ -5,12 +5,14 @@ use tera::Context;
 
 use crate::TEMPLATES;
 use crate::db::DbPool;
-use crate::forms::main::{AddHubForm, AddRoleForm, UpdateUserForm};
+use crate::domain::menu::NewMenu;
+use crate::forms::main::{AddHubForm, AddMenuForm, AddRoleForm, UpdateUserForm};
 use crate::models::auth::AuthenticatedUser;
 use crate::repository::hub::DieselHubRepository;
+use crate::repository::menu::DieselMenuRepository;
 use crate::repository::role::DieselRoleRepository;
 use crate::repository::user::DieselUserRepository;
-use crate::repository::{HubRepository, RoleRepository, UserRepository};
+use crate::repository::{HubRepository, MenuRepository, RoleRepository, UserRepository};
 use crate::routes::{ensure_role, redirect};
 
 #[post("/role/add")]
@@ -234,6 +236,60 @@ pub async fn delete_hub(
         }
         Err(err) => {
             FlashMessage::error(format!("Ошибка при удалении хаба: {}", err)).send();
+        }
+    }
+    redirect("/")
+}
+
+#[post("/menu/add")]
+pub async fn add_menu(
+    user: AuthenticatedUser,
+    pool: web::Data<DbPool>,
+    web::Form(form): web::Form<AddMenuForm>,
+) -> impl Responder {
+    if let Err(resp) = ensure_role(&user, "admin") {
+        return resp;
+    }
+
+    let repo = DieselMenuRepository::new(&pool);
+
+    let new_menu = NewMenu {
+        name: form.name,
+        url: form.url,
+        hub_id: user.hub_id,
+    };
+
+    match repo.create(&new_menu) {
+        Ok(_) => {
+            FlashMessage::success("Меню добавлено.").send();
+        }
+        Err(err) => {
+            FlashMessage::error(format!("Ошибка при добавлении меню: {}", err)).send();
+        }
+    }
+    redirect("/")
+}
+
+#[post("/menu/delete/{menu_id}")]
+pub async fn delete_menu(
+    menu_id: web::Path<i32>,
+    user: AuthenticatedUser,
+    pool: web::Data<DbPool>,
+) -> impl Responder {
+    if let Err(resp) = ensure_role(&user, "admin") {
+        return resp;
+    }
+
+    let menu_id = menu_id.into_inner();
+
+    let repo = DieselMenuRepository::new(&pool);
+
+    match repo.delete(menu_id) {
+        Ok(_) => {
+            FlashMessage::success("Меню удалено.").send();
+        }
+        Err(err) => {
+            FlashMessage::error(format!("Ошибка при удалении меню: {}", err)).send();
         }
     }
     redirect("/")

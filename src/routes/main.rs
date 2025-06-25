@@ -8,9 +8,10 @@ use crate::db::DbPool;
 use crate::forms::main::SaveUserForm;
 use crate::models::auth::AuthenticatedUser;
 use crate::repository::hub::DieselHubRepository;
+use crate::repository::menu::DieselMenuRepository;
 use crate::repository::role::DieselRoleRepository;
 use crate::repository::user::DieselUserRepository;
-use crate::repository::{HubRepository, RoleRepository, UserRepository};
+use crate::repository::{HubRepository, MenuRepository, RoleRepository, UserRepository};
 use crate::routes::{alert_level_to_str, redirect};
 
 #[get("/")]
@@ -80,6 +81,16 @@ pub async fn index(
         }
     };
 
+    let repo = DieselMenuRepository::new(&pool);
+
+    let menu = match repo.list() {
+        Ok(menu) => menu,
+        Err(e) => {
+            error!("Failed to list menu: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
     let alerts = flash_messages
         .iter()
         .map(|f| (f.content(), alert_level_to_str(&f.level())))
@@ -93,6 +104,7 @@ pub async fn index(
     context.insert("users", &users);
     context.insert("roles", &roles);
     context.insert("hubs", &hubs);
+    context.insert("menu", &menu);
 
     HttpResponse::Ok().body(
         TEMPLATES
