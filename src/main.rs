@@ -38,7 +38,7 @@ async fn main() -> std::io::Result<()> {
     let secret_key = Key::from(secret.as_bytes());
     let server_config = ServerConfig { secret };
 
-    let domain = env::var("DOMAIN").ok();
+    let domain = env::var("DOMAIN").unwrap_or("localhost".to_string());
 
     let pool = match establish_connection_pool(&database_url) {
         Ok(pool) => pool,
@@ -58,7 +58,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(
                 SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
                     .cookie_secure(false) // set to true in prod
-                    .cookie_domain(domain.clone())
+                    .cookie_domain(Some(format!(".{domain}")))
                     .build(),
             )
             .wrap(middleware::Compress::default())
