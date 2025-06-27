@@ -1,6 +1,6 @@
 <div class="container my-2">
     <div class="row">
-        <div class="col">
+        <div class="col-md">
             <h5>Роли</h5>
             <form method="POST" action="/admin/role/add">
                 <div class="row">
@@ -12,39 +12,6 @@
                     </div>
                 </div>
             </form>
-        </div>
-        <div class="col">
-            <h5>Хабы</h5>
-            <form method="POST" action="/admin/hub/add">
-                <div class="row">
-                    <div class="col">
-                        <input class="form-control my-1" type="text" name="name" placeholder="Название" required>
-                    </div>
-                    <div class="col-auto">
-                        <button class="btn btn-primary my-1" type="submit"><i class="bi bi-plus"></i></button>
-                    </div>
-                </div>
-            </form>
-        </div>
-        <div class="col">
-            <h5>Меню</h5>
-            <form method="POST" action="/admin/menu/add">
-                <div class="row">
-                    <div class="col">
-                        <input class="form-control my-1" type="text" name="name" placeholder="Название" required>
-                    </div>
-                    <div class="col">
-                        <input class="form-control my-1" type="text" name="url" placeholder="URL" required>
-                    </div>
-                    <div class="col-auto">
-                        <button class="btn btn-primary my-1" type="submit"><i class="bi bi-plus"></i></button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-    <div class="row">
-        <div class="col">
             {% for role in roles %}
                 {% if role.id != 1 %}
                     <form action="/admin/role/delete/{{role.id}}" method="POST" style="display: inline-block;">
@@ -62,7 +29,18 @@
                 {% endif %}
             {% endfor %}
         </div>
-        <div class="col">
+        <div class="col-md">
+            <h5>Хабы</h5>
+            <form method="POST" action="/admin/hub/add">
+                <div class="row">
+                    <div class="col">
+                        <input class="form-control my-1" type="text" name="name" placeholder="Название" required>
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-primary my-1" type="submit"><i class="bi bi-plus"></i></button>
+                    </div>
+                </div>
+            </form>
             {% for hub in hubs %}
                 {% if hub.id != 1 %}
                     <form action="/admin/hub/delete/{{hub.id}}" method="POST" style="display: inline-block;">
@@ -80,7 +58,21 @@
                 {% endif %}
             {% endfor %}
         </div>
-        <div class="col">
+        <div class="col-md">
+            <h5>Меню</h5>
+            <form method="POST" action="/admin/menu/add">
+                <div class="row">
+                    <div class="col">
+                        <input class="form-control my-1" type="text" name="name" placeholder="Название" required>
+                    </div>
+                    <div class="col">
+                        <input class="form-control my-1" type="text" name="url" placeholder="URL" required>
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-primary my-1" type="submit"><i class="bi bi-plus"></i></button>
+                    </div>
+                </div>
+            </form>
             {% for menu_item in menu | default(value=[]) %}
                 <form action="/admin/menu/delete/{{menu_item.id}}" method="POST" style="display: inline-block;">
                     <button type="submit" class="btn btn-sm btn-outline-secondary" onclick="return confirm('Удалить?')">
