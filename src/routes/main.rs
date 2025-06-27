@@ -3,7 +3,6 @@ use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use log::error;
 use tera::Context;
 
-use crate::TEMPLATES;
 use crate::db::DbPool;
 use crate::forms::main::SaveUserForm;
 use crate::models::auth::AuthenticatedUser;
@@ -12,7 +11,7 @@ use crate::repository::menu::DieselMenuRepository;
 use crate::repository::role::DieselRoleRepository;
 use crate::repository::user::DieselUserRepository;
 use crate::repository::{HubRepository, MenuRepository, RoleRepository, UserRepository};
-use crate::routes::{alert_level_to_str, redirect};
+use crate::routes::{alert_level_to_str, redirect, render_template};
 
 #[get("/")]
 pub async fn index(
@@ -106,14 +105,7 @@ pub async fn index(
     context.insert("hubs", &hubs);
     context.insert("menu", &menu);
 
-    HttpResponse::Ok().body(
-        TEMPLATES
-            .render("main/index.html", &context)
-            .unwrap_or_else(|e| {
-                error!("Failed to render template 'main/index.html': {}", e);
-                String::new()
-            }),
-    )
+    render_template("main/index.html", &context)
 }
 
 #[post("/user/save")]

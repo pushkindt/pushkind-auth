@@ -97,7 +97,7 @@ impl FromRequest for AuthenticatedUser {
                 Err(_) => return ready(Err(ErrorUnauthorized("Invalid user"))),
             };
 
-            let repo = DieselUserRepository::new(&pool);
+            let repo = DieselUserRepository::new(pool);
 
             match repo.get_by_id(uid) {
                 Ok(Some(_)) => return ready(Ok(claims)),

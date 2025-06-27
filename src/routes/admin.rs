@@ -3,7 +3,6 @@ use actix_web_flash_messages::FlashMessage;
 use log::error;
 use tera::Context;
 
-use crate::TEMPLATES;
 use crate::db::DbPool;
 use crate::domain::menu::NewMenu;
 use crate::forms::main::{AddHubForm, AddMenuForm, AddRoleForm, UpdateUserForm};
@@ -13,7 +12,7 @@ use crate::repository::menu::DieselMenuRepository;
 use crate::repository::role::DieselRoleRepository;
 use crate::repository::user::DieselUserRepository;
 use crate::repository::{HubRepository, MenuRepository, RoleRepository, UserRepository};
-use crate::routes::{ensure_role, redirect};
+use crate::routes::{ensure_role, redirect, render_template};
 
 #[post("/role/add")]
 pub async fn add_role(
@@ -71,14 +70,7 @@ pub async fn user_modal(
         context.insert("roles", &roles);
     }
 
-    HttpResponse::Ok().body(
-        TEMPLATES
-            .render("main/modal_body.html", &context)
-            .unwrap_or_else(|e| {
-                error!("Failed to render template 'main/modal_body.html': {}", e);
-                String::new()
-            }),
-    )
+    render_template("main/modal_body.html", &context)
 }
 
 #[post("/user/delete/{user_id}")]

@@ -6,7 +6,6 @@ use log::error;
 use serde::Deserialize;
 use tera::Context;
 
-use crate::TEMPLATES;
 use crate::db::DbPool;
 use crate::forms::auth::{LoginForm, RegisterForm};
 use crate::models::auth::AuthenticatedUser;
@@ -14,7 +13,7 @@ use crate::models::config::ServerConfig;
 use crate::repository::hub::DieselHubRepository;
 use crate::repository::user::DieselUserRepository;
 use crate::repository::{HubRepository, UserRepository};
-use crate::routes::{alert_level_to_str, redirect};
+use crate::routes::{alert_level_to_str, redirect, render_template};
 
 #[derive(Deserialize)]
 struct AuthQueryParams {
@@ -150,14 +149,7 @@ pub async fn signin(
     context.insert("hubs", &hubs);
     context.insert("next", &query_params.next);
 
-    HttpResponse::Ok().body(
-        TEMPLATES
-            .render("auth/login.html", &context)
-            .unwrap_or_else(|e| {
-                error!("Failed to render template 'auth/login.html': {}", e);
-                String::new()
-            }),
-    )
+    render_template("auth/login.html", &context)
 }
 
 #[get("/signup")]
@@ -192,12 +184,5 @@ pub async fn signup(
     context.insert("hubs", &hubs);
     context.insert("next", &query_params.next);
 
-    HttpResponse::Ok().body(
-        TEMPLATES
-            .render("auth/register.html", &context)
-            .unwrap_or_else(|e| {
-                error!("Failed to render template 'auth/register.html': {}", e);
-                String::new()
-            }),
-    )
+    render_template("auth/register.html", &context)
 }
