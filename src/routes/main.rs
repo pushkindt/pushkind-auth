@@ -134,3 +134,8 @@ pub async fn save_user(
     }
     redirect("/")
 }
+
+#[get("/api/v1/id")]
+pub async fn api_v1_id(user: AuthenticatedUser) -> impl Responder {
+    HttpResponse::Ok().json(user)
+}
