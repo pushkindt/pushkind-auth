@@ -139,3 +139,23 @@ pub async fn save_user(
 pub async fn api_v1_id(user: AuthenticatedUser) -> impl Responder {
     HttpResponse::Ok().json(user)
 }
+
+#[get("/api/v1/users")]
+pub async fn api_v1_users(user: AuthenticatedUser, pool: web::Data<DbPool>) -> impl Responder {
+    let repo = DieselUserRepository::new(&pool);
+
+    match repo.list(user.hub_id) {
+        Ok(users) => {
+            let users: Vec<AuthenticatedUser> = users
+                .iter()
+                .map(|(user, roles)| AuthenticatedUser::from_user(user, roles))
+                .collect();
+
+            HttpResponse::Ok().json(users)
+        }
+        Err(e) => {
+            error!("Failed to list users: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    }
+}

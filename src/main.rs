@@ -16,7 +16,7 @@ use pushkind_auth::routes::admin::{
     user_modal,
 };
 use pushkind_auth::routes::auth::{login, logout, register, signin, signup};
-use pushkind_auth::routes::main::{api_v1_id, index, save_user};
+use pushkind_auth::routes::main::{api_v1_id, api_v1_users, index, save_user};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -90,7 +90,8 @@ async fn main() -> std::io::Result<()> {
                     .wrap(RedirectUnauthorized)
                     .service(index)
                     .service(save_user)
-                    .service(api_v1_id),
+                    .service(api_v1_id)
+                    .service(api_v1_users),
             )
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(server_config.clone()))
