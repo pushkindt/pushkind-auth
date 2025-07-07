@@ -22,7 +22,7 @@ struct AuthQueryParams {
     next: Option<String>,
 }
 
-fn get_success_and_failure_redirects(base_url: &str, next: Option<&str>) -> (String, String) {
+pub fn get_success_and_failure_redirects(base_url: &str, next: Option<&str>) -> (String, String) {
     let success_redirect_url = match next {
         Some(s) if !s.is_empty() => s.to_string(),
         _ => "/".to_string(),
