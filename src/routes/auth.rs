@@ -64,7 +64,7 @@ pub async fn login(
     let roles = match repo.get_roles(user.id) {
         Ok(roles) => roles,
         Err(e) => {
-            error!("Failed to get user roles: {}", e);
+            error!("Failed to get user roles: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -74,7 +74,7 @@ pub async fn login(
     let jwt = match claims.to_jwt(&server_config.secret) {
         Ok(jwt) => jwt,
         Err(e) => {
-            error!("Failed to encode claims: {}", e);
+            error!("Failed to encode claims: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -82,7 +82,7 @@ pub async fn login(
     match Identity::login(&request.extensions(), jwt) {
         Ok(_) => redirect(&success_redirect_url),
         Err(e) => {
-            error!("Failed to login: {}", e);
+            error!("Failed to login: {e}");
             HttpResponse::InternalServerError().finish()
         }
     }
@@ -104,7 +104,7 @@ pub async fn register(
             FlashMessage::success("Пользователь может войти.".to_string()).send();
         }
         Err(err) => {
-            FlashMessage::error(format!("Ошибка при создании пользователя: {}", err)).send();
+            FlashMessage::error(format!("Ошибка при создании пользователя: {err}")).send();
         }
     }
     redirect(&failure_redirect_url)
@@ -135,7 +135,7 @@ pub async fn signin(
     let hubs = match repo.list() {
         Ok(hubs) => hubs,
         Err(e) => {
-            error!("Failed to get hubs: {}", e);
+            error!("Failed to get hubs: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -170,7 +170,7 @@ pub async fn signup(
     let hubs = match repo.list() {
         Ok(hubs) => hubs,
         Err(e) => {
-            error!("Failed to get hubs: {}", e);
+            error!("Failed to get hubs: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
