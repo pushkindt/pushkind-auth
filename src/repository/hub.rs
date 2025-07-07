@@ -68,10 +68,14 @@ impl HubRepository for DieselHubRepository<'_> {
 
     fn delete(&self, hub_id: i32) -> RepositoryResult<usize> {
         use crate::schema::hubs;
+        use crate::schema::menu;
         use crate::schema::user_roles;
         use crate::schema::users;
 
         let mut connection = self.pool.get()?;
+
+        // delete menus for hub
+        diesel::delete(menu::table.filter(menu::hub_id.eq(hub_id))).execute(&mut connection)?;
 
         let hub_users = users::table
             .filter(users::hub_id.eq(hub_id))
