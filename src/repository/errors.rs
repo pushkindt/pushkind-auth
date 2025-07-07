@@ -41,16 +41,16 @@ impl From<DieselError> for RepositoryError {
                 let message = info.message().to_string();
                 match kind {
                     DatabaseErrorKind::UniqueViolation => RepositoryError::ConstraintViolation(
-                        format!("Unique constraint violation: {}", message),
+                        format!("Unique constraint violation: {message}"),
                     ),
                     DatabaseErrorKind::ForeignKeyViolation => RepositoryError::ConstraintViolation(
-                        format!("Foreign key constraint violation: {}", message),
+                        format!("Foreign key constraint violation: {message}"),
                     ),
                     DatabaseErrorKind::NotNullViolation => RepositoryError::ConstraintViolation(
-                        format!("Not null constraint violation: {}", message),
+                        format!("Not null constraint violation: {message}"),
                     ),
                     DatabaseErrorKind::CheckViolation => RepositoryError::ConstraintViolation(
-                        format!("Check constraint violation: {}", message),
+                        format!("Check constraint violation: {message}"),
                     ),
                     _ => RepositoryError::DatabaseError(message),
                 }
@@ -61,15 +61,15 @@ impl From<DieselError> for RepositoryError {
             }
 
             DieselError::SerializationError(e) => {
-                RepositoryError::ValidationError(format!("Serialization error: {}", e))
+                RepositoryError::ValidationError(format!("Serialization error: {e}"))
             }
 
             DieselError::DeserializationError(e) => {
-                RepositoryError::ValidationError(format!("Deserialization error: {}", e))
+                RepositoryError::ValidationError(format!("Deserialization error: {e}"))
             }
 
             DieselError::QueryBuilderError(e) => {
-                RepositoryError::ValidationError(format!("Query builder error: {}", e))
+                RepositoryError::ValidationError(format!("Query builder error: {e}"))
             }
 
             DieselError::RollbackTransaction => {
@@ -88,25 +88,25 @@ impl From<DieselError> for RepositoryError {
                 RepositoryError::DatabaseError("Broken transaction manager".to_string())
             }
 
-            _ => RepositoryError::Unexpected(format!("Unexpected diesel error: {}", err)),
+            _ => RepositoryError::Unexpected(format!("Unexpected diesel error: {err}")),
         }
     }
 }
 
 impl From<BcryptError> for RepositoryError {
     fn from(err: BcryptError) -> Self {
-        RepositoryError::EncryptionError(format!("Encryption error: {}", err))
+        RepositoryError::EncryptionError(format!("Encryption error: {err}"))
     }
 }
 
 impl From<R2D2Error> for RepositoryError {
     fn from(err: R2D2Error) -> Self {
-        RepositoryError::ConnectionError(format!("Connection error: {}", err))
+        RepositoryError::ConnectionError(format!("Connection error: {err}"))
     }
 }
 
 impl From<PoolError> for RepositoryError {
     fn from(err: PoolError) -> Self {
-        RepositoryError::ConnectionError(format!("Connection error: {}", err))
+        RepositoryError::ConnectionError(format!("Connection error: {err}"))
     }
 }

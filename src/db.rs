@@ -63,7 +63,7 @@ pub fn get_connection(pool: &DbPool) -> anyhow::Result<DbConnection> {
     match pool.get() {
         Ok(conn) => Ok(conn),
         Err(e) => {
-            error!("Failed to get connection from pool: {}", e);
+            error!("Failed to get connection from pool: {e}");
             Err(anyhow::anyhow!("Failed to get connection from pool: {}", e))
         }
     }

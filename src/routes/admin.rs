@@ -33,7 +33,7 @@ pub async fn add_role(
             FlashMessage::success("Роль добавлена.").send();
         }
         Err(err) => {
-            FlashMessage::error(format!("Ошибка при добавлении роли: {}", err)).send();
+            FlashMessage::error(format!("Ошибка при добавлении роли: {err}")).send();
         }
     }
     redirect("/")
@@ -90,7 +90,7 @@ pub async fn delete_user(
     let current_user_id: i32 = match user.sub.parse() {
         Ok(user_id) => user_id,
         Err(e) => {
-            error!("Failed to parse user_id: {}", e);
+            error!("Failed to parse user_id: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -107,7 +107,7 @@ pub async fn delete_user(
             FlashMessage::success("Пользователь удалён.").send();
         }
         Err(err) => {
-            FlashMessage::error(format!("Ошибка при удалении пользователя: {}", err)).send();
+            FlashMessage::error(format!("Ошибка при удалении пользователя: {err}")).send();
         }
     }
     redirect("/")
@@ -126,7 +126,7 @@ pub async fn update_user(
     let form: UpdateUserForm = match serde_html_form::from_bytes(&form) {
         Ok(form) => form,
         Err(err) => {
-            FlashMessage::error(format!("Ошибка при обработке формы: {}", err)).send();
+            FlashMessage::error(format!("Ошибка при обработке формы: {err}")).send();
             return redirect("/");
         }
     };
@@ -137,7 +137,7 @@ pub async fn update_user(
             FlashMessage::success("Роли назначены.").send();
         }
         Err(err) => {
-            FlashMessage::error(format!("Ошибка при назначении ролей: {}", err)).send();
+            FlashMessage::error(format!("Ошибка при назначении ролей: {err}")).send();
         }
     }
 
@@ -146,7 +146,7 @@ pub async fn update_user(
             FlashMessage::success("Пользователь изменён.").send();
         }
         Err(err) => {
-            FlashMessage::error(format!("Ошибка при изменении пользователя: {}", err)).send();
+            FlashMessage::error(format!("Ошибка при изменении пользователя: {err}")).send();
         }
     }
     redirect("/")
@@ -169,7 +169,7 @@ pub async fn add_hub(
             FlashMessage::success("Хаб добавлен.").send();
         }
         Err(err) => {
-            FlashMessage::error(format!("Ошибка при добавлении хаба: {}", err)).send();
+            FlashMessage::error(format!("Ошибка при добавлении хаба: {err}")).send();
         }
     }
     redirect("/")
@@ -199,7 +199,7 @@ pub async fn delete_role(
             FlashMessage::success("Роль удалена.").send();
         }
         Err(err) => {
-            FlashMessage::error(format!("Ошибка при удалении роли: {}", err)).send();
+            FlashMessage::error(format!("Ошибка при удалении роли: {err}")).send();
         }
     }
     redirect("/")
@@ -229,7 +229,7 @@ pub async fn delete_hub(
             FlashMessage::success("Хаб удалён.").send();
         }
         Err(err) => {
-            FlashMessage::error(format!("Ошибка при удалении хаба: {}", err)).send();
+            FlashMessage::error(format!("Ошибка при удалении хаба: {err}")).send();
         }
     }
     redirect("/")
@@ -258,7 +258,7 @@ pub async fn add_menu(
             FlashMessage::success("Меню добавлено.").send();
         }
         Err(err) => {
-            FlashMessage::error(format!("Ошибка при добавлении меню: {}", err)).send();
+            FlashMessage::error(format!("Ошибка при добавлении меню: {err}")).send();
         }
     }
     redirect("/")
@@ -283,7 +283,7 @@ pub async fn delete_menu(
             FlashMessage::success("Меню удалено.").send();
         }
         Err(err) => {
-            FlashMessage::error(format!("Ошибка при удалении меню: {}", err)).send();
+            FlashMessage::error(format!("Ошибка при удалении меню: {err}")).send();
         }
     }
     redirect("/")

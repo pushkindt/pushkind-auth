@@ -24,7 +24,7 @@ pub async fn index(
     let user_id: i32 = match user.sub.parse() {
         Ok(user_id) => user_id,
         Err(e) => {
-            error!("Failed to parse user_id: {}", e);
+            error!("Failed to parse user_id: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -34,7 +34,7 @@ pub async fn index(
     let users = match repo.list(user.hub_id) {
         Ok(users) => users,
         Err(e) => {
-            error!("Failed to list users: {}", e);
+            error!("Failed to list users: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -46,7 +46,7 @@ pub async fn index(
             return HttpResponse::InternalServerError().finish();
         }
         Err(e) => {
-            error!("Failed to get user: {}", e);
+            error!("Failed to get user: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -57,7 +57,7 @@ pub async fn index(
             .map(|r| r.name)
             .collect::<Vec<String>>(),
         Err(e) => {
-            error!("Failed to get user roles: {}", e);
+            error!("Failed to get user roles: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -67,7 +67,7 @@ pub async fn index(
     let roles = match repo.list() {
         Ok(roles) => roles,
         Err(e) => {
-            error!("Failed to list roles: {}", e);
+            error!("Failed to list roles: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -77,7 +77,7 @@ pub async fn index(
     let hubs = match repo.list() {
         Ok(hubs) => hubs,
         Err(e) => {
-            error!("Failed to list hubs: {}", e);
+            error!("Failed to list hubs: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -87,7 +87,7 @@ pub async fn index(
     let menu = match repo.list(user.hub_id) {
         Ok(menu) => menu,
         Err(e) => {
-            error!("Failed to list menu: {}", e);
+            error!("Failed to list menu: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -121,7 +121,7 @@ pub async fn save_user(
     let user_id = match user.sub.parse() {
         Ok(user_id) => user_id,
         Err(e) => {
-            error!("Failed to parse user_id: {}", e);
+            error!("Failed to parse user_id: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -131,7 +131,7 @@ pub async fn save_user(
             FlashMessage::success("Параметры изменены.".to_string()).send();
         }
         Err(err) => {
-            FlashMessage::error(format!("Ошибка при изменении параметров: {}", err)).send();
+            FlashMessage::error(format!("Ошибка при изменении параметров: {err}")).send();
         }
     }
     redirect("/")
@@ -156,7 +156,7 @@ pub async fn api_v1_users(user: AuthenticatedUser, pool: web::Data<DbPool>) -> i
             HttpResponse::Ok().json(users)
         }
         Err(e) => {
-            error!("Failed to list users: {}", e);
+            error!("Failed to list users: {e}");
             HttpResponse::InternalServerError().finish()
         }
     }
