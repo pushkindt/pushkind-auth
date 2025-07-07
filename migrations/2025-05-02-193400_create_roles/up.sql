@@ -1,4 +1,4 @@
--- Your SQL goes here
+-- Create roles and user_roles tables
 CREATE TABLE roles (
     id INTEGER NOT NULL PRIMARY KEY,
     name VARCHAR NOT NULL UNIQUE,
