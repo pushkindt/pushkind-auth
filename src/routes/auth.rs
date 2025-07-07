@@ -1,3 +1,5 @@
+//! Authentication and session management endpoints.
+
 use actix_identity::Identity;
 use actix_web::{HttpMessage, HttpRequest, HttpResponse};
 use actix_web::{Responder, get, post, web};
