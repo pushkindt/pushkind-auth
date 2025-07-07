@@ -46,12 +46,12 @@ fn test_hub_repository_crud() {
         hub_id: hub.id,
     };
     menu_repo.create(&new_menu).unwrap();
-    assert_eq!(menu_repo.list().unwrap().len(), 1);
+    assert_eq!(menu_repo.list(hub.id).unwrap().len(), 1);
 
     repo.delete(hub.id).unwrap();
 
     // menus should be removed when hub is deleted
-    assert!(menu_repo.list().unwrap().is_empty());
+    assert!(menu_repo.list(hub.id).unwrap().is_empty());
 }
 
 #[test]
