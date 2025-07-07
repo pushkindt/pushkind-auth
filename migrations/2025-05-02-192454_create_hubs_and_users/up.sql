@@ -1,4 +1,4 @@
--- Your SQL goes here
+-- Create hubs and users tables
 CREATE TABLE hubs (
     id INTEGER NOT NULL PRIMARY KEY,
     name VARCHAR NOT NULL UNIQUE,
