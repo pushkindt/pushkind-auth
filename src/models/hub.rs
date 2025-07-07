@@ -5,6 +5,7 @@ use crate::domain::{hub::Hub as DomainHub, hub::NewHub as DomainNewHub};
 
 #[derive(Debug, Clone, Identifiable, Queryable)]
 #[diesel(table_name = crate::schema::hubs)]
+/// Database representation of a [`crate::domain::hub::Hub`].
 pub struct Hub {
     pub id: i32,
     pub name: String,
@@ -14,6 +15,7 @@ pub struct Hub {
 
 #[derive(Insertable)]
 #[diesel(table_name = crate::schema::hubs)]
+/// Insertable form of [`Hub`].
 pub struct NewHub<'a> {
     pub name: &'a str,
 }

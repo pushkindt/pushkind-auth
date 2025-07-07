@@ -7,6 +7,7 @@ use crate::models::user::User;
 
 #[derive(Debug, Clone, Identifiable, Queryable)]
 #[diesel(table_name = crate::schema::roles)]
+/// Diesel model for [`crate::domain::role::Role`].
 pub struct Role {
     pub id: i32,
     pub name: String,
@@ -16,6 +17,7 @@ pub struct Role {
 
 #[derive(Insertable)]
 #[diesel(table_name = crate::schema::roles)]
+/// Insertable form of [`Role`].
 pub struct NewRole<'a> {
     pub name: &'a str,
 }
@@ -25,6 +27,7 @@ pub struct NewRole<'a> {
 #[diesel(belongs_to(User, foreign_key=user_id))]
 #[diesel(belongs_to(Role, foreign_key=role_id))]
 #[diesel(table_name = crate::schema::user_roles)]
+/// Association table linking users to roles.
 pub struct UserRole {
     pub user_id: i32,
     pub role_id: i32,
@@ -32,6 +35,7 @@ pub struct UserRole {
 
 #[derive(Insertable)]
 #[diesel(table_name = crate::schema::user_roles)]
+/// Insertable variant of [`UserRole`].
 pub struct NewUserRole {
     pub user_id: i32,
     pub role_id: i32,

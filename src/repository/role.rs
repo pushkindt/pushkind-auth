@@ -6,6 +6,7 @@ use crate::models::role::{NewRole as NewDbRole, Role as DbRole};
 use crate::repository::RoleRepository;
 use crate::repository::errors::RepositoryResult;
 
+/// Diesel implementation of [`RoleRepository`].
 pub struct DieselRoleRepository<'a> {
     pub pool: &'a DbPool,
 }

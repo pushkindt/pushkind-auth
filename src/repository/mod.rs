@@ -1,3 +1,9 @@
+//! Abstractions over data persistence.
+//!
+//! Traits defined in this module describe the operations that can be performed
+//! on the underlying storage. Diesel based implementations live in the
+//! submodules.
+
 pub mod errors;
 pub mod hub;
 pub mod menu;

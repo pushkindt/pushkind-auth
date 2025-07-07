@@ -3,6 +3,7 @@ use serde::Deserialize;
 use crate::domain::user::NewUser as DomainNewUser;
 
 #[derive(Deserialize)]
+/// Form data submitted when a user logs in.
 pub struct LoginForm {
     pub email: String,
     pub password: String,
@@ -10,6 +11,7 @@ pub struct LoginForm {
 }
 
 #[derive(Deserialize)]
+/// Form data used during user registration.
 pub struct RegisterForm {
     pub email: String,
     pub password: String,

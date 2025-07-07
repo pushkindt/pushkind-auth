@@ -1,3 +1,9 @@
+//! Custom middleware used by the HTTP server.
+//!
+//! The [`RedirectUnauthorized`] middleware intercepts unauthorized responses
+//! and redirects the user to the sign in page instead of returning a bare
+//! `401` status code.
+
 use actix_web::{
     Error, HttpResponse,
     body::EitherBody,
@@ -7,6 +13,7 @@ use actix_web::{
 use futures_util::future::LocalBoxFuture;
 use std::future::{Ready, ready};
 
+/// Middleware factory that produces [`RedirectUnauthorizedMiddleware`].
 pub struct RedirectUnauthorized;
 
 impl<S, B> Transform<S, ServiceRequest> for RedirectUnauthorized
@@ -26,6 +33,7 @@ where
     }
 }
 
+/// Inner service used by [`RedirectUnauthorized`].
 pub struct RedirectUnauthorizedMiddleware<S> {
     service: S,
 }

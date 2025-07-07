@@ -6,6 +6,7 @@ use crate::models::hub::{Hub as DbHub, NewHub as NewDbHub};
 use crate::repository::HubRepository;
 use crate::repository::errors::RepositoryResult;
 
+/// Diesel implementation of [`HubRepository`].
 pub struct DieselHubRepository<'a> {
     pub pool: &'a DbPool,
 }

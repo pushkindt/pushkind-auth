@@ -1,3 +1,5 @@
+//! General site routes and small API endpoints.
+
 use actix_web::{HttpResponse, Responder, get, post, web};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use log::error;

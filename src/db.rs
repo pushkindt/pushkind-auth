@@ -1,3 +1,9 @@
+//! Database connection helpers.
+//!
+//! This module provides a small wrapper around the Diesel connection pool and
+//! utilities to establish a connection to the SQLite database used in the
+//! application.
+
 use std::time::Duration;
 
 use anyhow::Context;
@@ -10,9 +16,13 @@ pub type DbPool = Pool<ConnectionManager<SqliteConnection>>;
 pub type DbConnection = PooledConnection<ConnectionManager<SqliteConnection>>;
 
 #[derive(Debug)]
+/// Options that are applied each time a connection is acquired from the pool.
 pub struct ConnectionOptions {
+    /// Enable Write Ahead Logging mode for SQLite.
     pub enable_wal: bool,
+    /// Enforce foreign key checks for SQLite.
     pub enable_foreign_keys: bool,
+    /// Timeout to wait for a locked database.
     pub busy_timeout: Option<Duration>,
 }
 
@@ -34,6 +44,7 @@ impl CustomizeConnection<SqliteConnection, diesel::r2d2::Error> for ConnectionOp
     }
 }
 
+/// Create a Diesel connection pool for the given database URL.
 pub fn establish_connection_pool(database_url: &str) -> anyhow::Result<DbPool> {
     let manager = ConnectionManager::<SqliteConnection>::new(database_url);
     Pool::builder()
@@ -46,6 +57,8 @@ pub fn establish_connection_pool(database_url: &str) -> anyhow::Result<DbPool> {
         .context("Failed to build Diesel SQLite connection pool")
 }
 
+/// Retrieve a connection from the pool and convert pooling errors into
+/// [`anyhow::Error`].
 pub fn get_connection(pool: &DbPool) -> anyhow::Result<DbConnection> {
     match pool.get() {
         Ok(conn) => Ok(conn),

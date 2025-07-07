@@ -1,3 +1,5 @@
+//! Administrative endpoints used to manage users, roles and hubs.
+
 use actix_web::{HttpResponse, Responder, post, web};
 use actix_web_flash_messages::FlashMessage;
 use log::error;
