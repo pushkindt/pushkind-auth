@@ -8,6 +8,7 @@ use crate::models::hub::Hub;
 #[derive(Debug, Clone, Identifiable, Associations, Queryable)]
 #[diesel(belongs_to(Hub, foreign_key=hub_id))]
 #[diesel(table_name = crate::schema::users)]
+/// Diesel model for [`crate::domain::user::User`].
 pub struct User {
     pub id: i32,
     pub email: String,
@@ -20,6 +21,7 @@ pub struct User {
 
 #[derive(Insertable)]
 #[diesel(table_name = crate::schema::users)]
+/// Insertable form of [`User`].
 pub struct NewUser<'a> {
     pub email: &'a str,
     pub name: Option<&'a str>,
@@ -29,6 +31,7 @@ pub struct NewUser<'a> {
 
 #[derive(AsChangeset)]
 #[diesel(table_name = crate::schema::users)]
+/// Data used when updating a [`User`] record.
 pub struct UpdateUser<'a> {
     pub name: Option<&'a str>,
     pub password_hash: String,

@@ -1,9 +1,12 @@
+//! Error types returned by repository implementations.
+
 use bcrypt::BcryptError;
 use diesel::r2d2::{Error as R2D2Error, PoolError};
 use diesel::result::{DatabaseErrorKind, Error as DieselError};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
+/// Common errors returned by repository methods.
 pub enum RepositoryError {
     #[error("Entity not found")]
     NotFound,

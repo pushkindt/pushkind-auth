@@ -6,6 +6,7 @@ use crate::models::hub::Hub;
 #[derive(Debug, Clone, Identifiable, Associations, Queryable)]
 #[diesel(belongs_to(Hub, foreign_key=hub_id))]
 #[diesel(table_name = crate::schema::menu)]
+/// Database model for [`crate::domain::menu::Menu`].
 pub struct Menu {
     pub id: i32,
     pub name: String,
@@ -15,6 +16,7 @@ pub struct Menu {
 
 #[derive(Insertable)]
 #[diesel(table_name = crate::schema::menu)]
+/// Insertable variant of [`Menu`].
 pub struct NewMenu<'a> {
     pub name: &'a str,
     pub url: &'a str,

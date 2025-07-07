@@ -6,6 +6,7 @@ use crate::models::menu::{Menu as DbMenu, NewMenu as NewDbMenu};
 use crate::repository::MenuRepository;
 use crate::repository::errors::RepositoryResult;
 
+/// Diesel implementation of [`MenuRepository`].
 pub struct DieselMenuRepository<'a> {
     pub pool: &'a DbPool,
 }

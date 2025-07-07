@@ -1,3 +1,5 @@
+//! HTTP handlers and helpers.
+
 use actix_web::HttpResponse;
 use actix_web::http::header;
 use actix_web_flash_messages::{FlashMessage, Level};

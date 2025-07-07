@@ -1,3 +1,5 @@
+//! Application entry point building the Actix-Web server.
+
 use std::env;
 
 use actix_identity::IdentityMiddleware;

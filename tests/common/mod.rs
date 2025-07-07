@@ -1,9 +1,12 @@
+//! Helpers for integration tests.
+
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 
 use pushkind_auth::db::{DbPool, establish_connection_pool};
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!(); // assumes migrations/ exists
 
+/// Temporary database used in integration tests.
 pub struct TestDb {
     filename: String,
     pool: DbPool,

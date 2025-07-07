@@ -9,6 +9,7 @@ use crate::models::user::{NewUser as NewDbUser, UpdateUser as DbUpdateUser, User
 use crate::repository::UserRepository;
 use crate::repository::errors::{RepositoryError, RepositoryResult};
 
+/// Diesel implementation of [`UserRepository`].
 pub struct DieselUserRepository<'a> {
     pub pool: &'a DbPool,
 }
