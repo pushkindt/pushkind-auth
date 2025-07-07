@@ -82,7 +82,7 @@ pub async fn index(
 
     let repo = DieselMenuRepository::new(&pool);
 
-    let menu = match repo.list() {
+    let menu = match repo.list(user.hub_id) {
         Ok(menu) => menu,
         Err(e) => {
             error!("Failed to list menu: {}", e);

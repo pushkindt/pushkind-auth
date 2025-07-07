@@ -51,6 +51,6 @@ pub trait MenuRepository {
         &self,
         new_menu: &crate::domain::menu::NewMenu,
     ) -> RepositoryResult<crate::domain::menu::Menu>;
-    fn list(&self) -> RepositoryResult<Vec<crate::domain::menu::Menu>>;
+    fn list(&self, hub_id: i32) -> RepositoryResult<Vec<crate::domain::menu::Menu>>;
     fn delete(&self, menu_id: i32) -> RepositoryResult<usize>;
 }

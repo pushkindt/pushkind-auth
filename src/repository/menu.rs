@@ -30,12 +30,14 @@ impl MenuRepository for DieselMenuRepository<'_> {
         Ok(menu)
     }
 
-    fn list(&self) -> RepositoryResult<Vec<Menu>> {
+    fn list(&self, hub_id: i32) -> RepositoryResult<Vec<Menu>> {
         use crate::schema::menu;
 
         let mut connection = self.pool.get()?;
 
-        let results = menu::table.load::<DbMenu>(&mut connection)?;
+        let results = menu::table
+            .filter(menu::hub_id.eq(hub_id))
+            .load::<DbMenu>(&mut connection)?;
 
         Ok(results.into_iter().map(|db_menu| db_menu.into()).collect()) // Convert DbMenu to DomainMenu
     }
