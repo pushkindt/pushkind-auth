@@ -5,9 +5,12 @@ use pushkind_auth::domain::user::UpdateUser;
 use pushkind_auth::repository::HubRepository;
 use pushkind_auth::repository::RoleRepository;
 use pushkind_auth::repository::UserRepository;
+use pushkind_auth::repository::MenuRepository;
 use pushkind_auth::repository::hub::DieselHubRepository;
 use pushkind_auth::repository::role::DieselRoleRepository;
 use pushkind_auth::repository::user::DieselUserRepository;
+use pushkind_auth::repository::menu::DieselMenuRepository;
+use pushkind_auth::domain::menu::NewMenu;
 
 mod common;
 
@@ -35,7 +38,20 @@ fn test_hub_repository_crud() {
     let hubs = repo.list().unwrap();
     assert_eq!(hubs.len(), 2); // 1 from setup + 1 from test
 
+    // create a menu for the hub and ensure it's deleted along with the hub
+    let menu_repo = DieselMenuRepository::new(test_db.pool());
+    let new_menu = NewMenu {
+        name: "TestMenu".to_string(),
+        url: "/test".to_string(),
+        hub_id: hub.id,
+    };
+    menu_repo.create(&new_menu).unwrap();
+    assert_eq!(menu_repo.list().unwrap().len(), 1);
+
     repo.delete(hub.id).unwrap();
+
+    // menus should be removed when hub is deleted
+    assert!(menu_repo.list().unwrap().is_empty());
 }
 
 #[test]
