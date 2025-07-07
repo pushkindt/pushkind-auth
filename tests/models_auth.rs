@@ -1,8 +1,8 @@
-use pushkind_auth::models::auth::AuthenticatedUser;
-use pushkind_auth::domain::user::User;
-use pushkind_auth::domain::role::Role;
-use chrono::{Utc, NaiveDateTime, Duration};
+use chrono::Utc;
 use jsonwebtoken::{DecodingKey, Validation, decode};
+use pushkind_auth::domain::role::Role;
+use pushkind_auth::domain::user::User;
+use pushkind_auth::models::auth::AuthenticatedUser;
 
 #[test]
 fn test_from_user_sets_fields() {
@@ -40,7 +40,11 @@ fn test_from_user_sets_fields() {
     assert_eq!(auth.roles, vec![role1.name, role2.name]);
 
     let now_ts = Utc::now().timestamp() as usize;
-    let diff = if auth.exp > now_ts { auth.exp - now_ts } else { now_ts - auth.exp };
+    let diff = if auth.exp > now_ts {
+        auth.exp - now_ts
+    } else {
+        now_ts - auth.exp
+    };
     let seven_days = 7 * 24 * 60 * 60;
     assert!(diff >= seven_days - 5 && diff <= seven_days + 5);
 }

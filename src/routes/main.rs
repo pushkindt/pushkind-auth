@@ -157,7 +157,7 @@ pub async fn api_v1_users(user: AuthenticatedUser, pool: web::Data<DbPool>) -> i
         }
         Err(e) => {
             error!("Failed to list users: {}", e);
-            return HttpResponse::InternalServerError().finish();
+            HttpResponse::InternalServerError().finish()
         }
     }
 }
