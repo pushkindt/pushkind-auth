@@ -55,7 +55,7 @@ impl<'a> TryFrom<DomainNewUser<'a>> for NewUser<'a> {
     type Error = bcrypt::BcryptError;
 
     fn try_from(nu: DomainNewUser<'a>) -> Result<Self, Self::Error> {
-        let password_hash = hash(&nu.password, DEFAULT_COST)?;
+        let password_hash = hash(nu.password, DEFAULT_COST)?;
 
         Ok(NewUser {
             email: nu.email,

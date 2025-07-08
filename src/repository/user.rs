@@ -127,7 +127,7 @@ impl UserRepository for DieselUserRepository<'_> {
         };
 
         let db_updates = DbUpdateUser {
-            name: updates.name.as_deref(),
+            name: updates.name,
             password_hash,
         };
 
