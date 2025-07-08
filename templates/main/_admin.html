@@ -15,7 +15,7 @@
             {% for role in roles %}
                 {% if role.id != 1 %}
                     <form action="/admin/role/delete/{{role.id}}" method="POST" style="display: inline-block;">
-                        <button type="submit" class="btn btn-sm btn-outline-secondary" onclick="return confirm('Удалить?')">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary mt-1" onclick="return confirm('Удалить?')">
                             {{role.name}}
                             <span class="badge rounded-pill bg-danger">
                                 <i class="bi bi-x"></i>
@@ -23,7 +23,7 @@
                         </button>
                     </form>
                 {% else %}
-                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary mt-1">
                         {{role.name}}
                     </button>
                 {% endif %}
@@ -44,7 +44,7 @@
             {% for hub in hubs %}
                 {% if hub.id != 1 %}
                     <form action="/admin/hub/delete/{{hub.id}}" method="POST" style="display: inline-block;">
-                        <button type="submit" class="btn btn-sm btn-outline-secondary" onclick="return confirm('Удалить?')">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary mt-1" onclick="return confirm('Удалить?')">
                             {{hub.name}}
                             <span class="badge rounded-pill bg-danger">
                                 <i class="bi bi-x"></i>
@@ -52,7 +52,7 @@
                         </button>
                     </form>
                 {% else %}
-                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary mt-1">
                         {{hub.name}}
                     </button>
                 {% endif %}
@@ -75,7 +75,7 @@
             </form>
             {% for menu_item in menu | default(value=[]) %}
                 <form action="/admin/menu/delete/{{menu_item.id}}" method="POST" style="display: inline-block;">
-                    <button type="submit" class="btn btn-sm btn-outline-secondary" onclick="return confirm('Удалить?')">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary mt-1" onclick="return confirm('Удалить?')">
                         {{menu_item.name}}
                         <span class="badge rounded-pill bg-danger">
                             <i class="bi bi-x"></i>
