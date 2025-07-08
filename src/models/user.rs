@@ -51,15 +51,15 @@ impl From<User> for DomainUser {
     }
 }
 
-impl<'a> TryFrom<&'a DomainNewUser> for NewUser<'a> {
+impl<'a> TryFrom<DomainNewUser<'a>> for NewUser<'a> {
     type Error = bcrypt::BcryptError;
 
-    fn try_from(nu: &'a DomainNewUser) -> Result<Self, Self::Error> {
+    fn try_from(nu: DomainNewUser<'a>) -> Result<Self, Self::Error> {
         let password_hash = hash(&nu.password, DEFAULT_COST)?;
 
         Ok(NewUser {
-            email: &nu.email,
-            name: nu.name.as_deref(),
+            email: nu.email,
+            name: nu.name,
             hub_id: nu.hub_id,
             password_hash,
         })

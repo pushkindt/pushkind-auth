@@ -18,16 +18,16 @@ pub struct User {
 
 #[derive(Clone, Debug, Deserialize)]
 /// Data required to create a new user.
-pub struct NewUser {
-    pub email: String,
-    pub name: Option<String>,
+pub struct NewUser<'a> {
+    pub email: &'a str,
+    pub name: Option<&'a str>,
     pub hub_id: i32,
-    pub password: String,
+    pub password: &'a str,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 /// Optional fields that can be updated for a user.
-pub struct UpdateUser {
-    pub name: Option<String>,
-    pub password: Option<String>,
+pub struct UpdateUser<'a> {
+    pub name: Option<&'a str>,
+    pub password: Option<&'a str>,
 }

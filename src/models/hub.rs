@@ -31,8 +31,8 @@ impl From<Hub> for DomainHub {
     }
 }
 
-impl<'a> From<&'a DomainNewHub> for NewHub<'a> {
-    fn from(domain: &'a DomainNewHub) -> Self {
-        Self { name: &domain.name }
+impl<'a> From<DomainNewHub<'a>> for NewHub<'a> {
+    fn from(domain: DomainNewHub<'a>) -> Self {
+        Self { name: domain.name }
     }
 }

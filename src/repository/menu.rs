@@ -18,7 +18,7 @@ impl<'a> DieselMenuRepository<'a> {
 }
 
 impl MenuRepository for DieselMenuRepository<'_> {
-    fn create(&self, new_menu: &NewMenu) -> RepositoryResult<Menu> {
+    fn create(&self, new_menu: NewMenu) -> RepositoryResult<Menu> {
         use crate::schema::menu;
 
         let mut connection = self.pool.get()?;

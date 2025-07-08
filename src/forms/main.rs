@@ -12,11 +12,11 @@ pub struct SaveUserForm {
     pub password: Option<String>,
 }
 
-impl From<SaveUserForm> for DomainUpdateUser {
-    fn from(form: SaveUserForm) -> Self {
+impl<'a> From<&'a SaveUserForm> for DomainUpdateUser<'a> {
+    fn from(form: &'a SaveUserForm) -> Self {
         Self {
-            name: form.name,
-            password: form.password,
+            name: form.name.as_deref(),
+            password: form.password.as_deref(),
         }
     }
 }
@@ -27,9 +27,11 @@ pub struct AddRoleForm {
     pub name: String,
 }
 
-impl From<AddRoleForm> for DomainNewRole {
-    fn from(form: AddRoleForm) -> Self {
-        Self { name: form.name }
+impl<'a> From<&'a AddRoleForm> for DomainNewRole<'a> {
+    fn from(form: &'a AddRoleForm) -> Self {
+        Self {
+            name: form.name.as_str(),
+        }
     }
 }
 
@@ -43,11 +45,11 @@ pub struct UpdateUserForm {
     pub roles: Vec<i32>,
 }
 
-impl From<UpdateUserForm> for DomainUpdateUser {
-    fn from(form: UpdateUserForm) -> Self {
+impl<'a> From<&'a UpdateUserForm> for DomainUpdateUser<'a> {
+    fn from(form: &'a UpdateUserForm) -> Self {
         Self {
-            name: form.name,
-            password: form.password,
+            name: form.name.as_deref(),
+            password: form.password.as_deref(),
         }
     }
 }
@@ -58,9 +60,11 @@ pub struct AddHubForm {
     pub name: String,
 }
 
-impl From<AddHubForm> for DomainNewHub {
-    fn from(form: AddHubForm) -> Self {
-        Self { name: form.name }
+impl<'a> From<&'a AddHubForm> for DomainNewHub<'a> {
+    fn from(form: &'a AddHubForm) -> Self {
+        Self {
+            name: form.name.as_str(),
+        }
     }
 }
 

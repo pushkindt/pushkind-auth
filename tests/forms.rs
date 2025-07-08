@@ -1,9 +1,9 @@
-use pushkind_auth::forms::auth::RegisterForm;
-use pushkind_auth::forms::main::{AddHubForm, AddRoleForm, SaveUserForm, UpdateUserForm};
+use pushkind_auth::domain::hub::NewHub as DomainNewHub;
+use pushkind_auth::domain::role::NewRole as DomainNewRole;
 use pushkind_auth::domain::user::NewUser as DomainNewUser;
 use pushkind_auth::domain::user::UpdateUser as DomainUpdateUser;
-use pushkind_auth::domain::role::NewRole as DomainNewRole;
-use pushkind_auth::domain::hub::NewHub as DomainNewHub;
+use pushkind_auth::forms::auth::RegisterForm;
+use pushkind_auth::forms::main::{AddHubForm, AddRoleForm, SaveUserForm, UpdateUserForm};
 
 #[test]
 fn test_register_form_into_domain_new_user() {
@@ -13,7 +13,7 @@ fn test_register_form_into_domain_new_user() {
         hub_id: 7,
     };
 
-    let user: DomainNewUser = form.into();
+    let user: DomainNewUser = (&form).into();
 
     assert_eq!(user.email, "test@example.com");
     assert_eq!(user.password, "secret");
@@ -28,10 +28,10 @@ fn test_save_user_form_into_domain_update_user() {
         password: Some("password".to_string()),
     };
 
-    let update: DomainUpdateUser = form.into();
+    let update: DomainUpdateUser = (&form).into();
 
-    assert_eq!(update.name, Some("Alice".to_string()));
-    assert_eq!(update.password, Some("password".to_string()));
+    assert_eq!(update.name, Some("Alice"));
+    assert_eq!(update.password, Some("password"));
 }
 
 #[test]
@@ -40,7 +40,7 @@ fn test_add_role_form_into_domain_new_role() {
         name: "editor".to_string(),
     };
 
-    let role: DomainNewRole = form.into();
+    let role: DomainNewRole = (&form).into();
 
     assert_eq!(role.name, "editor");
 }
@@ -54,10 +54,10 @@ fn test_update_user_form_into_domain_update_user() {
         roles: vec![1, 2],
     };
 
-    let update: DomainUpdateUser = form.into();
+    let update: DomainUpdateUser = (&form).into();
 
-    assert_eq!(update.name, Some("Bob".to_string()));
-    assert_eq!(update.password, Some("pwd".to_string()));
+    assert_eq!(update.name, Some("Bob"));
+    assert_eq!(update.password, Some("pwd"));
 }
 
 #[test]
@@ -66,7 +66,7 @@ fn test_add_hub_form_into_domain_new_hub() {
         name: "My Hub".to_string(),
     };
 
-    let hub: DomainNewHub = form.into();
+    let hub: DomainNewHub = (&form).into();
 
     assert_eq!(hub.name, "My Hub");
 }

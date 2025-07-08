@@ -28,7 +28,7 @@ pub async fn add_role(
 
     let repo = DieselRoleRepository::new(&pool);
 
-    match repo.create(&form.into()) {
+    match repo.create((&form).into()) {
         Ok(_) => {
             FlashMessage::success("Роль добавлена.").send();
         }
@@ -141,7 +141,7 @@ pub async fn update_user(
         }
     }
 
-    match repo.update(form.id, &form.into()) {
+    match repo.update(form.id, (&form).into()) {
         Ok(_) => {
             FlashMessage::success("Пользователь изменён.").send();
         }
@@ -164,7 +164,7 @@ pub async fn add_hub(
 
     let repo = DieselHubRepository::new(&pool);
 
-    match repo.create(&form.into()) {
+    match repo.create((&form).into()) {
         Ok(_) => {
             FlashMessage::success("Хаб добавлен.").send();
         }
@@ -248,12 +248,12 @@ pub async fn add_menu(
     let repo = DieselMenuRepository::new(&pool);
 
     let new_menu = NewMenu {
-        name: form.name,
-        url: form.url,
+        name: form.name.as_str(),
+        url: form.url.as_str(),
         hub_id: user.hub_id,
     };
 
-    match repo.create(&new_menu) {
+    match repo.create(new_menu) {
         Ok(_) => {
             FlashMessage::success("Меню добавлено.").send();
         }

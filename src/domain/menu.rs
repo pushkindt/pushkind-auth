@@ -11,8 +11,8 @@ pub struct Menu {
 
 #[derive(Clone, Debug, Deserialize)]
 /// Parameters required to create a new [`Menu`].
-pub struct NewMenu {
-    pub name: String,
-    pub url: String,
+pub struct NewMenu<'a> {
+    pub name: &'a str,
+    pub url: &'a str,
     pub hub_id: i32,
 }

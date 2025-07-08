@@ -99,7 +99,7 @@ pub async fn register(
     let (_, failure_redirect_url) =
         get_success_and_failure_redirects("/auth/signup", query_params.next.as_deref());
 
-    match repo.create(&form.into()) {
+    match repo.create((&form).into()) {
         Ok(_) => {
             FlashMessage::success("Пользователь может войти.".to_string()).send();
         }
