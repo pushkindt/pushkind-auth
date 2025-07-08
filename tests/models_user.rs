@@ -5,16 +5,16 @@ use pushkind_auth::models::user::NewUser;
 #[test]
 fn test_new_user_try_from() {
     let domain = DomainNewUser {
-        email: "john@example.com".to_string(),
-        name: Some("John Doe".to_string()),
+        email: "john@example.com",
+        name: Some("John Doe"),
         hub_id: 5,
-        password: "super_secret".to_string(),
+        password: "super_secret",
     };
 
-    let db_user = NewUser::try_from(&domain).expect("conversion failed");
+    let db_user = NewUser::try_from(domain).expect("conversion failed");
 
-    assert_eq!(db_user.email, domain.email);
-    assert_eq!(db_user.name, domain.name.as_deref());
-    assert_eq!(db_user.hub_id, domain.hub_id);
-    assert!(verify(&domain.password, &db_user.password_hash).unwrap());
+    assert_eq!(db_user.email, "john@example.com");
+    assert_eq!(db_user.name, Some("John Doe"));
+    assert_eq!(db_user.hub_id, 5);
+    assert!(verify("super_secret", &db_user.password_hash).unwrap());
 }

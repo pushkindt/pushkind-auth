@@ -1,16 +1,16 @@
 use pushkind_auth::domain::hub::NewHub;
+use pushkind_auth::domain::menu::NewMenu;
 use pushkind_auth::domain::role::NewRole;
 use pushkind_auth::domain::user::NewUser;
 use pushkind_auth::domain::user::UpdateUser;
 use pushkind_auth::repository::HubRepository;
+use pushkind_auth::repository::MenuRepository;
 use pushkind_auth::repository::RoleRepository;
 use pushkind_auth::repository::UserRepository;
-use pushkind_auth::repository::MenuRepository;
 use pushkind_auth::repository::hub::DieselHubRepository;
+use pushkind_auth::repository::menu::DieselMenuRepository;
 use pushkind_auth::repository::role::DieselRoleRepository;
 use pushkind_auth::repository::user::DieselUserRepository;
-use pushkind_auth::repository::menu::DieselMenuRepository;
-use pushkind_auth::domain::menu::NewMenu;
 
 mod common;
 
@@ -20,10 +20,8 @@ fn test_hub_repository_crud() {
     let repo = DieselHubRepository::new(test_db.pool());
 
     // Create
-    let new_hub = NewHub {
-        name: "TestHub".to_string(),
-    };
-    let hub = repo.create(&new_hub).unwrap();
+    let new_hub = NewHub { name: "TestHub" };
+    let hub = repo.create(new_hub).unwrap();
     assert_eq!(hub.name, "TestHub");
 
     // Get by id
@@ -41,11 +39,11 @@ fn test_hub_repository_crud() {
     // create a menu for the hub and ensure it's deleted along with the hub
     let menu_repo = DieselMenuRepository::new(test_db.pool());
     let new_menu = NewMenu {
-        name: "TestMenu".to_string(),
-        url: "/test".to_string(),
+        name: "TestMenu",
+        url: "/test",
         hub_id: hub.id,
     };
-    menu_repo.create(&new_menu).unwrap();
+    menu_repo.create(new_menu).unwrap();
     assert_eq!(menu_repo.list(hub.id).unwrap().len(), 1);
 
     repo.delete(hub.id).unwrap();
@@ -60,37 +58,33 @@ fn test_user_repository_crud() {
     let repo = DieselHubRepository::new(test_db.pool());
 
     // Create Hub
-    let new_hub = NewHub {
-        name: "TestHub".to_string(),
-    };
-    let hub = repo.create(&new_hub).unwrap();
+    let new_hub = NewHub { name: "TestHub" };
+    let hub = repo.create(new_hub).unwrap();
 
     let repo = DieselRoleRepository::new(test_db.pool());
 
-    let new_role = NewRole {
-        name: "TestRole".to_string(),
-    };
+    let new_role = NewRole { name: "TestRole" };
 
-    let role = repo.create(&new_role).unwrap();
+    let role = repo.create(new_role).unwrap();
 
     let repo = DieselUserRepository::new(test_db.pool());
 
     // Create User
     let new_user = NewUser {
-        name: Some("TestUser".to_string()),
+        name: Some("TestUser"),
         hub_id: hub.id,
-        email: "test@test.test".to_string(),
-        password: "test".to_string(),
+        email: "test@test.test",
+        password: "test",
     };
-    let user = repo.create(&new_user).unwrap();
-    assert_eq!(user.name, new_user.name);
-    assert_eq!(user.email, new_user.email);
+    let user = repo.create(new_user).unwrap();
+    assert_eq!(user.name, Some("TestUser".to_string()));
+    assert_eq!(user.email, "test@test.test");
 
     let inserted = repo.assign_roles(user.id, &[role.id]).unwrap();
     assert!(inserted == 1);
 
     // Get by email
-    let found = repo.get_by_email(&new_user.email, hub.id).unwrap();
+    let found = repo.get_by_email("test@test.test", hub.id).unwrap();
     assert!(found.is_some());
 
     // List
@@ -98,10 +92,10 @@ fn test_user_repository_crud() {
     assert_eq!(users.len(), 1);
     assert_eq!(users[0].1.len(), 1);
 
-    assert!(repo.verify_password(&new_user.password, &user.password_hash));
+    assert!(repo.verify_password("test", &user.password_hash));
 
     assert!(
-        repo.login(&new_user.email, &new_user.password, hub.id)
+        repo.login("test@test.test", "test", hub.id)
             .is_ok_and(|u| u.is_some())
     );
 
@@ -112,9 +106,9 @@ fn test_user_repository_crud() {
     let user = repo
         .update(
             user.id,
-            &UpdateUser {
-                name: Some("new name".to_string()),
-                password: Some("new password".to_string()),
+            UpdateUser {
+                name: Some("new name"),
+                password: Some("new password"),
             },
         )
         .unwrap();
@@ -135,10 +129,8 @@ fn test_role_repository_crud() {
     let repo = DieselRoleRepository::new(test_db.pool());
 
     // Create
-    let new_role = NewRole {
-        name: "TestRole".to_string(),
-    };
-    let role = repo.create(&new_role).unwrap();
+    let new_role = NewRole { name: "TestRole" };
+    let role = repo.create(new_role).unwrap();
     assert_eq!(role.name, "TestRole");
 
     // Get by id

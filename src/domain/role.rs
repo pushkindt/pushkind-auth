@@ -12,8 +12,8 @@ pub struct Role {
 
 #[derive(Clone, Debug, Deserialize)]
 /// Information required to create a new [`Role`].
-pub struct NewRole {
-    pub name: String,
+pub struct NewRole<'a> {
+    pub name: &'a str,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

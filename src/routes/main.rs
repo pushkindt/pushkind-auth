@@ -126,7 +126,7 @@ pub async fn save_user(
         }
     };
 
-    match repo.update(user_id, &form.into()) {
+    match repo.update(user_id, (&form).into()) {
         Ok(_) => {
             FlashMessage::success("Параметры изменены.".to_string()).send();
         }

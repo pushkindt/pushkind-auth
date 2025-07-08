@@ -52,9 +52,9 @@ impl From<Role> for DomainRole {
     }
 }
 
-impl<'a> From<&'a DomainNewRole> for NewRole<'a> {
-    fn from(domain: &'a DomainNewRole) -> Self {
-        Self { name: &domain.name }
+impl<'a> From<DomainNewRole<'a>> for NewRole<'a> {
+    fn from(domain: DomainNewRole<'a>) -> Self {
+        Self { name: domain.name }
     }
 }
 

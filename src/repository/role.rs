@@ -44,7 +44,7 @@ impl RoleRepository for DieselRoleRepository<'_> {
         Ok(result.map(|db_role| db_role.into())) // Convert DbRole to DomainRole
     }
 
-    fn create(&self, new_role: &NewRole) -> RepositoryResult<Role> {
+    fn create(&self, new_role: NewRole) -> RepositoryResult<Role> {
         use crate::schema::roles;
 
         let mut connection = self.pool.get()?;

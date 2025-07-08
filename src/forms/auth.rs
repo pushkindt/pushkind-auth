@@ -18,13 +18,13 @@ pub struct RegisterForm {
     pub hub_id: i32,
 }
 
-impl From<RegisterForm> for DomainNewUser {
-    fn from(form: RegisterForm) -> Self {
-        Self {
+impl<'a> From<&'a RegisterForm> for DomainNewUser<'a> {
+    fn from(form: &'a RegisterForm) -> Self {
+        DomainNewUser {
+            email: form.email.as_str(),
             name: None,
-            email: form.email,
-            password: form.password,
             hub_id: form.hub_id,
+            password: form.password.as_str(),
         }
     }
 }
