@@ -39,8 +39,10 @@ impl UserRepository for DieselUserRepository<'_> {
 
         let mut connection = self.pool.get()?;
 
+        let email = email.to_lowercase();
+
         let result = users::table
-            .filter(users::email.eq(email))
+            .filter(users::email.eq(&email))
             .filter(users::hub_id.eq(hub_id))
             .first::<DbUser>(&mut connection)
             .optional()?;
