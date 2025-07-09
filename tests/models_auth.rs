@@ -31,7 +31,7 @@ fn test_from_user_sets_fields() {
     };
     let roles = vec![role1.clone(), role2.clone()];
 
-    let auth = AuthenticatedUser::from_user(&user, &roles);
+    let auth = AuthenticatedUser::from_user_roles(&user, &roles);
 
     assert_eq!(auth.sub, user.id.to_string());
     assert_eq!(auth.email, user.email);
@@ -67,7 +67,7 @@ fn test_to_jwt_round_trip() {
         created_at: now,
         updated_at: now,
     };
-    let mut auth = AuthenticatedUser::from_user(&user, &[role.clone()]);
+    let mut auth = AuthenticatedUser::from_user_roles(&user, &[role.clone()]);
     let secret = "mysecret";
 
     let token = auth.to_jwt(secret).expect("failed to encode token");
