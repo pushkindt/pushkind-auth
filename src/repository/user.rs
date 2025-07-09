@@ -1,7 +1,7 @@
 use bcrypt::{DEFAULT_COST, hash, verify};
 use diesel::prelude::*;
 
-use crate::db::DbPool;
+use crate::db::{DbPool, lower, lower_nullable};
 use crate::domain::role::Role;
 use crate::domain::user::{NewUser, UpdateUser, User};
 use crate::models::role::{NewUserRole as DbNewUserRole, Role as DbRole};
@@ -182,5 +182,30 @@ impl UserRepository for DieselUserRepository<'_> {
             .values(&new_user_roles)
             .execute(&mut connection)?;
         Ok(result)
+    }
+    fn search(&self, hub_id: i32, role: &str, query: &str) -> RepositoryResult<Vec<User>> {
+        use crate::schema::roles;
+        use crate::schema::user_roles;
+        use crate::schema::users;
+
+        let mut connection = self.pool.get()?;
+
+        // find users with the specific role where LOWER(user.name) == LOWER(query)
+        // or LOWER(user.email) == LOWER(query)
+        let pattern = format!("%{}%", query.to_lowercase());
+
+        let results = users::table
+            .inner_join(user_roles::table.inner_join(roles::table))
+            .filter(roles::name.eq(role))
+            .filter(users::hub_id.eq(hub_id))
+            .filter(
+                lower_nullable(users::name)
+                    .like(&pattern)
+                    .or(lower(users::email).like(&pattern)),
+            )
+            .select(users::all_columns)
+            .load::<DbUser>(&mut connection)?;
+
+        Ok(results.into_iter().map(User::from).collect())
     }
 }

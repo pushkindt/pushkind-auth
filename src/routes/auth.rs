@@ -69,7 +69,7 @@ pub async fn login(
         }
     };
 
-    let mut claims = AuthenticatedUser::from_user(&user, &roles);
+    let mut claims = AuthenticatedUser::from_user_roles(&user, &roles);
 
     let jwt = match claims.to_jwt(&server_config.secret) {
         Ok(jwt) => jwt,

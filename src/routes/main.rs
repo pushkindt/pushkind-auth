@@ -3,6 +3,7 @@
 use actix_web::{HttpResponse, Responder, get, post, web};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use log::error;
+use serde::Deserialize;
 use tera::Context;
 
 use crate::db::DbPool;
@@ -142,16 +143,24 @@ pub async fn api_v1_id(user: AuthenticatedUser) -> impl Responder {
     HttpResponse::Ok().json(user)
 }
 
+#[derive(Deserialize)]
+struct ApiV1UsersQueryParams {
+    role: String,
+    query: String,
+}
+
 #[get("/api/v1/users")]
-pub async fn api_v1_users(user: AuthenticatedUser, pool: web::Data<DbPool>) -> impl Responder {
+pub async fn api_v1_users(
+    params: web::Query<ApiV1UsersQueryParams>,
+    user: AuthenticatedUser,
+    pool: web::Data<DbPool>,
+) -> impl Responder {
     let repo = DieselUserRepository::new(&pool);
 
-    match repo.list(user.hub_id) {
+    match repo.search(user.hub_id, &params.role, &params.query) {
         Ok(users) => {
-            let users: Vec<AuthenticatedUser> = users
-                .iter()
-                .map(|(user, roles)| AuthenticatedUser::from_user(user, roles))
-                .collect();
+            let users: Vec<AuthenticatedUser> =
+                users.into_iter().map(AuthenticatedUser::from).collect();
 
             HttpResponse::Ok().json(users)
         }

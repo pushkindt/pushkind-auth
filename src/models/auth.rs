@@ -34,7 +34,7 @@ impl AuthenticatedUser {
         self.exp = expiration;
     }
 
-    pub fn from_user(user: &User, roles: &[Role]) -> Self {
+    pub fn from_user_roles(user: &User, roles: &[Role]) -> Self {
         let mut result = Self {
             sub: user.id.to_string(),
             email: user.email.clone(),
@@ -63,6 +63,21 @@ impl AuthenticatedUser {
             &validation,
         )?;
         Ok(token_data.claims)
+    }
+}
+
+impl From<User> for AuthenticatedUser {
+    fn from(user: User) -> Self {
+        let mut result = Self {
+            sub: user.id.to_string(),
+            email: user.email,
+            hub_id: user.hub_id,
+            name: user.name.unwrap_or_default(),
+            roles: vec![],
+            exp: 0,
+        };
+        result.set_expiration(7);
+        result
     }
 }
 
