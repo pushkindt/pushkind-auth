@@ -22,9 +22,9 @@ pub struct User {
 #[derive(Insertable)]
 #[diesel(table_name = crate::schema::users)]
 /// Insertable form of [`User`].
-pub struct NewUser<'a> {
-    pub email: &'a str,
-    pub name: Option<&'a str>,
+pub struct NewUser {
+    pub email: String,
+    pub name: Option<String>,
     pub hub_id: i32,
     pub password_hash: String,
 }
@@ -51,15 +51,15 @@ impl From<User> for DomainUser {
     }
 }
 
-impl<'a> TryFrom<DomainNewUser<'a>> for NewUser<'a> {
+impl<'a> TryFrom<DomainNewUser<'a>> for NewUser {
     type Error = bcrypt::BcryptError;
 
     fn try_from(nu: DomainNewUser<'a>) -> Result<Self, Self::Error> {
         let password_hash = hash(nu.password, DEFAULT_COST)?;
 
         Ok(NewUser {
-            email: nu.email,
-            name: nu.name,
+            email: nu.email.to_lowercase(),
+            name: nu.name.map(|n| n.to_string()),
             hub_id: nu.hub_id,
             password_hash,
         })
