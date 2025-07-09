@@ -8,7 +8,9 @@ use std::time::Duration;
 
 use anyhow::Context;
 use diesel::connection::SimpleConnection;
+use diesel::expression::functions::define_sql_function;
 use diesel::r2d2::{ConnectionManager, CustomizeConnection, Pool, PooledConnection};
+use diesel::sql_types::{Nullable, Text};
 use diesel::sqlite::SqliteConnection;
 use log::error;
 
@@ -67,4 +69,10 @@ pub fn get_connection(pool: &DbPool) -> anyhow::Result<DbConnection> {
             Err(anyhow::anyhow!("Failed to get connection from pool: {}", e))
         }
     }
+}
+
+define_sql_function!(fn lower(x: Text) -> Text);
+define_sql_function! {
+    #[sql_name = "lower"]
+    fn lower_nullable(x: Nullable<Text>) -> Nullable<Text>
 }

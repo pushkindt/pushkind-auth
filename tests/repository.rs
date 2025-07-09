@@ -147,3 +147,39 @@ fn test_role_repository_crud() {
 
     repo.delete(role.id).unwrap();
 }
+
+#[test]
+fn test_email_lowercase_and_login_case_insensitive() {
+    let test_db = common::TestDb::new("test_email_lowercase.db");
+    let hub_repo = DieselHubRepository::new(test_db.pool());
+
+    // Create hub
+    let hub = hub_repo.create(NewHub { name: "CaseHub" }).unwrap();
+
+    let user_repo = DieselUserRepository::new(test_db.pool());
+
+    // Register user with mixed case email
+    let new_user = NewUser {
+        name: Some("Case"),
+        hub_id: hub.id,
+        email: "Mixed@Example.COM",
+        password: "pwd",
+    };
+    let user = user_repo.create(new_user).unwrap();
+    assert_eq!(user.email, "mixed@example.com");
+
+    // Login should be case-insensitive
+    let login = user_repo.login("MIXED@EXAMPLE.COM", "pwd", hub.id)
+        .expect("login query failed");
+    assert!(login.is_some());
+
+    // Creating another user with same email (different case) should fail
+    let dup_user = NewUser {
+        name: Some("Dup"),
+        hub_id: hub.id,
+        email: "MIXED@example.com",
+        password: "pwd",
+    };
+    let res = user_repo.create(dup_user);
+    assert!(res.is_err());
+}

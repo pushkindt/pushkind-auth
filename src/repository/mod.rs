@@ -35,6 +35,7 @@ pub trait UserRepository {
     fn assign_roles(&self, user_id: i32, role_ids: &[i32]) -> RepositoryResult<usize>;
     fn update(&self, user_id: i32, updates: UpdateUser) -> RepositoryResult<User>;
     fn delete(&self, user_id: i32) -> RepositoryResult<()>;
+    fn search(&self, hub_id: i32, role: &str, query: &str) -> RepositoryResult<Vec<User>>;
 }
 
 pub trait HubRepository {
