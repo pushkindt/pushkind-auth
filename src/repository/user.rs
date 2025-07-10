@@ -1,5 +1,6 @@
 use bcrypt::{DEFAULT_COST, hash, verify};
 use diesel::prelude::*;
+use chrono::Utc;
 
 use crate::db::{DbPool, lower, lower_nullable};
 use crate::domain::role::Role;
@@ -131,6 +132,7 @@ impl UserRepository for DieselUserRepository<'_> {
         let db_updates = DbUpdateUser {
             name: updates.name,
             password_hash,
+            updated_at: Utc::now().naive_utc(),
         };
 
         let user = diesel::update(users::table)
