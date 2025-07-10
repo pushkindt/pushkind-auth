@@ -79,6 +79,8 @@ fn test_user_repository_crud() {
     let user = repo.create(new_user).unwrap();
     assert_eq!(user.name, Some("TestUser".to_string()));
     assert_eq!(user.email, "test@test.test");
+    let created_at = user.created_at;
+    let original_updated_at = user.updated_at;
 
     let inserted = repo.assign_roles(user.id, &[role.id]).unwrap();
     assert!(inserted == 1);
@@ -114,6 +116,8 @@ fn test_user_repository_crud() {
         .unwrap();
     assert_eq!(user.name, Some("new name".to_string()));
     assert!(repo.verify_password("new password", &user.password_hash));
+    assert!(user.updated_at > original_updated_at);
+    assert_eq!(user.created_at, created_at);
 
     repo.assign_roles(user.id, &[]).unwrap();
 

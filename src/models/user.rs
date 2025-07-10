@@ -35,6 +35,7 @@ pub struct NewUser {
 pub struct UpdateUser<'a> {
     pub name: Option<&'a str>,
     pub password_hash: String,
+    pub updated_at: NaiveDateTime,
 }
 
 impl From<User> for DomainUser {
