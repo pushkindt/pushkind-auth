@@ -138,9 +138,33 @@ pub async fn save_user(
     redirect("/")
 }
 
+#[derive(Deserialize)]
+struct ApiV1IdParams {
+    id: Option<i32>,
+}
+
 #[get("/api/v1/id")]
-pub async fn api_v1_id(user: AuthenticatedUser) -> impl Responder {
-    HttpResponse::Ok().json(user)
+pub async fn api_v1_id(
+    params: web::Query<ApiV1IdParams>,
+    user: AuthenticatedUser,
+    pool: web::Data<DbPool>,
+) -> impl Responder {
+    match params.id {
+        Some(id) => {
+            let repo = DieselUserRepository::new(&pool);
+            match repo.get_by_id(id) {
+                Ok(Some(found_user)) if user.hub_id == found_user.hub_id => {
+                    HttpResponse::Ok().json(AuthenticatedUser::from(found_user))
+                }
+                Err(e) => {
+                    error!("Failed to get user: {e}");
+                    HttpResponse::InternalServerError().finish()
+                }
+                _ => HttpResponse::NotFound().finish(),
+            }
+        }
+        None => HttpResponse::Ok().json(user),
+    }
 }
 
 #[derive(Deserialize)]

@@ -9,6 +9,7 @@ use actix_web::{App, HttpServer, middleware, web};
 use actix_web_flash_messages::{FlashMessagesFramework, storage::CookieMessageStore};
 use dotenvy::dotenv;
 use log::error;
+use actix_cors::Cors;
 
 use pushkind_auth::db::establish_connection_pool;
 use pushkind_auth::middleware::RedirectUnauthorized;
@@ -56,6 +57,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
+            .wrap(Cors::permissive())
             .wrap(message_framework.clone())
             .wrap(IdentityMiddleware::default())
             .wrap(

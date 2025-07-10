@@ -22,6 +22,7 @@ bcrypt = "0.17.0"
 jsonwebtoken = "9.3.1"
 thiserror = "2.0.12"
 serde_html_form = "0.2.7"
+actix-cors = "0.7.1"
 
 
 [dev-dependencies]
