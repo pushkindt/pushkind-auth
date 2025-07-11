@@ -41,7 +41,7 @@ pub trait UserRepository {
 pub trait HubRepository {
     fn get_by_id(&self, id: i32) -> RepositoryResult<Option<Hub>>;
     fn get_by_name(&self, name: &str) -> RepositoryResult<Option<Hub>>;
-    fn create(&self, new_hub: NewHub) -> RepositoryResult<Hub>;
+    fn create(&self, new_hub: &NewHub) -> RepositoryResult<Hub>;
     fn list(&self) -> RepositoryResult<Vec<Hub>>;
     fn delete(&self, hub_id: i32) -> RepositoryResult<usize>;
 }
@@ -49,13 +49,13 @@ pub trait HubRepository {
 pub trait RoleRepository {
     fn get_by_id(&self, id: i32) -> RepositoryResult<Option<Role>>;
     fn get_by_name(&self, name: &str) -> RepositoryResult<Option<Role>>;
-    fn create(&self, new_role: NewRole) -> RepositoryResult<Role>;
+    fn create(&self, new_role: &NewRole) -> RepositoryResult<Role>;
     fn list(&self) -> RepositoryResult<Vec<Role>>;
     fn delete(&self, role_id: i32) -> RepositoryResult<usize>;
 }
 
 pub trait MenuRepository {
-    fn create(&self, new_menu: NewMenu) -> RepositoryResult<Menu>;
+    fn create(&self, new_menu: &NewMenu) -> RepositoryResult<Menu>;
     fn list(&self, hub_id: i32) -> RepositoryResult<Vec<Menu>>;
     fn delete(&self, menu_id: i32) -> RepositoryResult<usize>;
 }

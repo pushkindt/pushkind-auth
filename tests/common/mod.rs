@@ -9,12 +9,12 @@ pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!(); // assumes migra
 /// Temporary database used in integration tests.
 pub struct TestDb {
     filename: String,
-    pool: DbPool,
+    pool: Option<DbPool>,
 }
 
 impl TestDb {
     pub fn new(filename: &str) -> Self {
-        std::fs::remove_file(filename).ok(); // Clean up old DB
+        TestDb::remove_old_files(filename); // Clean up old DB
 
         let pool =
             establish_connection_pool(filename).expect("Failed to establish SQLite connection.");
@@ -25,18 +25,25 @@ impl TestDb {
             .expect("Migrations failed");
         TestDb {
             filename: filename.to_string(),
-            pool,
+            pool: Some(pool),
         }
     }
     pub fn pool(&self) -> &DbPool {
-        &self.pool
+        self.pool.as_ref().expect("DB pool already dropped")
+    }
+
+    fn remove_old_files(filename: &str) {
+        std::fs::remove_file(filename).ok();
+        std::fs::remove_file(format!("{}-shm", filename)).ok();
+        std::fs::remove_file(format!("{}-wal", filename)).ok();
     }
 }
 
 impl Drop for TestDb {
     fn drop(&mut self) {
-        std::fs::remove_file(&self.filename).ok();
-        std::fs::remove_file(format!("{}-shm", &self.filename)).ok();
-        std::fs::remove_file(format!("{}-wal", &self.filename)).ok();
+        if let Some(pool) = self.pool.take() {
+            drop(pool);
+        }
+        TestDb::remove_old_files(&self.filename); // Clean up old DB
     }
 }
