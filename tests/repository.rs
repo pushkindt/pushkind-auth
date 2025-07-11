@@ -55,17 +55,17 @@ fn test_hub_repository_crud() {
 #[test]
 fn test_user_repository_crud() {
     let test_db = common::TestDb::new("test_user_repository_crud.db");
-    let repo = DieselHubRepository::new(test_db.pool());
+    let hub_repo = DieselHubRepository::new(test_db.pool());
 
     // Create Hub
     let new_hub = NewHub { name: "TestHub" };
-    let hub = repo.create(&new_hub).unwrap();
+    let hub = hub_repo.create(&new_hub).unwrap();
 
-    let hub_repo = DieselRoleRepository::new(test_db.pool());
+    let role_repo = DieselRoleRepository::new(test_db.pool());
 
     let new_role = NewRole { name: "TestRole" };
 
-    let role = hub_repo.create(&new_role).unwrap();
+    let role = role_repo.create(&new_role).unwrap();
 
     let user_repo = DieselUserRepository::new(test_db.pool());
 
@@ -79,6 +79,8 @@ fn test_user_repository_crud() {
     let user = user_repo.create(new_user).unwrap();
     assert_eq!(user.name, Some("TestUser".to_string()));
     assert_eq!(user.email, "test@test.test");
+    let created_at = user.created_at;
+    let original_updated_at = user.updated_at;
 
     let inserted = user_repo.assign_roles(user.id, &[role.id]).unwrap();
     assert!(inserted == 1);
@@ -115,6 +117,8 @@ fn test_user_repository_crud() {
         .unwrap();
     assert_eq!(user.name, Some("new name".to_string()));
     assert!(user_repo.verify_password("new password", &user.password_hash));
+    assert!(user.updated_at > original_updated_at);
+    assert_eq!(user.created_at, created_at);
 
     user_repo.assign_roles(user.id, &[]).unwrap();
 

@@ -1,4 +1,5 @@
 use bcrypt::{DEFAULT_COST, hash, verify};
+use chrono::Utc;
 use diesel::prelude::*;
 use diesel::sql_query;
 use diesel::sql_types::{Integer, Text};
@@ -133,6 +134,7 @@ impl UserRepository for DieselUserRepository<'_> {
         let db_updates = DbUpdateUser {
             name: updates.name,
             password_hash,
+            updated_at: Utc::now().naive_utc(),
         };
 
         let user = diesel::update(users::table)
