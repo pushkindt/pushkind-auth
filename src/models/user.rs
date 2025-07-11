@@ -5,9 +5,10 @@ use diesel::prelude::*;
 use crate::domain::user::{NewUser as DomainNewUser, User as DomainUser};
 use crate::models::hub::Hub;
 
-#[derive(Debug, Clone, Identifiable, Associations, Queryable)]
+#[derive(Debug, Clone, Identifiable, Associations, Queryable, QueryableByName)]
 #[diesel(belongs_to(Hub, foreign_key=hub_id))]
 #[diesel(table_name = crate::schema::users)]
+#[diesel(foreign_derive)]
 /// Diesel model for [`crate::domain::user::User`].
 pub struct User {
     pub id: i32,

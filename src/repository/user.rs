@@ -1,7 +1,9 @@
 use bcrypt::{DEFAULT_COST, hash, verify};
 use diesel::prelude::*;
+use diesel::sql_query;
+use diesel::sql_types::{Integer, Text};
 
-use crate::db::{DbPool, lower, lower_nullable};
+use crate::db::DbPool;
 use crate::domain::role::Role;
 use crate::domain::user::{NewUser, UpdateUser, User};
 use crate::models::role::{NewUserRole as DbNewUserRole, Role as DbRole};
@@ -183,28 +185,30 @@ impl UserRepository for DieselUserRepository<'_> {
             .execute(&mut connection)?;
         Ok(result)
     }
-    fn search(&self, hub_id: i32, role: &str, query: &str) -> RepositoryResult<Vec<User>> {
-        use crate::schema::roles;
-        use crate::schema::user_roles;
-        use crate::schema::users;
 
+    fn search(&self, hub_id: i32, role: &str, query: &str) -> RepositoryResult<Vec<User>> {
         let mut connection = self.pool.get()?;
 
-        // find users with the specific role where LOWER(user.name) == LOWER(query)
-        // or LOWER(user.email) == LOWER(query)
-        let pattern = format!("%{}%", query.to_lowercase());
+        let match_query = format!("{}*", query.to_lowercase());
 
-        let results = users::table
-            .inner_join(user_roles::table.inner_join(roles::table))
-            .filter(roles::name.eq(role))
-            .filter(users::hub_id.eq(hub_id))
-            .filter(
-                lower_nullable(users::name)
-                    .like(&pattern)
-                    .or(lower(users::email).like(&pattern)),
+        let results = sql_query(
+            r#"
+            SELECT users.*
+            FROM users
+            JOIN user_fts ON users.id = user_fts.rowid
+            WHERE user_fts MATCH ?
+            AND users.hub_id = ?
+            AND EXISTS (
+                SELECT 1 FROM user_roles ur
+                JOIN roles r ON ur.role_id = r.id
+                WHERE ur.user_id = users.id AND r.name = ?
             )
-            .select(users::all_columns)
-            .load::<DbUser>(&mut connection)?;
+            "#,
+        )
+        .bind::<Text, _>(&match_query)
+        .bind::<Integer, _>(hub_id)
+        .bind::<Text, _>(role)
+        .load::<DbUser>(&mut connection)?;
 
         Ok(results.into_iter().map(User::from).collect())
     }
