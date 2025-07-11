@@ -6,7 +6,9 @@ use log::error;
 use tera::Context;
 
 use crate::db::DbPool;
+use crate::domain::hub::NewHub;
 use crate::domain::menu::NewMenu;
+use crate::domain::role::NewRole;
 use crate::forms::main::{AddHubForm, AddMenuForm, AddRoleForm, UpdateUserForm};
 use crate::models::auth::AuthenticatedUser;
 use crate::repository::hub::DieselHubRepository;
@@ -28,7 +30,9 @@ pub async fn add_role(
 
     let repo = DieselRoleRepository::new(&pool);
 
-    match repo.create((&form).into()) {
+    let new_role: NewRole = (&form).into();
+
+    match repo.create(&new_role) {
         Ok(_) => {
             FlashMessage::success("Роль добавлена.").send();
         }
@@ -164,7 +168,9 @@ pub async fn add_hub(
 
     let repo = DieselHubRepository::new(&pool);
 
-    match repo.create((&form).into()) {
+    let new_hub: NewHub = (&form).into();
+
+    match repo.create(&new_hub) {
         Ok(_) => {
             FlashMessage::success("Хаб добавлен.").send();
         }
@@ -253,7 +259,7 @@ pub async fn add_menu(
         hub_id: user.hub_id,
     };
 
-    match repo.create(new_menu) {
+    match repo.create(&new_menu) {
         Ok(_) => {
             FlashMessage::success("Меню добавлено.").send();
         }

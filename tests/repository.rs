@@ -21,7 +21,7 @@ fn test_hub_repository_crud() {
 
     // Create
     let new_hub = NewHub { name: "TestHub" };
-    let hub = repo.create(new_hub).unwrap();
+    let hub = repo.create(&new_hub).unwrap();
     assert_eq!(hub.name, "TestHub");
 
     // Get by id
@@ -43,7 +43,7 @@ fn test_hub_repository_crud() {
         url: "/test",
         hub_id: hub.id,
     };
-    menu_repo.create(new_menu).unwrap();
+    menu_repo.create(&new_menu).unwrap();
     assert_eq!(menu_repo.list(hub.id).unwrap().len(), 1);
 
     repo.delete(hub.id).unwrap();
@@ -55,19 +55,19 @@ fn test_hub_repository_crud() {
 #[test]
 fn test_user_repository_crud() {
     let test_db = common::TestDb::new("test_user_repository_crud.db");
-    let repo = DieselHubRepository::new(test_db.pool());
+    let hub_repo = DieselHubRepository::new(test_db.pool());
 
     // Create Hub
     let new_hub = NewHub { name: "TestHub" };
-    let hub = repo.create(new_hub).unwrap();
+    let hub = hub_repo.create(&new_hub).unwrap();
 
-    let repo = DieselRoleRepository::new(test_db.pool());
+    let role_repo = DieselRoleRepository::new(test_db.pool());
 
     let new_role = NewRole { name: "TestRole" };
 
-    let role = repo.create(new_role).unwrap();
+    let role = role_repo.create(&new_role).unwrap();
 
-    let repo = DieselUserRepository::new(test_db.pool());
+    let user_repo = DieselUserRepository::new(test_db.pool());
 
     // Create User
     let new_user = NewUser {
@@ -76,36 +76,37 @@ fn test_user_repository_crud() {
         email: "test@test.test",
         password: "test",
     };
-    let user = repo.create(new_user).unwrap();
+    let user = user_repo.create(new_user).unwrap();
     assert_eq!(user.name, Some("TestUser".to_string()));
     assert_eq!(user.email, "test@test.test");
     let created_at = user.created_at;
     let original_updated_at = user.updated_at;
 
-    let inserted = repo.assign_roles(user.id, &[role.id]).unwrap();
+    let inserted = user_repo.assign_roles(user.id, &[role.id]).unwrap();
     assert!(inserted == 1);
 
     // Get by email
-    let found = repo.get_by_email("test@test.test", hub.id).unwrap();
+    let found = user_repo.get_by_email("test@test.test", hub.id).unwrap();
     assert!(found.is_some());
 
     // List
-    let users = repo.list(hub.id).unwrap();
+    let users = user_repo.list(hub.id).unwrap();
     assert_eq!(users.len(), 1);
     assert_eq!(users[0].1.len(), 1);
 
-    assert!(repo.verify_password("test", &user.password_hash));
+    assert!(user_repo.verify_password("test", &user.password_hash));
 
     assert!(
-        repo.login("test@test.test", "test", hub.id)
+        user_repo
+            .login("test@test.test", "test", hub.id)
             .is_ok_and(|u| u.is_some())
     );
 
-    let user_roles = repo.get_roles(user.id).unwrap();
+    let user_roles = user_repo.get_roles(user.id).unwrap();
 
     assert!(user_roles.iter().any(|r| r.name == role.name));
 
-    let user = repo
+    let user = user_repo
         .update(
             user.id,
             UpdateUser {
@@ -115,16 +116,16 @@ fn test_user_repository_crud() {
         )
         .unwrap();
     assert_eq!(user.name, Some("new name".to_string()));
-    assert!(repo.verify_password("new password", &user.password_hash));
+    assert!(user_repo.verify_password("new password", &user.password_hash));
     assert!(user.updated_at > original_updated_at);
     assert_eq!(user.created_at, created_at);
 
-    repo.assign_roles(user.id, &[]).unwrap();
+    user_repo.assign_roles(user.id, &[]).unwrap();
 
-    let roles = repo.get_roles(user.id).unwrap();
+    let roles = user_repo.get_roles(user.id).unwrap();
     assert!(roles.is_empty());
 
-    repo.delete(user.id).unwrap();
+    user_repo.delete(user.id).unwrap();
 }
 
 #[test]
@@ -134,7 +135,7 @@ fn test_role_repository_crud() {
 
     // Create
     let new_role = NewRole { name: "TestRole" };
-    let role = repo.create(new_role).unwrap();
+    let role = repo.create(&new_role).unwrap();
     assert_eq!(role.name, "TestRole");
 
     // Get by id
@@ -158,7 +159,7 @@ fn test_email_lowercase_and_login_case_insensitive() {
     let hub_repo = DieselHubRepository::new(test_db.pool());
 
     // Create hub
-    let hub = hub_repo.create(NewHub { name: "CaseHub" }).unwrap();
+    let hub = hub_repo.create(&NewHub { name: "CaseHub" }).unwrap();
 
     let user_repo = DieselUserRepository::new(test_db.pool());
 
@@ -173,7 +174,8 @@ fn test_email_lowercase_and_login_case_insensitive() {
     assert_eq!(user.email, "mixed@example.com");
 
     // Login should be case-insensitive
-    let login = user_repo.login("MIXED@EXAMPLE.COM", "pwd", hub.id)
+    let login = user_repo
+        .login("MIXED@EXAMPLE.COM", "pwd", hub.id)
         .expect("login query failed");
     assert!(login.is_some());
 

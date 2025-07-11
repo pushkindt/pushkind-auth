@@ -31,8 +31,14 @@ impl From<Hub> for DomainHub {
     }
 }
 
+impl<'a> From<&DomainNewHub<'a>> for NewHub<'a> {
+    fn from(domain: &DomainNewHub<'a>) -> Self {
+        Self { name: domain.name }
+    }
+}
+
 impl<'a> From<DomainNewHub<'a>> for NewHub<'a> {
     fn from(domain: DomainNewHub<'a>) -> Self {
-        Self { name: domain.name }
+        Self::from(&domain)
     }
 }

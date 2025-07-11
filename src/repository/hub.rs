@@ -44,7 +44,7 @@ impl HubRepository for DieselHubRepository<'_> {
         Ok(result.map(|db_hub| db_hub.into())) // Convert DbHub to DomainHub
     }
 
-    fn create(&self, new_hub: NewHub) -> RepositoryResult<Hub> {
+    fn create(&self, new_hub: &NewHub) -> RepositoryResult<Hub> {
         use crate::schema::hubs;
 
         let mut connection = self.pool.get()?;
