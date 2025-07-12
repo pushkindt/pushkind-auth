@@ -53,7 +53,7 @@ impl UserRepository for DieselUserRepository<'_> {
         Ok(result.map(|db_user| db_user.into())) // Convert DbUser to DomainUser
     }
 
-    fn create(&self, new_user: NewUser) -> RepositoryResult<User> {
+    fn create(&self, new_user: &NewUser) -> RepositoryResult<User> {
         use crate::schema::users;
 
         let mut connection = self.pool.get()?;
@@ -119,7 +119,7 @@ impl UserRepository for DieselUserRepository<'_> {
         Ok(results.into_iter().map(|db_role| db_role.into()).collect())
     }
 
-    fn update(&self, user_id: i32, updates: UpdateUser) -> RepositoryResult<User> {
+    fn update(&self, user_id: i32, updates: &UpdateUser) -> RepositoryResult<User> {
         use crate::schema::users;
 
         let mut connection = self.pool.get()?;

@@ -145,7 +145,9 @@ pub async fn update_user(
         }
     }
 
-    match repo.update(form.id, (&form).into()) {
+    let update_user = (&form).into();
+
+    match repo.update(form.id, &update_user) {
         Ok(_) => {
             FlashMessage::success("Пользователь изменён.").send();
         }

@@ -19,7 +19,7 @@ use crate::repository::errors::RepositoryResult;
 pub trait UserRepository {
     fn get_by_id(&self, id: i32) -> RepositoryResult<Option<User>>;
     fn get_by_email(&self, email: &str, hub_id: i32) -> RepositoryResult<Option<User>>;
-    fn create(&self, new_user: NewUser) -> RepositoryResult<User>;
+    fn create(&self, new_user: &NewUser) -> RepositoryResult<User>;
     fn list(&self, hub_id: i32) -> RepositoryResult<Vec<(User, Vec<Role>)>>;
     fn verify_password(&self, password: &str, stored_hash: &str) -> bool;
     fn login(&self, email: &str, password: &str, hub_id: i32) -> RepositoryResult<Option<User>> {
@@ -33,7 +33,7 @@ pub trait UserRepository {
     }
     fn get_roles(&self, user_id: i32) -> RepositoryResult<Vec<Role>>;
     fn assign_roles(&self, user_id: i32, role_ids: &[i32]) -> RepositoryResult<usize>;
-    fn update(&self, user_id: i32, updates: UpdateUser) -> RepositoryResult<User>;
+    fn update(&self, user_id: i32, updates: &UpdateUser) -> RepositoryResult<User>;
     fn delete(&self, user_id: i32) -> RepositoryResult<()>;
     fn search(&self, hub_id: i32, role: &str, query: &str) -> RepositoryResult<Vec<User>>;
 }
