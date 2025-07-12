@@ -2,6 +2,7 @@
 
 use std::env;
 
+use actix_cors::Cors;
 use actix_identity::IdentityMiddleware;
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::cookie::Key;
@@ -9,7 +10,6 @@ use actix_web::{App, HttpServer, middleware, web};
 use actix_web_flash_messages::{FlashMessagesFramework, storage::CookieMessageStore};
 use dotenvy::dotenv;
 use log::error;
-use actix_cors::Cors;
 
 use pushkind_auth::db::establish_connection_pool;
 use pushkind_auth::middleware::RedirectUnauthorized;
@@ -18,8 +18,9 @@ use pushkind_auth::routes::admin::{
     add_hub, add_menu, add_role, delete_hub, delete_menu, delete_role, delete_user, update_user,
     user_modal,
 };
+use pushkind_auth::routes::api::{api_v1_id, api_v1_users};
 use pushkind_auth::routes::auth::{login, logout, register, signin, signup};
-use pushkind_auth::routes::main::{api_v1_id, api_v1_users, index, save_user};
+use pushkind_auth::routes::main::{index, save_user};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -89,13 +90,12 @@ async fn main() -> std::io::Result<()> {
                     .service(add_menu)
                     .service(delete_menu),
             )
+            .service(web::scope("/api").service(api_v1_id).service(api_v1_users))
             .service(
                 web::scope("")
                     .wrap(RedirectUnauthorized)
                     .service(index)
-                    .service(save_user)
-                    .service(api_v1_id)
-                    .service(api_v1_users),
+                    .service(save_user),
             )
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(server_config.clone()))
