@@ -76,7 +76,7 @@ fn test_user_repository_crud() {
         email: "test@test.test",
         password: "test",
     };
-    let user = user_repo.create(new_user).unwrap();
+    let user = user_repo.create(&new_user).unwrap();
     assert_eq!(user.name, Some("TestUser".to_string()));
     assert_eq!(user.email, "test@test.test");
     let created_at = user.created_at;
@@ -109,7 +109,7 @@ fn test_user_repository_crud() {
     let user = user_repo
         .update(
             user.id,
-            UpdateUser {
+            &UpdateUser {
                 name: Some("new name"),
                 password: Some("new password"),
             },
@@ -170,7 +170,7 @@ fn test_email_lowercase_and_login_case_insensitive() {
         email: "Mixed@Example.COM",
         password: "pwd",
     };
-    let user = user_repo.create(new_user).unwrap();
+    let user = user_repo.create(&new_user).unwrap();
     assert_eq!(user.email, "mixed@example.com");
 
     // Login should be case-insensitive
@@ -186,6 +186,6 @@ fn test_email_lowercase_and_login_case_insensitive() {
         email: "MIXED@example.com",
         password: "pwd",
     };
-    let res = user_repo.create(dup_user);
+    let res = user_repo.create(&dup_user);
     assert!(res.is_err());
 }
