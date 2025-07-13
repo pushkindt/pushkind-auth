@@ -28,3 +28,25 @@ impl<'a> From<&'a RegisterForm> for DomainNewUser<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::domain::user::NewUser as DomainNewUser;
+    use crate::forms::auth::RegisterForm;
+
+    #[test]
+    fn test_register_form_into_domain_new_user() {
+        let form = RegisterForm {
+            email: "test@example.com".to_string(),
+            password: "secret".to_string(),
+            hub_id: 7,
+        };
+
+        let user: DomainNewUser = (&form).into();
+
+        assert_eq!(user.email, "test@example.com");
+        assert_eq!(user.password, "secret");
+        assert_eq!(user.hub_id, 7);
+        assert_eq!(user.name, None);
+    }
+}

@@ -22,7 +22,7 @@ struct AuthQueryParams {
     next: Option<String>,
 }
 
-pub fn get_success_and_failure_redirects(base_url: &str, next: Option<&str>) -> (String, String) {
+fn get_success_and_failure_redirects(base_url: &str, next: Option<&str>) -> (String, String) {
     let success_redirect_url = match next {
         Some(s) if !s.is_empty() => s.to_string(),
         _ => "/".to_string(),
@@ -188,4 +188,30 @@ pub async fn signup(
     context.insert("next", &query_params.next);
 
     render_template("auth/register.html", &context)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn redirects_with_next_param() {
+        let (success, failure) = get_success_and_failure_redirects("/auth/signin", Some("/dashboard"));
+        assert_eq!(success, "/dashboard");
+        assert_eq!(failure, "/auth/signin?next=/dashboard");
+    }
+
+    #[test]
+    fn redirects_without_next_param() {
+        let (success, failure) = get_success_and_failure_redirects("/auth/signup", None);
+        assert_eq!(success, "/");
+        assert_eq!(failure, "/auth/signup");
+    }
+
+    #[test]
+    fn redirects_with_empty_next() {
+        let (success, failure) = get_success_and_failure_redirects("/auth/signin", Some(""));
+        assert_eq!(success, "/");
+        assert_eq!(failure, "/auth/signin");
+    }
 }

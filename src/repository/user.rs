@@ -14,7 +14,7 @@ use crate::repository::errors::{RepositoryError, RepositoryResult};
 
 /// Diesel implementation of [`UserRepository`].
 pub struct DieselUserRepository<'a> {
-    pub pool: &'a DbPool,
+    pool: &'a DbPool,
 }
 
 impl<'a> DieselUserRepository<'a> {

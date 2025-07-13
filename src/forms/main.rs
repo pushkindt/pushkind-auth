@@ -74,3 +74,61 @@ pub struct AddMenuForm {
     pub name: String,
     pub url: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::domain::hub::NewHub as DomainNewHub;
+    use crate::domain::role::NewRole as DomainNewRole;
+    use crate::domain::user::UpdateUser as DomainUpdateUser;
+    use crate::forms::main::{AddHubForm, AddRoleForm, SaveUserForm, UpdateUserForm};
+
+    #[test]
+    fn test_save_user_form_into_domain_update_user() {
+        let form = SaveUserForm {
+            name: Some("Alice".to_string()),
+            password: Some("password".to_string()),
+        };
+
+        let update: DomainUpdateUser = (&form).into();
+
+        assert_eq!(update.name, Some("Alice"));
+        assert_eq!(update.password, Some("password"));
+    }
+
+    #[test]
+    fn test_add_role_form_into_domain_new_role() {
+        let form = AddRoleForm {
+            name: "editor".to_string(),
+        };
+
+        let role: DomainNewRole = (&form).into();
+
+        assert_eq!(role.name, "editor");
+    }
+
+    #[test]
+    fn test_update_user_form_into_domain_update_user() {
+        let form = UpdateUserForm {
+            id: 1,
+            name: Some("Bob".to_string()),
+            password: Some("pwd".to_string()),
+            roles: vec![1, 2],
+        };
+
+        let update: DomainUpdateUser = (&form).into();
+
+        assert_eq!(update.name, Some("Bob"));
+        assert_eq!(update.password, Some("pwd"));
+    }
+
+    #[test]
+    fn test_add_hub_form_into_domain_new_hub() {
+        let form = AddHubForm {
+            name: "My Hub".to_string(),
+        };
+
+        let hub: DomainNewHub = (&form).into();
+
+        assert_eq!(hub.name, "My Hub");
+    }
+}

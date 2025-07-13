@@ -1806,7 +1806,6 @@ dependencies = [
  "actix-session",
  "actix-web",
  "actix-web-flash-messages",
- "anyhow",
  "bcrypt",
  "chrono",
  "diesel",

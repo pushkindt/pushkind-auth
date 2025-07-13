@@ -24,7 +24,7 @@ pub async fn add_role(
     pool: web::Data<DbPool>,
     web::Form(form): web::Form<AddRoleForm>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin") {
+    if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
     }
 
@@ -49,7 +49,7 @@ pub async fn user_modal(
     user: AuthenticatedUser,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin") {
+    if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
     }
 
@@ -85,7 +85,7 @@ pub async fn delete_user(
     user: AuthenticatedUser,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin") {
+    if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
     }
 
@@ -123,7 +123,7 @@ pub async fn update_user(
     pool: web::Data<DbPool>,
     form: web::Bytes,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin") {
+    if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
     }
 
@@ -164,7 +164,7 @@ pub async fn add_hub(
     pool: web::Data<DbPool>,
     web::Form(form): web::Form<AddHubForm>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin") {
+    if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
     }
 
@@ -189,7 +189,7 @@ pub async fn delete_role(
     user: AuthenticatedUser,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin") {
+    if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
     }
 
@@ -219,7 +219,7 @@ pub async fn delete_hub(
     user: AuthenticatedUser,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin") {
+    if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
     }
 
@@ -249,7 +249,7 @@ pub async fn add_menu(
     pool: web::Data<DbPool>,
     web::Form(form): web::Form<AddMenuForm>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin") {
+    if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
     }
 
@@ -278,7 +278,7 @@ pub async fn delete_menu(
     user: AuthenticatedUser,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin") {
+    if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
     }
 
