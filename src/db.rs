@@ -6,11 +6,9 @@
 
 use std::time::Duration;
 
-use anyhow::Context;
 use diesel::connection::SimpleConnection;
-use diesel::r2d2::{ConnectionManager, CustomizeConnection, Pool, PooledConnection};
+use diesel::r2d2::{ConnectionManager, CustomizeConnection, Pool, PoolError, PooledConnection};
 use diesel::sqlite::SqliteConnection;
-use log::error;
 
 pub type DbPool = Pool<ConnectionManager<SqliteConnection>>;
 pub type DbConnection = PooledConnection<ConnectionManager<SqliteConnection>>;
@@ -45,7 +43,7 @@ impl CustomizeConnection<SqliteConnection, diesel::r2d2::Error> for ConnectionOp
 }
 
 /// Create a Diesel connection pool for the given database URL.
-pub fn establish_connection_pool(database_url: &str) -> anyhow::Result<DbPool> {
+pub fn establish_connection_pool(database_url: &str) -> Result<DbPool, PoolError> {
     let manager = ConnectionManager::<SqliteConnection>::new(database_url);
     Pool::builder()
         .connection_customizer(Box::new(ConnectionOptions {
@@ -54,17 +52,4 @@ pub fn establish_connection_pool(database_url: &str) -> anyhow::Result<DbPool> {
             busy_timeout: Some(Duration::from_secs(30)),
         }))
         .build(manager)
-        .context("Failed to build Diesel SQLite connection pool")
-}
-
-/// Retrieve a connection from the pool and convert pooling errors into
-/// [`anyhow::Error`].
-fn get_connection(pool: &DbPool) -> anyhow::Result<DbConnection> {
-    match pool.get() {
-        Ok(conn) => Ok(conn),
-        Err(e) => {
-            error!("Failed to get connection from pool: {e}");
-            Err(anyhow::anyhow!("Failed to get connection from pool: {}", e))
-        }
-    }
 }

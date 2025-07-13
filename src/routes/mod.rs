@@ -26,7 +26,7 @@ lazy_static! {
     };
 }
 
-pub(crate) fn alert_level_to_str(level: &Level) -> &'static str {
+fn alert_level_to_str(level: &Level) -> &'static str {
     match level {
         Level::Error => "danger",
         Level::Warning => "warning",
