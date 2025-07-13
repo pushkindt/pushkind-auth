@@ -26,7 +26,7 @@ lazy_static! {
     };
 }
 
-pub fn alert_level_to_str(level: &Level) -> &'static str {
+pub(crate) fn alert_level_to_str(level: &Level) -> &'static str {
     match level {
         Level::Error => "danger",
         Level::Warning => "warning",
@@ -55,4 +55,19 @@ fn render_template(template: &str, context: &Context) -> HttpResponse {
         error!("Failed to render template '{template}': {e}");
         String::new()
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web_flash_messages::Level;
+
+    #[test]
+    fn alert_level_mappings() {
+        assert_eq!(alert_level_to_str(&Level::Error), "danger");
+        assert_eq!(alert_level_to_str(&Level::Warning), "warning");
+        assert_eq!(alert_level_to_str(&Level::Success), "success");
+        assert_eq!(alert_level_to_str(&Level::Info), "info");
+        assert_eq!(alert_level_to_str(&Level::Debug), "info");
+    }
 }

@@ -8,7 +8,7 @@ use crate::repository::errors::RepositoryResult;
 
 /// Diesel implementation of [`HubRepository`].
 pub struct DieselHubRepository<'a> {
-    pub pool: &'a DbPool,
+    pool: &'a DbPool,
 }
 
 impl<'a> DieselHubRepository<'a> {

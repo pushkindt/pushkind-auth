@@ -17,7 +17,7 @@ pub type DbConnection = PooledConnection<ConnectionManager<SqliteConnection>>;
 
 #[derive(Debug)]
 /// Options that are applied each time a connection is acquired from the pool.
-pub struct ConnectionOptions {
+struct ConnectionOptions {
     /// Enable Write Ahead Logging mode for SQLite.
     pub enable_wal: bool,
     /// Enforce foreign key checks for SQLite.
@@ -59,7 +59,7 @@ pub fn establish_connection_pool(database_url: &str) -> anyhow::Result<DbPool> {
 
 /// Retrieve a connection from the pool and convert pooling errors into
 /// [`anyhow::Error`].
-pub fn get_connection(pool: &DbPool) -> anyhow::Result<DbConnection> {
+fn get_connection(pool: &DbPool) -> anyhow::Result<DbConnection> {
     match pool.get() {
         Ok(conn) => Ok(conn),
         Err(e) => {
