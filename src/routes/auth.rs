@@ -7,6 +7,7 @@ use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use log::error;
 use serde::Deserialize;
 use tera::Context;
+use validator::Validate;
 
 use crate::db::DbPool;
 use crate::forms::auth::{LoginForm, RegisterForm};
@@ -15,25 +16,13 @@ use crate::models::config::ServerConfig;
 use crate::repository::hub::DieselHubRepository;
 use crate::repository::user::DieselUserRepository;
 use crate::repository::{HubRepository, UserRepository};
-use crate::routes::{alert_level_to_str, redirect, render_template};
+use crate::routes::{
+    alert_level_to_str, get_success_and_failure_redirects, redirect, render_template,
+};
 
 #[derive(Deserialize)]
 struct AuthQueryParams {
     next: Option<String>,
-}
-
-fn get_success_and_failure_redirects(base_url: &str, next: Option<&str>) -> (String, String) {
-    let success_redirect_url = match next {
-        Some(s) if !s.is_empty() => s.to_string(),
-        _ => "/".to_string(),
-    };
-
-    let failure_redirect_url = match next {
-        Some(s) if !s.is_empty() => format!("{base_url}?next={s}"),
-        _ => base_url.to_string(),
-    };
-
-    (success_redirect_url, failure_redirect_url)
 }
 
 #[post("/login")]
@@ -48,6 +37,11 @@ pub async fn login(
 
     let (success_redirect_url, failure_redirect_url) =
         get_success_and_failure_redirects("/auth/signin", query_params.next.as_deref());
+
+    if let Err(e) = form.validate() {
+        FlashMessage::error(format!("Ошибка валидации формы: {e}")).send();
+        return redirect(&failure_redirect_url);
+    }
 
     let user = match repo.login(&form.email, &form.password, form.hub_id) {
         Ok(Some(user)) => user,
@@ -98,6 +92,11 @@ pub async fn register(
 
     let (_, failure_redirect_url) =
         get_success_and_failure_redirects("/auth/signup", query_params.next.as_deref());
+
+    if let Err(e) = form.validate() {
+        FlashMessage::error(format!("Ошибка валидации формы: {e}")).send();
+        return redirect(&failure_redirect_url);
+    }
 
     let new_user = (&form).into();
     match repo.create(&new_user) {
@@ -188,30 +187,4 @@ pub async fn signup(
     context.insert("next", &query_params.next);
 
     render_template("auth/register.html", &context)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn redirects_with_next_param() {
-        let (success, failure) = get_success_and_failure_redirects("/auth/signin", Some("/dashboard"));
-        assert_eq!(success, "/dashboard");
-        assert_eq!(failure, "/auth/signin?next=/dashboard");
-    }
-
-    #[test]
-    fn redirects_without_next_param() {
-        let (success, failure) = get_success_and_failure_redirects("/auth/signup", None);
-        assert_eq!(success, "/");
-        assert_eq!(failure, "/auth/signup");
-    }
-
-    #[test]
-    fn redirects_with_empty_next() {
-        let (success, failure) = get_success_and_failure_redirects("/auth/signin", Some(""));
-        assert_eq!(success, "/");
-        assert_eq!(failure, "/auth/signin");
-    }
 }

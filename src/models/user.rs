@@ -34,7 +34,7 @@ pub struct NewUser {
 #[diesel(table_name = crate::schema::users)]
 /// Data used when updating a [`User`] record.
 pub struct UpdateUser<'a> {
-    pub name: Option<&'a str>,
+    pub name: &'a str,
     pub password_hash: String,
     pub updated_at: NaiveDateTime,
 }
