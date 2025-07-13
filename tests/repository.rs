@@ -110,7 +110,7 @@ fn test_user_repository_crud() {
         .update(
             user.id,
             &UpdateUser {
-                name: Some("new name"),
+                name: "new name",
                 password: Some("new password"),
             },
         )

@@ -28,6 +28,6 @@ pub struct NewUser<'a> {
 #[derive(Clone, Debug, Deserialize)]
 /// Optional fields that can be updated for a user.
 pub struct UpdateUser<'a> {
-    pub name: Option<&'a str>,
+    pub name: &'a str,
     pub password: Option<&'a str>,
 }

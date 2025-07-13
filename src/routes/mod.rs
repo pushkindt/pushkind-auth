@@ -69,6 +69,20 @@ fn render_template(template: &str, context: &Context) -> HttpResponse {
     }))
 }
 
+fn get_success_and_failure_redirects(base_url: &str, next: Option<&str>) -> (String, String) {
+    let success_redirect_url = match next {
+        Some(s) if !s.is_empty() => s.to_string(),
+        _ => "/".to_string(),
+    };
+
+    let failure_redirect_url = match next {
+        Some(s) if !s.is_empty() => format!("{base_url}?next={s}"),
+        _ => base_url.to_string(),
+    };
+
+    (success_redirect_url, failure_redirect_url)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -95,5 +109,27 @@ mod tests {
         let resp = redirect("/target");
         assert_eq!(resp.status(), StatusCode::SEE_OTHER);
         assert_eq!(resp.headers().get(header::LOCATION).unwrap(), "/target");
+    }
+
+    #[test]
+    fn redirects_with_next_param() {
+        let (success, failure) =
+            get_success_and_failure_redirects("/auth/signin", Some("/dashboard"));
+        assert_eq!(success, "/dashboard");
+        assert_eq!(failure, "/auth/signin?next=/dashboard");
+    }
+
+    #[test]
+    fn redirects_without_next_param() {
+        let (success, failure) = get_success_and_failure_redirects("/auth/signup", None);
+        assert_eq!(success, "/");
+        assert_eq!(failure, "/auth/signup");
+    }
+
+    #[test]
+    fn redirects_with_empty_next() {
+        let (success, failure) = get_success_and_failure_redirects("/auth/signin", Some(""));
+        assert_eq!(success, "/");
+        assert_eq!(failure, "/auth/signin");
     }
 }
