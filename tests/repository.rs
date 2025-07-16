@@ -5,12 +5,12 @@ use pushkind_auth::domain::user::NewUser;
 use pushkind_auth::domain::user::UpdateUser;
 use pushkind_auth::repository::HubRepository;
 use pushkind_auth::repository::{MenuReader, MenuWriter};
-use pushkind_auth::repository::RoleRepository;
 use pushkind_auth::repository::UserRepository;
 use pushkind_auth::repository::hub::DieselHubRepository;
 use pushkind_auth::repository::menu::DieselMenuRepository;
 use pushkind_auth::repository::role::DieselRoleRepository;
 use pushkind_auth::repository::user::DieselUserRepository;
+use pushkind_auth::repository::{RoleReader, RoleWriter};
 
 mod common;
 
