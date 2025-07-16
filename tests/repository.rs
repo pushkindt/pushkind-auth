@@ -4,7 +4,7 @@ use pushkind_auth::domain::role::NewRole;
 use pushkind_auth::domain::user::NewUser;
 use pushkind_auth::domain::user::UpdateUser;
 use pushkind_auth::repository::HubRepository;
-use pushkind_auth::repository::MenuRepository;
+use pushkind_auth::repository::{MenuReader, MenuWriter};
 use pushkind_auth::repository::RoleRepository;
 use pushkind_auth::repository::UserRepository;
 use pushkind_auth::repository::hub::DieselHubRepository;

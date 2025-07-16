@@ -54,8 +54,14 @@ pub trait RoleRepository {
     fn delete(&self, role_id: i32) -> RepositoryResult<usize>;
 }
 
-pub trait MenuRepository {
-    fn create(&self, new_menu: &NewMenu) -> RepositoryResult<Menu>;
+pub trait MenuReader {
     fn list(&self, hub_id: i32) -> RepositoryResult<Vec<Menu>>;
+}
+
+pub trait MenuWriter {
+    fn create(&self, new_menu: &NewMenu) -> RepositoryResult<Menu>;
     fn delete(&self, menu_id: i32) -> RepositoryResult<usize>;
 }
+
+/// Backwards compatibility alias combining [`MenuReader`] and [`MenuWriter`].
+pub trait MenuRepository: MenuReader + MenuWriter {}
