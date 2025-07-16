@@ -7,10 +7,10 @@ use pushkind_auth::repository::hub::DieselHubRepository;
 use pushkind_auth::repository::menu::DieselMenuRepository;
 use pushkind_auth::repository::role::DieselRoleRepository;
 use pushkind_auth::repository::user::DieselUserRepository;
-use pushkind_auth::repository::{UserReader, UserWriter};
 use pushkind_auth::repository::{HubReader, HubWriter};
 use pushkind_auth::repository::{MenuReader, MenuWriter};
 use pushkind_auth::repository::{RoleReader, RoleWriter};
+use pushkind_auth::repository::{UserReader, UserWriter};
 
 mod common;
 
