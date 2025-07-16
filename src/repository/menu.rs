@@ -3,8 +3,8 @@ use diesel::prelude::*;
 use crate::db::DbPool;
 use crate::domain::menu::{Menu, NewMenu};
 use crate::models::menu::{Menu as DbMenu, NewMenu as NewDbMenu};
-use crate::repository::{MenuReader, MenuWriter, MenuRepository};
 use crate::repository::errors::RepositoryResult;
+use crate::repository::{MenuReader, MenuRepository, MenuWriter};
 
 /// Diesel implementation of [`MenuReader`] and [`MenuWriter`].
 pub struct DieselMenuRepository<'a> {
@@ -55,7 +55,6 @@ impl MenuReader for DieselMenuRepository<'_> {
 
         Ok(results.into_iter().map(|db_menu| db_menu.into()).collect()) // Convert DbMenu to DomainMenu
     }
-
 }
 
 impl MenuRepository for DieselMenuRepository<'_> {}

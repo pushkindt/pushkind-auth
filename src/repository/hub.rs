@@ -3,8 +3,8 @@ use diesel::prelude::*;
 use crate::db::DbPool;
 use crate::domain::hub::{Hub, NewHub};
 use crate::models::hub::{Hub as DbHub, NewHub as NewDbHub};
-use crate::repository::{HubReader, HubWriter};
 use crate::repository::errors::RepositoryResult;
+use crate::repository::{HubReader, HubWriter};
 
 /// Diesel implementation of [`HubReader`] and [`HubWriter`].
 pub struct DieselHubRepository<'a> {
@@ -53,7 +53,6 @@ impl HubReader for DieselHubRepository<'_> {
 
         Ok(results.into_iter().map(|db_hub| db_hub.into()).collect()) // Convert DbHub to DomainHub
     }
-
 }
 
 impl HubWriter for DieselHubRepository<'_> {
