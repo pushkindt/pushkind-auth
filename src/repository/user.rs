@@ -199,22 +199,25 @@ impl UserWriter for DieselUserRepository<'_> {
 
         let mut connection = self.pool.get()?;
 
-        diesel::delete(user_roles::table)
-            .filter(user_roles::user_id.eq(user_id))
-            .execute(&mut connection)?;
+        connection
+            .transaction::<_, diesel::result::Error, _>(|conn| {
+                diesel::delete(user_roles::table)
+                    .filter(user_roles::user_id.eq(user_id))
+                    .execute(conn)?;
 
-        let new_user_roles = role_ids
-            .iter()
-            .map(|role_id| DbNewUserRole {
-                user_id,
-                role_id: *role_id,
+                let new_user_roles = role_ids
+                    .iter()
+                    .map(|role_id| DbNewUserRole {
+                        user_id,
+                        role_id: *role_id,
+                    })
+                    .collect::<Vec<DbNewUserRole>>();
+
+                diesel::insert_into(user_roles::table)
+                    .values(&new_user_roles)
+                    .execute(conn)
             })
-            .collect::<Vec<DbNewUserRole>>();
-
-        let result = diesel::insert_into(user_roles::table)
-            .values(&new_user_roles)
-            .execute(&mut connection)?;
-        Ok(result)
+            .map_err(Into::into)
     }
 }
 

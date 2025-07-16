@@ -189,3 +189,35 @@ fn test_email_lowercase_and_login_case_insensitive() {
     let res = user_repo.create(&dup_user);
     assert!(res.is_err());
 }
+
+#[test]
+fn test_assign_roles_atomic() {
+    let test_db = common::TestDb::new("test_assign_roles_atomic.db");
+    let hub_repo = DieselHubRepository::new(test_db.pool());
+    let role_repo = DieselRoleRepository::new(test_db.pool());
+    let user_repo = DieselUserRepository::new(test_db.pool());
+
+    let hub = hub_repo.create(&NewHub { name: "AtomicHub" }).unwrap();
+    let role = role_repo.create(&NewRole { name: "AtomicRole" }).unwrap();
+
+    let user = user_repo
+        .create(&NewUser {
+            name: Some("Atomic"),
+            hub_id: hub.id,
+            email: "atomic@example.com",
+            password: "pwd",
+        })
+        .unwrap();
+
+    // Assign a valid role
+    user_repo.assign_roles(user.id, &[role.id]).unwrap();
+
+    // Attempt to assign a nonexistent role to trigger an error
+    let res = user_repo.assign_roles(user.id, &[9999]);
+    assert!(res.is_err());
+
+    // Original role assignment should remain intact
+    let roles = user_repo.get_roles(user.id).unwrap();
+    assert_eq!(roles.len(), 1);
+    assert_eq!(roles[0].id, role.id);
+}
