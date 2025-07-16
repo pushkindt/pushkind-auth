@@ -12,7 +12,7 @@ use crate::db::DbPool;
 use crate::domain::role::Role;
 use crate::domain::user::User;
 use crate::models::config::ServerConfig;
-use crate::repository::UserRepository;
+use crate::repository::UserReader;
 use crate::repository::user::DieselUserRepository;
 
 #[derive(Debug, Serialize, Deserialize)]
