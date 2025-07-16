@@ -46,13 +46,21 @@ pub trait HubRepository {
     fn delete(&self, hub_id: i32) -> RepositoryResult<usize>;
 }
 
-pub trait RoleRepository {
+pub trait RoleReader {
     fn get_by_id(&self, id: i32) -> RepositoryResult<Option<Role>>;
     fn get_by_name(&self, name: &str) -> RepositoryResult<Option<Role>>;
-    fn create(&self, new_role: &NewRole) -> RepositoryResult<Role>;
     fn list(&self) -> RepositoryResult<Vec<Role>>;
+}
+
+pub trait RoleWriter {
+    fn create(&self, new_role: &NewRole) -> RepositoryResult<Role>;
     fn delete(&self, role_id: i32) -> RepositoryResult<usize>;
 }
+
+/// Convenience trait combining [`RoleReader`] and [`RoleWriter`].
+pub trait RoleRepository: RoleReader + RoleWriter {}
+
+impl<T> RoleRepository for T where T: RoleReader + RoleWriter {}
 
 pub trait MenuRepository {
     fn create(&self, new_menu: &NewMenu) -> RepositoryResult<Menu>;
