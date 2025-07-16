@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use crate::db::DbPool;
 use crate::models::auth::AuthenticatedUser;
-use crate::repository::UserRepository;
+use crate::repository::UserReader;
 use crate::repository::user::DieselUserRepository;
 
 #[derive(Deserialize)]

@@ -16,10 +16,9 @@ use crate::domain::role::{NewRole, Role};
 use crate::domain::user::{NewUser, UpdateUser, User};
 use crate::repository::errors::RepositoryResult;
 
-pub trait UserRepository {
+pub trait UserReader {
     fn get_by_id(&self, id: i32) -> RepositoryResult<Option<User>>;
     fn get_by_email(&self, email: &str, hub_id: i32) -> RepositoryResult<Option<User>>;
-    fn create(&self, new_user: &NewUser) -> RepositoryResult<User>;
     fn list(&self, hub_id: i32) -> RepositoryResult<Vec<(User, Vec<Role>)>>;
     fn verify_password(&self, password: &str, stored_hash: &str) -> bool;
     fn login(&self, email: &str, password: &str, hub_id: i32) -> RepositoryResult<Option<User>> {
@@ -32,30 +31,57 @@ pub trait UserRepository {
         Ok(None)
     }
     fn get_roles(&self, user_id: i32) -> RepositoryResult<Vec<Role>>;
-    fn assign_roles(&self, user_id: i32, role_ids: &[i32]) -> RepositoryResult<usize>;
-    fn update(&self, user_id: i32, updates: &UpdateUser) -> RepositoryResult<User>;
-    fn delete(&self, user_id: i32) -> RepositoryResult<()>;
     fn search(&self, hub_id: i32, role: &str, query: &str) -> RepositoryResult<Vec<User>>;
 }
 
-pub trait HubRepository {
+pub trait UserWriter {
+    fn create(&self, new_user: &NewUser) -> RepositoryResult<User>;
+    fn assign_roles(&self, user_id: i32, role_ids: &[i32]) -> RepositoryResult<usize>;
+    fn update(&self, user_id: i32, updates: &UpdateUser) -> RepositoryResult<User>;
+    fn delete(&self, user_id: i32) -> RepositoryResult<()>;
+}
+
+/// Convenience trait combining [`UserReader`] and [`UserWriter`].
+pub trait UserRepository: UserReader + UserWriter {}
+
+pub trait HubReader {
     fn get_by_id(&self, id: i32) -> RepositoryResult<Option<Hub>>;
     fn get_by_name(&self, name: &str) -> RepositoryResult<Option<Hub>>;
-    fn create(&self, new_hub: &NewHub) -> RepositoryResult<Hub>;
     fn list(&self) -> RepositoryResult<Vec<Hub>>;
+}
+
+pub trait HubWriter {
+    fn create(&self, new_hub: &NewHub) -> RepositoryResult<Hub>;
     fn delete(&self, hub_id: i32) -> RepositoryResult<usize>;
 }
 
-pub trait RoleRepository {
+pub trait HubRepository: HubReader + HubWriter {}
+impl<T: HubReader + HubWriter> HubRepository for T {}
+
+pub trait RoleReader {
     fn get_by_id(&self, id: i32) -> RepositoryResult<Option<Role>>;
     fn get_by_name(&self, name: &str) -> RepositoryResult<Option<Role>>;
-    fn create(&self, new_role: &NewRole) -> RepositoryResult<Role>;
     fn list(&self) -> RepositoryResult<Vec<Role>>;
+}
+
+pub trait RoleWriter {
+    fn create(&self, new_role: &NewRole) -> RepositoryResult<Role>;
     fn delete(&self, role_id: i32) -> RepositoryResult<usize>;
 }
 
-pub trait MenuRepository {
-    fn create(&self, new_menu: &NewMenu) -> RepositoryResult<Menu>;
+/// Convenience trait combining [`RoleReader`] and [`RoleWriter`].
+pub trait RoleRepository: RoleReader + RoleWriter {}
+
+impl<T> RoleRepository for T where T: RoleReader + RoleWriter {}
+
+pub trait MenuReader {
     fn list(&self, hub_id: i32) -> RepositoryResult<Vec<Menu>>;
+}
+
+pub trait MenuWriter {
+    fn create(&self, new_menu: &NewMenu) -> RepositoryResult<Menu>;
     fn delete(&self, menu_id: i32) -> RepositoryResult<usize>;
 }
+
+/// Backwards compatibility alias combining [`MenuReader`] and [`MenuWriter`].
+pub trait MenuRepository: MenuReader + MenuWriter {}

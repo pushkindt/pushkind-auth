@@ -12,7 +12,7 @@ use crate::repository::hub::DieselHubRepository;
 use crate::repository::menu::DieselMenuRepository;
 use crate::repository::role::DieselRoleRepository;
 use crate::repository::user::DieselUserRepository;
-use crate::repository::{HubRepository, MenuRepository, RoleRepository, UserRepository};
+use crate::repository::{HubReader, MenuReader, RoleReader, UserReader, UserWriter};
 use crate::routes::{alert_level_to_str, redirect, render_template};
 
 #[get("/")]

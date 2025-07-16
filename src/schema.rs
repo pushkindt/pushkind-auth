@@ -51,10 +51,4 @@ diesel::joinable!(user_roles -> roles (role_id));
 diesel::joinable!(user_roles -> users (user_id));
 diesel::joinable!(users -> hubs (hub_id));
 
-diesel::allow_tables_to_appear_in_same_query!(
-    hubs,
-    menu,
-    roles,
-    user_roles,
-    users,
-);
+diesel::allow_tables_to_appear_in_same_query!(hubs, menu, roles, user_roles, users,);

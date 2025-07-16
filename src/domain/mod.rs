@@ -4,6 +4,6 @@
 //! persistence or transport concerns.
 
 pub mod hub;
+pub mod menu;
 pub mod role;
 pub mod user;
-pub mod menu;

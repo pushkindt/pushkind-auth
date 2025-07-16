@@ -9,10 +9,10 @@ use crate::domain::role::Role;
 use crate::domain::user::{NewUser, UpdateUser, User};
 use crate::models::role::{NewUserRole as DbNewUserRole, Role as DbRole};
 use crate::models::user::{NewUser as NewDbUser, UpdateUser as DbUpdateUser, User as DbUser};
-use crate::repository::UserRepository;
 use crate::repository::errors::{RepositoryError, RepositoryResult};
+use crate::repository::{UserReader, UserRepository, UserWriter};
 
-/// Diesel implementation of [`UserRepository`].
+/// Diesel implementation of user repository traits.
 pub struct DieselUserRepository<'a> {
     pool: &'a DbPool,
 }
@@ -23,7 +23,7 @@ impl<'a> DieselUserRepository<'a> {
     }
 }
 
-impl UserRepository for DieselUserRepository<'_> {
+impl UserReader for DieselUserRepository<'_> {
     fn get_by_id(&self, id: i32) -> RepositoryResult<Option<User>> {
         use crate::schema::users;
 
@@ -51,20 +51,6 @@ impl UserRepository for DieselUserRepository<'_> {
             .optional()?;
 
         Ok(result.map(|db_user| db_user.into())) // Convert DbUser to DomainUser
-    }
-
-    fn create(&self, new_user: &NewUser) -> RepositoryResult<User> {
-        use crate::schema::users;
-
-        let mut connection = self.pool.get()?;
-
-        let new_db_user = NewDbUser::try_from(new_user)?; // Convert to DbNewUser
-
-        let user = diesel::insert_into(users::table)
-            .values(&new_db_user)
-            .get_result::<DbUser>(&mut connection)
-            .map(|db_user| db_user.into())?; // Convert DbUser to DomainUser
-        Ok(user)
     }
 
     fn list(&self, hub_id: i32) -> RepositoryResult<Vec<(User, Vec<Role>)>> {
@@ -119,6 +105,49 @@ impl UserRepository for DieselUserRepository<'_> {
         Ok(results.into_iter().map(|db_role| db_role.into()).collect())
     }
 
+    fn search(&self, hub_id: i32, role: &str, query: &str) -> RepositoryResult<Vec<User>> {
+        let mut connection = self.pool.get()?;
+
+        let match_query = format!("{}*", query.to_lowercase());
+
+        let results = sql_query(
+            r#"
+            SELECT users.*
+            FROM users
+            JOIN user_fts ON users.id = user_fts.rowid
+            WHERE user_fts MATCH ?
+            AND users.hub_id = ?
+            AND EXISTS (
+                SELECT 1 FROM user_roles ur
+                JOIN roles r ON ur.role_id = r.id
+                WHERE ur.user_id = users.id AND r.name = ?
+            )
+            "#,
+        )
+        .bind::<Text, _>(&match_query)
+        .bind::<Integer, _>(hub_id)
+        .bind::<Text, _>(role)
+        .load::<DbUser>(&mut connection)?;
+
+        Ok(results.into_iter().map(User::from).collect())
+    }
+}
+
+impl UserWriter for DieselUserRepository<'_> {
+    fn create(&self, new_user: &NewUser) -> RepositoryResult<User> {
+        use crate::schema::users;
+
+        let mut connection = self.pool.get()?;
+
+        let new_db_user = NewDbUser::try_from(new_user)?;
+
+        let user = diesel::insert_into(users::table)
+            .values(&new_db_user)
+            .get_result::<DbUser>(&mut connection)
+            .map(|db_user| db_user.into())?;
+        Ok(user)
+    }
+
     fn update(&self, user_id: i32, updates: &UpdateUser) -> RepositoryResult<User> {
         use crate::schema::users;
 
@@ -141,7 +170,7 @@ impl UserRepository for DieselUserRepository<'_> {
             .filter(users::id.eq(user_id))
             .set(&db_updates)
             .get_result::<DbUser>(&mut connection)
-            .map(|db_user| db_user.into())?; // Convert DbUser to DomainUser
+            .map(|db_user| db_user.into())?;
         Ok(user)
     }
 
@@ -187,31 +216,6 @@ impl UserRepository for DieselUserRepository<'_> {
             .execute(&mut connection)?;
         Ok(result)
     }
-
-    fn search(&self, hub_id: i32, role: &str, query: &str) -> RepositoryResult<Vec<User>> {
-        let mut connection = self.pool.get()?;
-
-        let match_query = format!("{}*", query.to_lowercase());
-
-        let results = sql_query(
-            r#"
-            SELECT users.*
-            FROM users
-            JOIN user_fts ON users.id = user_fts.rowid
-            WHERE user_fts MATCH ?
-            AND users.hub_id = ?
-            AND EXISTS (
-                SELECT 1 FROM user_roles ur
-                JOIN roles r ON ur.role_id = r.id
-                WHERE ur.user_id = users.id AND r.name = ?
-            )
-            "#,
-        )
-        .bind::<Text, _>(&match_query)
-        .bind::<Integer, _>(hub_id)
-        .bind::<Text, _>(role)
-        .load::<DbUser>(&mut connection)?;
-
-        Ok(results.into_iter().map(User::from).collect())
-    }
 }
+
+impl UserRepository for DieselUserRepository<'_> {}
