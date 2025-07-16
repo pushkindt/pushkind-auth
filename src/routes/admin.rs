@@ -15,7 +15,7 @@ use crate::repository::hub::DieselHubRepository;
 use crate::repository::menu::DieselMenuRepository;
 use crate::repository::role::DieselRoleRepository;
 use crate::repository::user::DieselUserRepository;
-use crate::repository::{HubRepository, MenuRepository, RoleReader, RoleWriter, UserRepository};
+use crate::repository::{HubRepository, MenuWriter, RoleReader, RoleWriter, UserRepository};
 use crate::routes::{ensure_role, redirect, render_template};
 
 #[post("/role/add")]
