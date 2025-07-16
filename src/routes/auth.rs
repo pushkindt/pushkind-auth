@@ -15,7 +15,7 @@ use crate::models::auth::AuthenticatedUser;
 use crate::models::config::ServerConfig;
 use crate::repository::hub::DieselHubRepository;
 use crate::repository::user::DieselUserRepository;
-use crate::repository::{HubRepository, UserReader, UserWriter};
+use crate::repository::{HubReader, UserReader, UserWriter};
 use crate::routes::{
     alert_level_to_str, get_success_and_failure_redirects, redirect, render_template,
 };

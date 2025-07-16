@@ -3,10 +3,10 @@ use diesel::prelude::*;
 use crate::db::DbPool;
 use crate::domain::hub::{Hub, NewHub};
 use crate::models::hub::{Hub as DbHub, NewHub as NewDbHub};
-use crate::repository::HubRepository;
 use crate::repository::errors::RepositoryResult;
+use crate::repository::{HubReader, HubWriter};
 
-/// Diesel implementation of [`HubRepository`].
+/// Diesel implementation of [`HubReader`] and [`HubWriter`].
 pub struct DieselHubRepository<'a> {
     pool: &'a DbPool,
 }
@@ -17,7 +17,7 @@ impl<'a> DieselHubRepository<'a> {
     }
 }
 
-impl HubRepository for DieselHubRepository<'_> {
+impl HubReader for DieselHubRepository<'_> {
     fn get_by_id(&self, id: i32) -> RepositoryResult<Option<Hub>> {
         use crate::schema::hubs;
 
@@ -44,6 +44,18 @@ impl HubRepository for DieselHubRepository<'_> {
         Ok(result.map(|db_hub| db_hub.into())) // Convert DbHub to DomainHub
     }
 
+    fn list(&self) -> RepositoryResult<Vec<Hub>> {
+        use crate::schema::hubs;
+
+        let mut connection = self.pool.get()?;
+
+        let results = hubs::table.load::<DbHub>(&mut connection)?;
+
+        Ok(results.into_iter().map(|db_hub| db_hub.into()).collect()) // Convert DbHub to DomainHub
+    }
+}
+
+impl HubWriter for DieselHubRepository<'_> {
     fn create(&self, new_hub: &NewHub) -> RepositoryResult<Hub> {
         use crate::schema::hubs;
 
@@ -55,16 +67,6 @@ impl HubRepository for DieselHubRepository<'_> {
             .get_result::<DbHub>(&mut connection)
             .map(|db_hub| db_hub.into())?; // Convert DbHub to DomainHub
         Ok(hub)
-    }
-
-    fn list(&self) -> RepositoryResult<Vec<Hub>> {
-        use crate::schema::hubs;
-
-        let mut connection = self.pool.get()?;
-
-        let results = hubs::table.load::<DbHub>(&mut connection)?;
-
-        Ok(results.into_iter().map(|db_hub| db_hub.into()).collect()) // Convert DbHub to DomainHub
     }
 
     fn delete(&self, hub_id: i32) -> RepositoryResult<usize> {

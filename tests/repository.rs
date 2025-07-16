@@ -3,14 +3,14 @@ use pushkind_auth::domain::menu::NewMenu;
 use pushkind_auth::domain::role::NewRole;
 use pushkind_auth::domain::user::NewUser;
 use pushkind_auth::domain::user::UpdateUser;
-use pushkind_auth::repository::HubRepository;
-use pushkind_auth::repository::MenuRepository;
-use pushkind_auth::repository::RoleRepository;
 use pushkind_auth::repository::hub::DieselHubRepository;
 use pushkind_auth::repository::menu::DieselMenuRepository;
 use pushkind_auth::repository::role::DieselRoleRepository;
 use pushkind_auth::repository::user::DieselUserRepository;
 use pushkind_auth::repository::{UserReader, UserWriter};
+use pushkind_auth::repository::{HubReader, HubWriter};
+use pushkind_auth::repository::{MenuReader, MenuWriter};
+use pushkind_auth::repository::{RoleReader, RoleWriter};
 
 mod common;
 
