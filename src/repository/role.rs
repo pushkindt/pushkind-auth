@@ -3,10 +3,10 @@ use diesel::prelude::*;
 use crate::db::DbPool;
 use crate::domain::role::{NewRole, Role};
 use crate::models::role::{NewRole as NewDbRole, Role as DbRole};
-use crate::repository::RoleRepository;
 use crate::repository::errors::RepositoryResult;
+use crate::repository::{RoleReader, RoleWriter};
 
-/// Diesel implementation of [`RoleRepository`].
+/// Diesel implementation of [`RoleReader`] and [`RoleWriter`].
 pub struct DieselRoleRepository<'a> {
     pool: &'a DbPool,
 }
@@ -17,7 +17,7 @@ impl<'a> DieselRoleRepository<'a> {
     }
 }
 
-impl RoleRepository for DieselRoleRepository<'_> {
+impl RoleReader for DieselRoleRepository<'_> {
     fn get_by_id(&self, id: i32) -> RepositoryResult<Option<Role>> {
         use crate::schema::roles;
 
@@ -44,6 +44,18 @@ impl RoleRepository for DieselRoleRepository<'_> {
         Ok(result.map(|db_role| db_role.into())) // Convert DbRole to DomainRole
     }
 
+    fn list(&self) -> RepositoryResult<Vec<Role>> {
+        use crate::schema::roles;
+
+        let mut connection = self.pool.get()?;
+
+        let results = roles::table.load::<DbRole>(&mut connection)?;
+
+        Ok(results.into_iter().map(|db_role| db_role.into()).collect()) // Convert DbRole to DomainRole
+    }
+}
+
+impl RoleWriter for DieselRoleRepository<'_> {
     fn create(&self, new_role: &NewRole) -> RepositoryResult<Role> {
         use crate::schema::roles;
 
@@ -55,16 +67,6 @@ impl RoleRepository for DieselRoleRepository<'_> {
             .get_result::<DbRole>(&mut connection)
             .map(|db_role| db_role.into())?; // Convert DbRole to DomainRole
         Ok(role)
-    }
-
-    fn list(&self) -> RepositoryResult<Vec<Role>> {
-        use crate::schema::roles;
-
-        let mut connection = self.pool.get()?;
-
-        let results = roles::table.load::<DbRole>(&mut connection)?;
-
-        Ok(results.into_iter().map(|db_role| db_role.into()).collect()) // Convert DbRole to DomainRole
     }
 
     fn delete(&self, role_id: i32) -> RepositoryResult<usize> {
