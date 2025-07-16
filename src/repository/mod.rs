@@ -38,13 +38,19 @@ pub trait UserRepository {
     fn search(&self, hub_id: i32, role: &str, query: &str) -> RepositoryResult<Vec<User>>;
 }
 
-pub trait HubRepository {
+pub trait HubReader {
     fn get_by_id(&self, id: i32) -> RepositoryResult<Option<Hub>>;
     fn get_by_name(&self, name: &str) -> RepositoryResult<Option<Hub>>;
-    fn create(&self, new_hub: &NewHub) -> RepositoryResult<Hub>;
     fn list(&self) -> RepositoryResult<Vec<Hub>>;
+}
+
+pub trait HubWriter {
+    fn create(&self, new_hub: &NewHub) -> RepositoryResult<Hub>;
     fn delete(&self, hub_id: i32) -> RepositoryResult<usize>;
 }
+
+pub trait HubRepository: HubReader + HubWriter {}
+impl<T: HubReader + HubWriter> HubRepository for T {}
 
 pub trait RoleReader {
     fn get_by_id(&self, id: i32) -> RepositoryResult<Option<Role>>;
