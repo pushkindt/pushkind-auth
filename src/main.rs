@@ -41,9 +41,11 @@ async fn main() -> std::io::Result<()> {
         }
     };
     let secret_key = Key::from(secret.as_bytes());
-    let server_config = ServerConfig { secret };
-
     let domain = env::var("DOMAIN").unwrap_or("localhost".to_string());
+    let server_config = ServerConfig {
+        secret,
+        domain: domain.clone(),
+    };
 
     let pool = match establish_connection_pool(&database_url) {
         Ok(pool) => pool,
