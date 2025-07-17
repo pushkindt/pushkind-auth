@@ -180,13 +180,15 @@ impl UserWriter for DieselUserRepository<'_> {
 
         let mut connection = self.pool.get()?;
 
-        diesel::delete(user_roles::table)
-            .filter(user_roles::user_id.eq(user_id))
-            .execute(&mut connection)?;
+        let result = connection.transaction::<_, diesel::result::Error, _>(|conn| {
+            diesel::delete(user_roles::table)
+                .filter(user_roles::user_id.eq(user_id))
+                .execute(conn)?;
 
-        let result = diesel::delete(users::table)
-            .filter(users::id.eq(user_id))
-            .execute(&mut connection)?;
+            diesel::delete(users::table)
+                .filter(users::id.eq(user_id))
+                .execute(conn)
+        })?;
 
         if result == 0 {
             return Err(RepositoryError::NotFound);

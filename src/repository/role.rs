@@ -75,12 +75,13 @@ impl RoleWriter for DieselRoleRepository<'_> {
 
         let mut connection = self.pool.get()?;
 
-        diesel::delete(user_roles::table.filter(user_roles::role_id.eq(role_id)))
-            .execute(&mut connection)?;
+        connection
+            .transaction::<_, diesel::result::Error, _>(|conn| {
+                diesel::delete(user_roles::table.filter(user_roles::role_id.eq(role_id)))
+                    .execute(conn)?;
 
-        let result =
-            diesel::delete(roles::table.filter(roles::id.eq(role_id))).execute(&mut connection)?;
-
-        Ok(result)
+                diesel::delete(roles::table.filter(roles::id.eq(role_id))).execute(conn)
+            })
+            .map_err(Into::into)
     }
 }
