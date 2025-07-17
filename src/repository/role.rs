@@ -3,7 +3,7 @@ use diesel::prelude::*;
 use crate::db::DbPool;
 use crate::domain::role::{NewRole, Role};
 use crate::models::role::{NewRole as NewDbRole, Role as DbRole};
-use crate::repository::errors::RepositoryResult;
+use crate::repository::errors::{RepositoryError, RepositoryResult};
 use crate::repository::{RoleReader, RoleWriter};
 
 /// Diesel implementation of [`RoleReader`] and [`RoleWriter`].
@@ -75,13 +75,17 @@ impl RoleWriter for DieselRoleRepository<'_> {
 
         let mut connection = self.pool.get()?;
 
-        connection
-            .transaction::<_, diesel::result::Error, _>(|conn| {
-                diesel::delete(user_roles::table.filter(user_roles::role_id.eq(role_id)))
-                    .execute(conn)?;
+        let result = connection.transaction::<_, diesel::result::Error, _>(|conn| {
+            diesel::delete(user_roles::table.filter(user_roles::role_id.eq(role_id)))
+                .execute(conn)?;
 
-                diesel::delete(roles::table.filter(roles::id.eq(role_id))).execute(conn)
-            })
-            .map_err(Into::into)
+            diesel::delete(roles::table.filter(roles::id.eq(role_id))).execute(conn)
+        })?;
+
+        if result == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
+        Ok(result)
     }
 }
