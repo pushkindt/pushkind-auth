@@ -1842,6 +1842,7 @@ dependencies = [
  "serde_html_form",
  "tera",
  "thiserror 2.0.12",
+ "url",
  "validator",
 ]
 

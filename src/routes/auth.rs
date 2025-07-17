@@ -35,8 +35,11 @@ pub async fn login(
 ) -> impl Responder {
     let repo = DieselUserRepository::new(&pool);
 
-    let (success_redirect_url, failure_redirect_url) =
-        get_success_and_failure_redirects("/auth/signin", query_params.next.as_deref());
+    let (success_redirect_url, failure_redirect_url) = get_success_and_failure_redirects(
+        "/auth/signin",
+        query_params.next.as_deref(),
+        &server_config.domain,
+    );
 
     if let Err(e) = form.validate() {
         FlashMessage::error(format!("Ошибка валидации формы: {e}")).send();
@@ -85,13 +88,17 @@ pub async fn login(
 #[post("/register")]
 pub async fn register(
     pool: web::Data<DbPool>,
+    server_config: web::Data<ServerConfig>,
     web::Form(form): web::Form<RegisterForm>,
     query_params: web::Query<AuthQueryParams>,
 ) -> impl Responder {
     let repo = DieselUserRepository::new(&pool);
 
-    let (_, failure_redirect_url) =
-        get_success_and_failure_redirects("/auth/signup", query_params.next.as_deref());
+    let (_, failure_redirect_url) = get_success_and_failure_redirects(
+        "/auth/signup",
+        query_params.next.as_deref(),
+        &server_config.domain,
+    );
 
     if let Err(e) = form.validate() {
         FlashMessage::error(format!("Ошибка валидации формы: {e}")).send();
@@ -111,9 +118,16 @@ pub async fn register(
 }
 
 #[post("/logout")]
-pub async fn logout(user: Identity, query_params: web::Query<AuthQueryParams>) -> impl Responder {
-    let (_, failure_redirect_url) =
-        get_success_and_failure_redirects("/auth/signin", query_params.next.as_deref());
+pub async fn logout(
+    user: Identity,
+    server_config: web::Data<ServerConfig>,
+    query_params: web::Query<AuthQueryParams>,
+) -> impl Responder {
+    let (_, failure_redirect_url) = get_success_and_failure_redirects(
+        "/auth/signin",
+        query_params.next.as_deref(),
+        &server_config.domain,
+    );
 
     user.logout();
     redirect(&failure_redirect_url)
