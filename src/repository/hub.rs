@@ -77,26 +77,25 @@ impl HubWriter for DieselHubRepository<'_> {
 
         let mut connection = self.pool.get()?;
 
-        let result = connection
-            .transaction::<_, diesel::result::Error, _>(|conn| {
-                // delete menus for hub
-                diesel::delete(menu::table.filter(menu::hub_id.eq(hub_id))).execute(conn)?;
+        let result = connection.transaction::<_, diesel::result::Error, _>(|conn| {
+            // delete menus for hub
+            diesel::delete(menu::table.filter(menu::hub_id.eq(hub_id))).execute(conn)?;
 
-                let hub_users = users::table
-                    .filter(users::hub_id.eq(hub_id))
-                    .select(users::id)
-                    .load::<i32>(conn)?;
+            let hub_users = users::table
+                .filter(users::hub_id.eq(hub_id))
+                .select(users::id)
+                .load::<i32>(conn)?;
 
-                // delete user_roles for hub users
-                diesel::delete(user_roles::table.filter(user_roles::user_id.eq_any(&hub_users)))
-                    .execute(conn)?;
+            // delete user_roles for hub users
+            diesel::delete(user_roles::table.filter(user_roles::user_id.eq_any(&hub_users)))
+                .execute(conn)?;
 
-                //delete users for hub
-                diesel::delete(users::table.filter(users::hub_id.eq(hub_id))).execute(conn)?;
+            //delete users for hub
+            diesel::delete(users::table.filter(users::hub_id.eq(hub_id))).execute(conn)?;
 
-                //delete hub
-                diesel::delete(hubs::table.filter(hubs::id.eq(hub_id))).execute(conn)
-            })?;
+            //delete hub
+            diesel::delete(hubs::table.filter(hubs::id.eq(hub_id))).execute(conn)
+        })?;
 
         if result == 0 {
             return Err(RepositoryError::NotFound);
