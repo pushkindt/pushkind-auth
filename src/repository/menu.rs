@@ -3,7 +3,7 @@ use diesel::prelude::*;
 use crate::db::DbPool;
 use crate::domain::menu::{Menu, NewMenu};
 use crate::models::menu::{Menu as DbMenu, NewMenu as NewDbMenu};
-use crate::repository::errors::RepositoryResult;
+use crate::repository::errors::{RepositoryError, RepositoryResult};
 use crate::repository::{MenuReader, MenuRepository, MenuWriter};
 
 /// Diesel implementation of [`MenuReader`] and [`MenuWriter`].
@@ -38,6 +38,10 @@ impl MenuWriter for DieselMenuRepository<'_> {
 
         let result =
             diesel::delete(menu::table.filter(menu::id.eq(menu_id))).execute(&mut connection)?;
+
+        if result == 0 {
+            return Err(RepositoryError::NotFound);
+        }
 
         Ok(result)
     }

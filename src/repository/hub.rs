@@ -3,7 +3,7 @@ use diesel::prelude::*;
 use crate::db::DbPool;
 use crate::domain::hub::{Hub, NewHub};
 use crate::models::hub::{Hub as DbHub, NewHub as NewDbHub};
-use crate::repository::errors::RepositoryResult;
+use crate::repository::errors::{RepositoryError, RepositoryResult};
 use crate::repository::{HubReader, HubWriter};
 
 /// Diesel implementation of [`HubReader`] and [`HubWriter`].
@@ -77,7 +77,7 @@ impl HubWriter for DieselHubRepository<'_> {
 
         let mut connection = self.pool.get()?;
 
-        connection
+        let result = connection
             .transaction::<_, diesel::result::Error, _>(|conn| {
                 // delete menus for hub
                 diesel::delete(menu::table.filter(menu::hub_id.eq(hub_id))).execute(conn)?;
@@ -96,7 +96,12 @@ impl HubWriter for DieselHubRepository<'_> {
 
                 //delete hub
                 diesel::delete(hubs::table.filter(hubs::id.eq(hub_id))).execute(conn)
-            })
-            .map_err(Into::into)
+            })?;
+
+        if result == 0 {
+            return Err(RepositoryError::NotFound);
+        }
+
+        Ok(result)
     }
 }
