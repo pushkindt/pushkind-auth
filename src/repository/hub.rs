@@ -1,6 +1,6 @@
 use diesel::prelude::*;
+use pushkind_common::db::DbPool;
 
-use crate::db::DbPool;
 use crate::domain::hub::{Hub, NewHub};
 use crate::models::hub::{Hub as DbHub, NewHub as NewDbHub};
 use crate::repository::errors::{RepositoryError, RepositoryResult};

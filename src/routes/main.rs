@@ -3,17 +3,18 @@
 use actix_web::{HttpResponse, Responder, get, post, web};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use log::error;
+use pushkind_common::db::DbPool;
+use pushkind_common::models::auth::AuthenticatedUser;
+use pushkind_common::routes::{alert_level_to_str, redirect};
 use tera::Context;
 
-use crate::db::DbPool;
 use crate::forms::main::SaveUserForm;
-use crate::models::auth::AuthenticatedUser;
 use crate::repository::hub::DieselHubRepository;
 use crate::repository::menu::DieselMenuRepository;
 use crate::repository::role::DieselRoleRepository;
 use crate::repository::user::DieselUserRepository;
 use crate::repository::{HubReader, MenuReader, RoleReader, UserReader, UserWriter};
-use crate::routes::{alert_level_to_str, redirect, render_template};
+use crate::routes::render_template;
 
 #[get("/")]
 pub async fn index(

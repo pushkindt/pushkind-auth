@@ -5,20 +5,20 @@ use actix_web::{HttpMessage, HttpRequest, HttpResponse};
 use actix_web::{Responder, get, post, web};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use log::error;
+use pushkind_common::db::DbPool;
+use pushkind_common::models::auth::AuthenticatedUser;
+use pushkind_common::models::config::CommonServerConfig;
+use pushkind_common::routes::{alert_level_to_str, redirect};
 use serde::Deserialize;
 use tera::Context;
 use validator::Validate;
 
-use crate::db::DbPool;
 use crate::forms::auth::{LoginForm, RegisterForm};
-use crate::models::auth::AuthenticatedUser;
 use crate::models::config::ServerConfig;
 use crate::repository::hub::DieselHubRepository;
 use crate::repository::user::DieselUserRepository;
 use crate::repository::{HubReader, UserReader, UserWriter};
-use crate::routes::{
-    alert_level_to_str, get_success_and_failure_redirects, redirect, render_template,
-};
+use crate::routes::{get_success_and_failure_redirects, render_template};
 
 #[derive(Deserialize)]
 struct AuthQueryParams {
@@ -30,6 +30,7 @@ pub async fn login(
     request: HttpRequest,
     pool: web::Data<DbPool>,
     server_config: web::Data<ServerConfig>,
+    common_config: web::Data<CommonServerConfig>,
     web::Form(form): web::Form<LoginForm>,
     query_params: web::Query<AuthQueryParams>,
 ) -> impl Responder {
@@ -66,9 +67,10 @@ pub async fn login(
         }
     };
 
-    let mut claims = AuthenticatedUser::from_user_roles(&user, &roles);
+    let mut claims = AuthenticatedUser::from(user);
+    claims.roles = roles.iter().map(|r| r.name.clone()).collect();
 
-    let jwt = match claims.to_jwt(&server_config.secret) {
+    let jwt = match claims.to_jwt(&common_config.secret) {
         Ok(jwt) => jwt,
         Err(e) => {
             error!("Failed to encode claims: {e}");
@@ -114,22 +116,6 @@ pub async fn register(
             FlashMessage::error(format!("Ошибка при создании пользователя: {err}")).send();
         }
     }
-    redirect(&failure_redirect_url)
-}
-
-#[post("/logout")]
-pub async fn logout(
-    user: Identity,
-    server_config: web::Data<ServerConfig>,
-    query_params: web::Query<AuthQueryParams>,
-) -> impl Responder {
-    let (_, failure_redirect_url) = get_success_and_failure_redirects(
-        "/auth/signin",
-        query_params.next.as_deref(),
-        &server_config.domain,
-    );
-
-    user.logout();
     redirect(&failure_redirect_url)
 }
 

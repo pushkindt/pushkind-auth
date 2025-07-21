@@ -1,72 +1,75 @@
-//! Custom middleware used by the HTTP server.
-//!
-//! The [`RedirectUnauthorized`] middleware intercepts unauthorized responses
-//! and redirects the user to the sign in page instead of returning a bare
-//! `401` status code.
-
 use actix_web::{
-    Error, HttpResponse,
-    body::EitherBody,
+    Error,
     dev::{self, Service, ServiceRequest, ServiceResponse, Transform},
-    http::StatusCode,
+    error::{ErrorInternalServerError, ErrorUnauthorized},
+    web,
 };
-use futures_util::future::LocalBoxFuture;
-use std::future::{Ready, ready};
+use futures_util::future::{LocalBoxFuture, Ready, ok};
+use pushkind_common::db::DbPool;
+use pushkind_common::models::auth::AuthenticatedUser;
+use std::rc::Rc;
 
-/// Middleware factory that produces [`RedirectUnauthorizedMiddleware`].
-pub struct RedirectUnauthorized;
+use crate::repository::UserReader;
+use crate::repository::user::DieselUserRepository;
 
-impl<S, B> Transform<S, ServiceRequest> for RedirectUnauthorized
+pub struct RequireUserExists;
+
+impl<S, B> Transform<S, ServiceRequest> for RequireUserExists
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
     S::Future: 'static,
-    B: 'static,
 {
-    type Response = ServiceResponse<EitherBody<B>>;
+    type Response = ServiceResponse<B>;
     type Error = Error;
     type InitError = ();
-    type Transform = RedirectUnauthorizedMiddleware<S>;
+    type Transform = RequireUserExistsMiddleware<S>;
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        ready(Ok(RedirectUnauthorizedMiddleware { service }))
+        ok(RequireUserExistsMiddleware {
+            service: Rc::new(service),
+        })
     }
 }
 
-/// Inner service used by [`RedirectUnauthorized`].
-pub struct RedirectUnauthorizedMiddleware<S> {
-    service: S,
+pub struct RequireUserExistsMiddleware<S> {
+    service: Rc<S>,
 }
 
-impl<S, B> Service<ServiceRequest> for RedirectUnauthorizedMiddleware<S>
+impl<S, B> Service<ServiceRequest> for RequireUserExistsMiddleware<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
     S::Future: 'static,
-    B: 'static,
 {
-    type Response = ServiceResponse<EitherBody<B>>;
+    type Response = ServiceResponse<B>;
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
     dev::forward_ready!(service);
 
-    fn call(&self, req: ServiceRequest) -> Self::Future {
-        let fut = self.service.call(req);
+    fn call(&self, mut req: ServiceRequest) -> Self::Future {
+        let srv = Rc::clone(&self.service);
+        let user = req.extract::<AuthenticatedUser>();
+        let pool = req.app_data::<web::Data<DbPool>>().cloned();
 
         Box::pin(async move {
-            let res = fut.await?;
+            let claims = match user.await {
+                Ok(claims) => claims,
+                Err(_) => return srv.call(req).await,
+            };
 
-            if res.status() == StatusCode::UNAUTHORIZED {
-                let (req_parts, _) = res.into_parts();
-                let redirect_response = HttpResponse::SeeOther()
-                    .insert_header((actix_web::http::header::LOCATION, "/auth/signin"))
-                    .finish()
-                    .map_into_right_body();
+            let uid: i32 = claims
+                .sub
+                .parse()
+                .map_err(|_| ErrorUnauthorized("Invalid user"))?;
 
-                return Ok(ServiceResponse::new(req_parts, redirect_response));
+            let pool = pool.ok_or_else(|| ErrorInternalServerError("DB pool not found"))?;
+            let repo = DieselUserRepository::new(&pool);
+
+            match repo.get_by_id(uid) {
+                Ok(Some(_)) => srv.call(req).await,
+                _ => Err(ErrorUnauthorized("User not found")),
             }
-
-            Ok(res.map_into_left_body())
         })
     }
 }

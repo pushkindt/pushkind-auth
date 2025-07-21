@@ -1,6 +1,6 @@
 use diesel::prelude::*;
+use pushkind_common::db::DbPool;
 
-use crate::db::DbPool;
 use crate::domain::menu::{Menu, NewMenu};
 use crate::models::menu::{Menu as DbMenu, NewMenu as NewDbMenu};
 use crate::repository::errors::{RepositoryError, RepositoryResult};

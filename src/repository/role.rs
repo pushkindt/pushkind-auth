@@ -1,6 +1,6 @@
 use diesel::prelude::*;
+use pushkind_common::db::DbPool;
 
-use crate::db::DbPool;
 use crate::domain::role::{NewRole, Role};
 use crate::models::role::{NewRole as NewDbRole, Role as DbRole};
 use crate::repository::errors::{RepositoryError, RepositoryResult};

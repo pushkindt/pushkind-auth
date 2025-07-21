@@ -9,17 +9,19 @@ use actix_web::cookie::Key;
 use actix_web::{App, HttpServer, middleware, web};
 use actix_web_flash_messages::{FlashMessagesFramework, storage::CookieMessageStore};
 use dotenvy::dotenv;
-use log::error;
+use pushkind_auth::middleware::RequireUserExists;
+use pushkind_common::db::establish_connection_pool;
+use pushkind_common::middleware::RedirectUnauthorized;
+use pushkind_common::models::config::CommonServerConfig;
+use pushkind_common::routes::logout;
 
-use pushkind_auth::db::establish_connection_pool;
-use pushkind_auth::middleware::RedirectUnauthorized;
 use pushkind_auth::models::config::ServerConfig;
 use pushkind_auth::routes::admin::{
     add_hub, add_menu, add_role, delete_hub, delete_menu, delete_role, delete_user, update_user,
     user_modal,
 };
 use pushkind_auth::routes::api::{api_v1_id, api_v1_users};
-use pushkind_auth::routes::auth::{login, logout, register, signin, signup};
+use pushkind_auth::routes::auth::{login, register, signin, signup};
 use pushkind_auth::routes::main::{index, save_user};
 
 #[actix_web::main]
@@ -36,21 +38,24 @@ async fn main() -> std::io::Result<()> {
     let secret = match secret {
         Ok(secret) => secret,
         Err(_) => {
-            error!("SECRET_KEY environment variable not set");
+            log::error!("SECRET_KEY environment variable not set");
             std::process::exit(1);
         }
     };
     let secret_key = Key::from(secret.as_bytes());
     let domain = env::var("DOMAIN").unwrap_or("localhost".to_string());
     let server_config = ServerConfig {
-        secret,
         domain: domain.clone(),
+    };
+    let common_config = CommonServerConfig {
+        secret,
+        auth_service_url: "/auth/signin".to_string(),
     };
 
     let pool = match establish_connection_pool(&database_url) {
         Ok(pool) => pool,
         Err(e) => {
-            error!("Failed to establish database connection: {e}");
+            log::error!("Failed to establish database connection: {e}");
             std::process::exit(1);
         }
     };
@@ -81,6 +86,7 @@ async fn main() -> std::io::Result<()> {
             )
             .service(
                 web::scope("/admin")
+                    .wrap(RequireUserExists)
                     .wrap(RedirectUnauthorized)
                     .service(add_role)
                     .service(user_modal)
@@ -95,12 +101,14 @@ async fn main() -> std::io::Result<()> {
             .service(web::scope("/api").service(api_v1_id).service(api_v1_users))
             .service(
                 web::scope("")
+                    .wrap(RequireUserExists)
                     .wrap(RedirectUnauthorized)
                     .service(index)
                     .service(save_user),
             )
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(server_config.clone()))
+            .app_data(web::Data::new(common_config.clone()))
     })
     .bind((address, port))?
     .run()

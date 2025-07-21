@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 chrono = { version = "0.4.41", features = ["serde"] }
 serde = { version = "1.0.219", features = ["derive"] }
-diesel = { version = "2.2.11", features = ["sqlite", "r2d2", "chrono", "returning_clauses_for_sqlite_3_35"] }
+diesel = { version = "2.2.12", features = ["sqlite", "r2d2", "chrono", "returning_clauses_for_sqlite_3_35"] }
 dotenvy = "0.15.7"
 env_logger = "0.11.8"
 log = "0.4.27"
@@ -24,6 +24,7 @@ serde_html_form = "0.2.7"
 actix-cors = "0.7.1"
 validator = { version = "0.20.0", features = ["derive"] }
 url = "2.5.0"
+pushkind-common = { git = "https://github.com/pushkindt/pushkind-common.git", branch = "main", features = ["db"] }
 
 
 [dev-dependencies]
