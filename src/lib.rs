@@ -4,7 +4,6 @@
 //! handlers that make up the application. It is used by `main.rs` to build
 //! the Actix-Web application and can also be reused for integration tests.
 
-pub mod db;
 pub mod domain;
 pub mod forms;
 pub mod middleware;

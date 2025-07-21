@@ -1,4 +1,5 @@
 use chrono::NaiveDateTime;
+use pushkind_common::models::auth::AuthenticatedUser;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -30,4 +31,19 @@ pub struct NewUser<'a> {
 pub struct UpdateUser<'a> {
     pub name: &'a str,
     pub password: Option<&'a str>,
+}
+
+impl From<User> for AuthenticatedUser {
+    fn from(user: User) -> Self {
+        let mut result = Self {
+            sub: user.id.to_string(),
+            email: user.email,
+            hub_id: user.hub_id,
+            name: user.name.unwrap_or_default(),
+            roles: vec![],
+            exp: 0,
+        };
+        result.set_expiration(7);
+        result
+    }
 }

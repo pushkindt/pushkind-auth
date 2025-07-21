@@ -3,8 +3,8 @@ use chrono::Utc;
 use diesel::prelude::*;
 use diesel::sql_query;
 use diesel::sql_types::{Integer, Text};
+use pushkind_common::db::DbPool;
 
-use crate::db::DbPool;
 use crate::domain::role::Role;
 use crate::domain::user::{NewUser, UpdateUser, User};
 use crate::models::role::{NewUserRole as DbNewUserRole, Role as DbRole};

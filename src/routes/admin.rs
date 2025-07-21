@@ -3,20 +3,21 @@
 use actix_web::{HttpResponse, Responder, post, web};
 use actix_web_flash_messages::FlashMessage;
 use log::error;
+use pushkind_common::db::DbPool;
+use pushkind_common::models::auth::AuthenticatedUser;
+use pushkind_common::routes::{ensure_role, redirect};
 use tera::Context;
 
-use crate::db::DbPool;
 use crate::domain::hub::NewHub;
 use crate::domain::menu::NewMenu;
 use crate::domain::role::NewRole;
 use crate::forms::main::{AddHubForm, AddMenuForm, AddRoleForm, UpdateUserForm};
-use crate::models::auth::AuthenticatedUser;
 use crate::repository::hub::DieselHubRepository;
 use crate::repository::menu::DieselMenuRepository;
 use crate::repository::role::DieselRoleRepository;
 use crate::repository::user::DieselUserRepository;
 use crate::repository::{HubWriter, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter};
-use crate::routes::{ensure_role, redirect, render_template};
+use crate::routes::render_template;
 
 #[post("/role/add")]
 pub async fn add_role(
