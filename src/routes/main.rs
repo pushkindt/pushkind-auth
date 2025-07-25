@@ -133,7 +133,8 @@ pub async fn save_user(
             FlashMessage::success("Параметры изменены.".to_string()).send();
         }
         Err(err) => {
-            FlashMessage::error(format!("Ошибка при изменении параметров: {err}")).send();
+            log::error!("Failed to update settings: {err}");
+            FlashMessage::error("Ошибка при изменении параметров").send();
         }
     }
     redirect("/")

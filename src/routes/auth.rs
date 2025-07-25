@@ -43,7 +43,8 @@ pub async fn login(
     );
 
     if let Err(e) = form.validate() {
-        FlashMessage::error(format!("Ошибка валидации формы: {e}")).send();
+        log::error!("Failed to validate form: {e}");
+        FlashMessage::error("Ошибка валидации формы").send();
         return redirect(&failure_redirect_url);
     }
 
@@ -103,7 +104,8 @@ pub async fn register(
     );
 
     if let Err(e) = form.validate() {
-        FlashMessage::error(format!("Ошибка валидации формы: {e}")).send();
+        log::error!("Failed to validate form: {e}");
+        FlashMessage::error("Ошибка валидации формы").send();
         return redirect(&failure_redirect_url);
     }
 
@@ -113,7 +115,8 @@ pub async fn register(
             FlashMessage::success("Пользователь может войти.".to_string()).send();
         }
         Err(err) => {
-            FlashMessage::error(format!("Ошибка при создании пользователя: {err}")).send();
+            log::error!("Failed to create user: {err}");
+            FlashMessage::error("Ошибка при создании пользователя").send();
         }
     }
     redirect(&failure_redirect_url)
