@@ -38,8 +38,8 @@ pub async fn api_v1_id(
 
 #[derive(Deserialize)]
 struct ApiV1UsersQueryParams {
-    role: String,
-    query: String,
+    role: Option<String>,
+    query: Option<String>,
 }
 
 #[get("/v1/users")]
@@ -50,16 +50,32 @@ pub async fn api_v1_users(
 ) -> impl Responder {
     let repo = DieselUserRepository::new(&pool);
 
-    match repo.search(user.hub_id, &params.role, &params.query) {
-        Ok(users) => {
-            let users: Vec<AuthenticatedUser> =
-                users.into_iter().map(AuthenticatedUser::from).collect();
+    match (params.role.as_deref(), params.query.as_deref()) {
+        (Some(role), Some(query)) => match repo.search(user.hub_id, role, query) {
+            Ok(users) => {
+                let users: Vec<AuthenticatedUser> =
+                    users.into_iter().map(AuthenticatedUser::from).collect();
 
-            HttpResponse::Ok().json(users)
-        }
-        Err(e) => {
-            error!("Failed to list users: {e}");
-            HttpResponse::InternalServerError().finish()
-        }
+                HttpResponse::Ok().json(users)
+            }
+            Err(e) => {
+                error!("Failed to list users: {e}");
+                HttpResponse::InternalServerError().finish()
+            }
+        },
+        _ => match repo.list(user.hub_id) {
+            Ok(users) => {
+                let users: Vec<AuthenticatedUser> = users
+                    .into_iter()
+                    .map(|(user, _roles)| AuthenticatedUser::from(user))
+                    .collect();
+
+                HttpResponse::Ok().json(users)
+            }
+            Err(e) => {
+                error!("Failed to list users: {e}");
+                HttpResponse::InternalServerError().finish()
+            }
+        },
     }
 }
