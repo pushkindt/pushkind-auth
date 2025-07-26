@@ -2,6 +2,8 @@ use chrono::NaiveDateTime;
 use pushkind_common::models::auth::AuthenticatedUser;
 use serde::{Deserialize, Serialize};
 
+use crate::domain::role::Role;
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 /// Representation of a user in the system.
 ///
@@ -15,6 +17,13 @@ pub struct User {
     pub password_hash: String,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
+    pub roles: Vec<i32>,
+}
+
+#[derive(Serialize)]
+pub struct UserWithRoles {
+    pub user: User,
+    pub roles: Vec<Role>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -41,6 +50,21 @@ impl From<User> for AuthenticatedUser {
             hub_id: user.hub_id,
             name: user.name.unwrap_or_default(),
             roles: vec![],
+            exp: 0,
+        };
+        result.set_expiration(7);
+        result
+    }
+}
+
+impl From<UserWithRoles> for AuthenticatedUser {
+    fn from(ur: UserWithRoles) -> Self {
+        let mut result = Self {
+            sub: ur.user.id.to_string(),
+            email: ur.user.email,
+            hub_id: ur.user.hub_id,
+            name: ur.user.name.unwrap_or_default(),
+            roles: ur.roles.into_iter().map(|r| r.name).collect(),
             exp: 0,
         };
         result.set_expiration(7);

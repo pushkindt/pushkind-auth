@@ -48,8 +48,8 @@ pub async fn login(
         return redirect(&failure_redirect_url);
     }
 
-    let user = match repo.login(&form.email, &form.password, form.hub_id) {
-        Ok(Some(user)) => user,
+    let user_roles = match repo.login(&form.email, &form.password, form.hub_id) {
+        Ok(Some(user_roles)) => user_roles,
         Ok(None) => {
             FlashMessage::error("Неверный логин или пароль.").send();
             return redirect(&failure_redirect_url);
@@ -60,16 +60,7 @@ pub async fn login(
         }
     };
 
-    let roles = match repo.get_roles(user.id) {
-        Ok(roles) => roles,
-        Err(e) => {
-            error!("Failed to get user roles: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    let mut claims = AuthenticatedUser::from(user);
-    claims.roles = roles.iter().map(|r| r.name.clone()).collect();
+    let mut claims = AuthenticatedUser::from(user_roles);
 
     let jwt = match claims.to_jwt(&common_config.secret) {
         Ok(jwt) => jwt,

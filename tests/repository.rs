@@ -3,6 +3,7 @@ use pushkind_auth::domain::menu::NewMenu;
 use pushkind_auth::domain::role::NewRole;
 use pushkind_auth::domain::user::NewUser;
 use pushkind_auth::domain::user::UpdateUser;
+use pushkind_auth::repository::UserListQuery;
 use pushkind_auth::repository::hub::DieselHubRepository;
 use pushkind_auth::repository::menu::DieselMenuRepository;
 use pushkind_auth::repository::role::DieselRoleRepository;
@@ -90,9 +91,9 @@ fn test_user_repository_crud() {
     assert!(found.is_some());
 
     // List
-    let users = user_repo.list(hub.id).unwrap();
+    let (_total, users) = user_repo.list(UserListQuery::new(hub.id)).unwrap();
     assert_eq!(users.len(), 1);
-    assert_eq!(users[0].1.len(), 1);
+    assert_eq!(users[0].roles.len(), 1);
 
     assert!(user_repo.verify_password("test", &user.password_hash));
 

@@ -109,8 +109,8 @@
             </div>
         </div>
         {% for user_roles in users %}
-            {% set user = user_roles.0 %}
-            {% set roles = user_roles.1 %}
+            {% set user = user_roles.user %}
+            {% set roles = user_roles.roles %}
             <div class="row mb-3 border-bottom selectable" data-bs-toggle="modal" data-bs-target="#userModal" hx-post="/admin/user/modal/{{user.id}}" hx-swap="innerHTML" hx-target="#userModalBody">
                 <div class="col overflow-hidden">
                     {{user.name}}

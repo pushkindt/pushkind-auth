@@ -3,7 +3,7 @@
 {% block content %}
     {% include 'navigation.html' %}
 
-    {% if current_user_roles is containing("admin") %}
+    {% if current_user.roles is containing("admin") %}
         {% include 'main/_admin.html' %}
     {% else %}
         {% include 'main/_basic.html' %}
