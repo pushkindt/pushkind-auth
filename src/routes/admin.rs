@@ -62,15 +62,7 @@ pub async fn user_modal(
     let repo = DieselUserRepository::new(&pool);
 
     if let Ok(Some(user)) = repo.get_by_id(user_id) {
-        context.insert("user", &user);
-
-        if let Ok(user_roles) = repo.get_roles(user_id) {
-            let user_roles = user_roles
-                .into_iter()
-                .map(|r| r.name)
-                .collect::<Vec<String>>();
-            context.insert("user_roles", &user_roles);
-        }
+        context.insert("user", &user.user);
     }
 
     let repo = DieselRoleRepository::new(&pool);

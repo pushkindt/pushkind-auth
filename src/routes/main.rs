@@ -9,6 +9,7 @@ use pushkind_common::routes::{alert_level_to_str, redirect};
 use tera::Context;
 
 use crate::forms::main::SaveUserForm;
+use crate::repository::UserListQuery;
 use crate::repository::hub::DieselHubRepository;
 use crate::repository::menu::DieselMenuRepository;
 use crate::repository::role::DieselRoleRepository;
@@ -22,43 +23,13 @@ pub async fn index(
     pool: web::Data<DbPool>,
     flash_messages: IncomingFlashMessages,
 ) -> impl Responder {
-    let user_id: i32 = match user.sub.parse() {
-        Ok(user_id) => user_id,
-        Err(e) => {
-            error!("Failed to parse user_id: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
 
     let repo = DieselUserRepository::new(&pool);
 
-    let users = match repo.list(user.hub_id) {
-        Ok(users) => users,
+    let users = match repo.list(UserListQuery::new(user.hub_id)) {
+        Ok((_total, users)) => users,
         Err(e) => {
             error!("Failed to list users: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    let user = match repo.get_by_id(user_id) {
-        Ok(Some(user)) => user,
-        Ok(None) => {
-            error!("User not found");
-            return HttpResponse::InternalServerError().finish();
-        }
-        Err(e) => {
-            error!("Failed to get user: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    let user_roles = match repo.get_roles(user_id) {
-        Ok(user_roles) => user_roles
-            .into_iter()
-            .map(|r| r.name)
-            .collect::<Vec<String>>(),
-        Err(e) => {
-            error!("Failed to get user roles: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -101,7 +72,6 @@ pub async fn index(
     let mut context = Context::new();
     context.insert("alerts", &alerts);
     context.insert("current_user", &user);
-    context.insert("current_user_roles", &user_roles);
     context.insert("current_page", "index");
     context.insert("users", &users);
     context.insert("roles", &roles);

@@ -20,6 +20,12 @@ pub struct User {
     pub updated_at: NaiveDateTime,
 }
 
+#[derive(QueryableByName)]
+pub struct UserCount {
+    #[diesel(sql_type = diesel::sql_types::BigInt)]
+    pub count: i64,
+}
+
 #[derive(Insertable)]
 #[diesel(table_name = crate::schema::users)]
 /// Insertable form of [`User`].
@@ -49,6 +55,7 @@ impl From<User> for DomainUser {
             password_hash: db.password_hash,
             created_at: db.created_at,
             updated_at: db.updated_at,
+            roles: vec![],
         }
     }
 }
