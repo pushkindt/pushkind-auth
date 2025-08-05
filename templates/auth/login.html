@@ -20,7 +20,23 @@
                         <div class="row mb-3">
                             <label class="col-md-4 col-form-label" for="password">Пароль</label>
                             <div class="col-md-6">
-                                <input class="form-control" id="password" name="password" required="" type="password" value="">
+                                <div class="input-group">
+                                    <input 
+                                        type="password" 
+                                        class="form-control" 
+                                        id="password" 
+                                        name="password" 
+                                        required 
+                                    >
+                                    <button 
+                                        class="btn btn-outline-secondary" 
+                                        type="button" 
+                                        id="togglePassword"
+                                        tabindex="-1"
+                                    >
+                                        <i class="bi bi-eye" id="togglePasswordIcon"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="row mb-3">
@@ -48,4 +64,19 @@
 </div>
 
 
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        const passwordInput = document.getElementById('password');
+        const togglePasswordButton = document.getElementById('togglePassword');
+        const togglePasswordIcon = document.getElementById('togglePasswordIcon');
+
+        togglePasswordButton.addEventListener('click', () => {
+            const isPassword = passwordInput.type === 'password';
+            passwordInput.type = isPassword ? 'text' : 'password';
+            togglePasswordIcon.classList.toggle('bi-eye');
+            togglePasswordIcon.classList.toggle('bi-eye-slash');
+        });
+    </script>
 {% endblock %}
