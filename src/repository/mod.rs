@@ -117,6 +117,7 @@ pub trait RoleRepository: RoleReader + RoleWriter {}
 impl<T> RoleRepository for T where T: RoleReader + RoleWriter {}
 
 pub trait MenuReader {
+    fn get_by_id(&self, id: i32) -> RepositoryResult<Option<Menu>>;
     fn list(&self, hub_id: i32) -> RepositoryResult<Vec<Menu>>;
 }
 

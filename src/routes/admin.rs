@@ -16,7 +16,9 @@ use crate::repository::hub::DieselHubRepository;
 use crate::repository::menu::DieselMenuRepository;
 use crate::repository::role::DieselRoleRepository;
 use crate::repository::user::DieselUserRepository;
-use crate::repository::{HubWriter, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter};
+use crate::repository::{
+    HubWriter, MenuReader, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter,
+};
 use crate::routes::render_template;
 
 #[post("/role/add")]
@@ -61,8 +63,12 @@ pub async fn user_modal(
 
     let repo = DieselUserRepository::new(&pool);
 
-    if let Ok(Some(user)) = repo.get_by_id(user_id) {
-        context.insert("user", &user.user);
+    if let Ok(Some(found_user)) = repo.get_by_id(user_id) {
+        if found_user.user.hub_id != user.hub_id {
+            FlashMessage::error("Недостаточно прав.").send();
+            return redirect("/");
+        }
+        context.insert("user", &found_user.user);
     }
 
     let repo = DieselRoleRepository::new(&pool);
@@ -100,6 +106,18 @@ pub async fn delete_user(
 
     let repo = DieselUserRepository::new(&pool);
 
+    match repo.get_by_id(user_id) {
+        Ok(Some(found_user)) if found_user.user.hub_id == user.hub_id => {}
+        Ok(Some(_)) => {
+            FlashMessage::error("Недостаточно прав.").send();
+            return redirect("/");
+        }
+        _ => {
+            FlashMessage::error("Пользователь не найден.").send();
+            return redirect("/");
+        }
+    }
+
     match repo.delete(user_id) {
         Ok(_) => {
             FlashMessage::success("Пользователь удалён.").send();
@@ -132,6 +150,19 @@ pub async fn update_user(
     };
 
     let repo = DieselUserRepository::new(&pool);
+
+    match repo.get_by_id(form.id) {
+        Ok(Some(found_user)) if found_user.user.hub_id == user.hub_id => {}
+        Ok(Some(_)) => {
+            FlashMessage::error("Недостаточно прав.").send();
+            return redirect("/");
+        }
+        _ => {
+            FlashMessage::error("Пользователь не найден.").send();
+            return redirect("/");
+        }
+    }
+
     match repo.assign_roles(form.id, &form.roles) {
         Ok(_) => {
             FlashMessage::success("Роли назначены.").send();
@@ -225,7 +256,7 @@ pub async fn delete_hub(
 
     let hub_id = hub_id.into_inner();
 
-    if user.hub_id == hub_id {
+    if user.hub_id != hub_id {
         FlashMessage::error("Недостаточно прав.").send();
         return redirect("/");
     }
@@ -287,6 +318,19 @@ pub async fn delete_menu(
     let menu_id = menu_id.into_inner();
 
     let repo = DieselMenuRepository::new(&pool);
+
+    let menu = match repo.get_by_id(menu_id) {
+        Ok(Some(menu)) => menu,
+        _ => {
+            FlashMessage::error("Меню не найдено.").send();
+            return redirect("/");
+        }
+    };
+
+    if menu.hub_id != user.hub_id {
+        FlashMessage::error("Недостаточно прав.").send();
+        return redirect("/");
+    }
 
     match repo.delete(menu_id) {
         Ok(_) => {
