@@ -294,7 +294,10 @@ impl UserWriter for DieselUserRepository<'_> {
 
         let mut connection = self.pool.get()?;
 
-        let user = self.get_by_id(user_id)?.ok_or(RepositoryError::NotFound)?.user;
+        let user = self
+            .get_by_id(user_id)?
+            .ok_or(RepositoryError::NotFound)?
+            .user;
 
         let password_hash = match updates.password.as_ref() {
             Some(password) if !password.is_empty() => hash(password, DEFAULT_COST)?,
