@@ -5,8 +5,9 @@ use actix_web_flash_messages::FlashMessage;
 use log::error;
 use pushkind_common::db::DbPool;
 use pushkind_common::models::auth::AuthenticatedUser;
+use pushkind_common::routes::render_template;
 use pushkind_common::routes::{ensure_role, redirect};
-use tera::Context;
+use tera::{Context, Tera};
 
 use crate::domain::hub::NewHub;
 use crate::domain::menu::NewMenu;
@@ -17,7 +18,6 @@ use crate::repository::menu::DieselMenuRepository;
 use crate::repository::role::DieselRoleRepository;
 use crate::repository::user::DieselUserRepository;
 use crate::repository::{HubWriter, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter};
-use crate::routes::render_template;
 
 #[post("/role/add")]
 pub async fn add_role(
@@ -50,6 +50,7 @@ pub async fn user_modal(
     user_id: web::Path<i32>,
     user: AuthenticatedUser,
     pool: web::Data<DbPool>,
+    tera: web::Data<Tera>,
 ) -> impl Responder {
     if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
@@ -70,7 +71,7 @@ pub async fn user_modal(
         context.insert("roles", &roles);
     }
 
-    render_template("main/modal_body.html", &context)
+    render_template(&tera, "main/modal_body.html", &context)
 }
 
 #[post("/user/delete/{user_id}")]

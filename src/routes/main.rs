@@ -5,8 +5,9 @@ use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use log::error;
 use pushkind_common::db::DbPool;
 use pushkind_common::models::auth::AuthenticatedUser;
+use pushkind_common::routes::render_template;
 use pushkind_common::routes::{alert_level_to_str, redirect};
-use tera::Context;
+use tera::{Context, Tera};
 
 use crate::forms::main::SaveUserForm;
 use crate::repository::UserListQuery;
@@ -15,15 +16,14 @@ use crate::repository::menu::DieselMenuRepository;
 use crate::repository::role::DieselRoleRepository;
 use crate::repository::user::DieselUserRepository;
 use crate::repository::{HubReader, MenuReader, RoleReader, UserReader, UserWriter};
-use crate::routes::render_template;
 
 #[get("/")]
 pub async fn index(
     user: AuthenticatedUser,
     pool: web::Data<DbPool>,
     flash_messages: IncomingFlashMessages,
+    tera: web::Data<Tera>,
 ) -> impl Responder {
-
     let repo = DieselUserRepository::new(&pool);
 
     let users = match repo.list(UserListQuery::new(user.hub_id)) {
@@ -78,7 +78,7 @@ pub async fn index(
     context.insert("hubs", &hubs);
     context.insert("menu", &menu);
 
-    render_template("main/index.html", &context)
+    render_template(&tera, "main/index.html", &context)
 }
 
 #[post("/user/save")]

@@ -8,9 +8,10 @@ use log::error;
 use pushkind_common::db::DbPool;
 use pushkind_common::models::auth::AuthenticatedUser;
 use pushkind_common::models::config::CommonServerConfig;
+use pushkind_common::routes::render_template;
 use pushkind_common::routes::{alert_level_to_str, redirect};
 use serde::Deserialize;
-use tera::Context;
+use tera::{Context, Tera};
 use validator::Validate;
 
 use crate::forms::auth::{LoginForm, RegisterForm};
@@ -18,7 +19,7 @@ use crate::models::config::ServerConfig;
 use crate::repository::hub::DieselHubRepository;
 use crate::repository::user::DieselUserRepository;
 use crate::repository::{HubReader, UserReader, UserWriter};
-use crate::routes::{get_success_and_failure_redirects, render_template};
+use crate::routes::get_success_and_failure_redirects;
 
 #[derive(Deserialize)]
 struct AuthQueryParams {
@@ -119,6 +120,7 @@ pub async fn signin(
     flash_messages: IncomingFlashMessages,
     pool: web::Data<DbPool>,
     query_params: web::Query<AuthQueryParams>,
+    tera: web::Data<Tera>,
 ) -> impl Responder {
     if user.is_some() {
         return redirect("/");
@@ -145,7 +147,7 @@ pub async fn signin(
     context.insert("hubs", &hubs);
     context.insert("next", &query_params.next);
 
-    render_template("auth/login.html", &context)
+    render_template(&tera, "auth/login.html", &context)
 }
 
 #[get("/signup")]
@@ -154,6 +156,7 @@ pub async fn signup(
     flash_messages: IncomingFlashMessages,
     pool: web::Data<DbPool>,
     query_params: web::Query<AuthQueryParams>,
+    tera: web::Data<Tera>,
 ) -> impl Responder {
     if user.is_some() {
         return redirect("/");
@@ -180,5 +183,5 @@ pub async fn signup(
     context.insert("hubs", &hubs);
     context.insert("next", &query_params.next);
 
-    render_template("auth/register.html", &context)
+    render_template(&tera, "auth/register.html", &context)
 }
