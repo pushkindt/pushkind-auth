@@ -7,6 +7,7 @@ use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use log::error;
 use pushkind_common::db::DbPool;
 use pushkind_common::models::auth::AuthenticatedUser;
+use pushkind_common::models::config::CommonServerConfig;
 use pushkind_common::routes::render_template;
 use pushkind_common::routes::{alert_level_to_str, redirect};
 use serde::Deserialize;
@@ -30,6 +31,7 @@ pub async fn login(
     request: HttpRequest,
     pool: web::Data<DbPool>,
     server_config: web::Data<ServerConfig>,
+    common_config: web::Data<CommonServerConfig>,
     web::Form(form): web::Form<LoginForm>,
     query_params: web::Query<AuthQueryParams>,
 ) -> impl Responder {
@@ -61,7 +63,7 @@ pub async fn login(
 
     let mut claims = AuthenticatedUser::from(user_roles);
 
-    let jwt = match claims.to_jwt(&server_config.common_config.secret) {
+    let jwt = match claims.to_jwt(&common_config.secret) {
         Ok(jwt) => jwt,
         Err(e) => {
             error!("Failed to encode claims: {e}");

@@ -47,10 +47,10 @@ async fn main() -> std::io::Result<()> {
     let domain = env::var("DOMAIN").unwrap_or("localhost".to_string());
     let server_config = ServerConfig {
         domain: domain.clone(),
-        common_config: CommonServerConfig {
-            secret,
-            auth_service_url: "/auth/signin".to_string(),
-        },
+    };
+    let common_config = CommonServerConfig {
+        secret,
+        auth_service_url: "/auth/signin".to_string(),
     };
 
     let pool = match establish_connection_pool(&database_url) {
@@ -118,6 +118,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(tera.clone()))
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(server_config.clone()))
+            .app_data(web::Data::new(common_config.clone()))
     })
     .bind((address, port))?
     .run()
