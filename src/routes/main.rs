@@ -3,7 +3,6 @@
 use actix_web::{HttpResponse, Responder, get, post, web};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use log::error;
-use pushkind_common::db::DbPool;
 use pushkind_common::models::auth::AuthenticatedUser;
 use pushkind_common::routes::render_template;
 use pushkind_common::routes::{alert_level_to_str, redirect};
@@ -11,22 +10,18 @@ use tera::{Context, Tera};
 
 use crate::forms::main::SaveUserForm;
 use crate::repository::UserListQuery;
-use crate::repository::hub::DieselHubRepository;
-use crate::repository::menu::DieselMenuRepository;
-use crate::repository::role::DieselRoleRepository;
-use crate::repository::user::DieselUserRepository;
-use crate::repository::{HubReader, MenuReader, RoleReader, UserReader, UserWriter};
+use crate::repository::{
+    DieselRepository, HubReader, MenuReader, RoleReader, UserReader, UserWriter,
+};
 
 #[get("/")]
 pub async fn index(
     user: AuthenticatedUser,
-    pool: web::Data<DbPool>,
+    repo: web::Data<DieselRepository>,
     flash_messages: IncomingFlashMessages,
     tera: web::Data<Tera>,
 ) -> impl Responder {
-    let repo = DieselUserRepository::new(&pool);
-
-    let users = match repo.list(UserListQuery::new(user.hub_id)) {
+    let users = match repo.list_users(UserListQuery::new(user.hub_id)) {
         Ok((_total, users)) => users,
         Err(e) => {
             error!("Failed to list users: {e}");
@@ -34,9 +29,7 @@ pub async fn index(
         }
     };
 
-    let repo = DieselRoleRepository::new(&pool);
-
-    let roles = match repo.list() {
+    let roles = match repo.list_roles() {
         Ok(roles) => roles,
         Err(e) => {
             error!("Failed to list roles: {e}");
@@ -44,9 +37,7 @@ pub async fn index(
         }
     };
 
-    let repo = DieselHubRepository::new(&pool);
-
-    let hubs = match repo.list() {
+    let hubs = match repo.list_hubs() {
         Ok(hubs) => hubs,
         Err(e) => {
             error!("Failed to list hubs: {e}");
@@ -54,9 +45,7 @@ pub async fn index(
         }
     };
 
-    let repo = DieselMenuRepository::new(&pool);
-
-    let menu = match repo.list(user.hub_id) {
+    let menu = match repo.list_menu(user.hub_id) {
         Ok(menu) => menu,
         Err(e) => {
             error!("Failed to list menu: {e}");
@@ -84,11 +73,9 @@ pub async fn index(
 #[post("/user/save")]
 pub async fn save_user(
     user: AuthenticatedUser,
-    pool: web::Data<DbPool>,
+    repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<SaveUserForm>,
 ) -> impl Responder {
-    let repo = DieselUserRepository::new(&pool);
-
     let user_id = match user.sub.parse() {
         Ok(user_id) => user_id,
         Err(e) => {
@@ -98,7 +85,7 @@ pub async fn save_user(
     };
 
     let update_user = (&form).into();
-    match repo.update(user_id, &update_user) {
+    match repo.update_user(user_id, &update_user) {
         Ok(_) => {
             FlashMessage::success("Параметры изменены.".to_string()).send();
         }

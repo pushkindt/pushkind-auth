@@ -1,27 +1,15 @@
 use diesel::prelude::*;
-use pushkind_common::db::DbPool;
+use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
 
 use crate::domain::hub::{Hub, NewHub};
 use crate::models::hub::{Hub as DbHub, NewHub as NewDbHub};
-use crate::repository::errors::{RepositoryError, RepositoryResult};
-use crate::repository::{HubReader, HubWriter};
+use crate::repository::{DieselRepository, HubReader, HubWriter};
 
-/// Diesel implementation of [`HubReader`] and [`HubWriter`].
-pub struct DieselHubRepository<'a> {
-    pool: &'a DbPool,
-}
-
-impl<'a> DieselHubRepository<'a> {
-    pub fn new(pool: &'a DbPool) -> Self {
-        Self { pool }
-    }
-}
-
-impl HubReader for DieselHubRepository<'_> {
-    fn get_by_id(&self, id: i32) -> RepositoryResult<Option<Hub>> {
+impl HubReader for DieselRepository {
+    fn get_hub_by_id(&self, id: i32) -> RepositoryResult<Option<Hub>> {
         use crate::schema::hubs;
 
-        let mut connection = self.pool.get()?;
+        let mut connection = self.conn()?;
 
         let result = hubs::table
             .filter(hubs::id.eq(id))
@@ -31,10 +19,10 @@ impl HubReader for DieselHubRepository<'_> {
         Ok(result.map(|db_hub| db_hub.into())) // Convert DbHub to DomainHub
     }
 
-    fn get_by_name(&self, name: &str) -> RepositoryResult<Option<Hub>> {
+    fn get_hub_by_name(&self, name: &str) -> RepositoryResult<Option<Hub>> {
         use crate::schema::hubs;
 
-        let mut connection = self.pool.get()?;
+        let mut connection = self.conn()?;
 
         let result = hubs::table
             .filter(hubs::name.eq(name))
@@ -44,10 +32,10 @@ impl HubReader for DieselHubRepository<'_> {
         Ok(result.map(|db_hub| db_hub.into())) // Convert DbHub to DomainHub
     }
 
-    fn list(&self) -> RepositoryResult<Vec<Hub>> {
+    fn list_hubs(&self) -> RepositoryResult<Vec<Hub>> {
         use crate::schema::hubs;
 
-        let mut connection = self.pool.get()?;
+        let mut connection = self.conn()?;
 
         let results = hubs::table.load::<DbHub>(&mut connection)?;
 
@@ -55,11 +43,11 @@ impl HubReader for DieselHubRepository<'_> {
     }
 }
 
-impl HubWriter for DieselHubRepository<'_> {
-    fn create(&self, new_hub: &NewHub) -> RepositoryResult<Hub> {
+impl HubWriter for DieselRepository {
+    fn create_hub(&self, new_hub: &NewHub) -> RepositoryResult<Hub> {
         use crate::schema::hubs;
 
-        let mut connection = self.pool.get()?;
+        let mut connection = self.conn()?;
 
         let new_db_hub = NewDbHub::from(new_hub); // Convert to DbNewHub
         let hub = diesel::insert_into(hubs::table)
@@ -69,13 +57,13 @@ impl HubWriter for DieselHubRepository<'_> {
         Ok(hub)
     }
 
-    fn delete(&self, hub_id: i32) -> RepositoryResult<usize> {
+    fn delete_hub(&self, hub_id: i32) -> RepositoryResult<usize> {
         use crate::schema::hubs;
         use crate::schema::menu;
         use crate::schema::user_roles;
         use crate::schema::users;
 
-        let mut connection = self.pool.get()?;
+        let mut connection = self.conn()?;
 
         let result = connection.transaction::<_, diesel::result::Error, _>(|conn| {
             // delete menus for hub

@@ -27,8 +27,8 @@ impl TestDb {
             pool: Some(pool),
         }
     }
-    pub fn pool(&self) -> &DbPool {
-        self.pool.as_ref().expect("DB pool already dropped")
+    pub fn pool(&self) -> DbPool {
+        self.pool.clone().expect("DB pool already dropped")
     }
 
     fn remove_old_files(filename: &str) {

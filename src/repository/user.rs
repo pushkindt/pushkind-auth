@@ -2,31 +2,19 @@ use bcrypt::{DEFAULT_COST, hash, verify};
 use chrono::Utc;
 use diesel::prelude::*;
 use diesel::sql_types::{BigInt, Integer, Text};
-use pushkind_common::db::DbPool;
+use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
 
 use crate::domain::role::Role;
 use crate::domain::user::{NewUser, UpdateUser, User, UserWithRoles};
 use crate::models::role::{NewUserRole as DbNewUserRole, Role as DbRole};
 use crate::models::user::{NewUser as NewDbUser, UpdateUser as DbUpdateUser, User as DbUser};
-use crate::repository::errors::{RepositoryError, RepositoryResult};
-use crate::repository::{UserListQuery, UserReader, UserRepository, UserWriter};
+use crate::repository::{DieselRepository, UserListQuery, UserReader, UserRepository, UserWriter};
 
-/// Diesel implementation of user repository traits.
-pub struct DieselUserRepository<'a> {
-    pool: &'a DbPool,
-}
-
-impl<'a> DieselUserRepository<'a> {
-    pub fn new(pool: &'a DbPool) -> Self {
-        Self { pool }
-    }
-}
-
-impl UserReader for DieselUserRepository<'_> {
-    fn get_by_id(&self, id: i32) -> RepositoryResult<Option<UserWithRoles>> {
+impl UserReader for DieselRepository {
+    fn get_user_by_id(&self, id: i32) -> RepositoryResult<Option<UserWithRoles>> {
         use crate::schema::{roles, users};
 
-        let mut connection = self.pool.get()?;
+        let mut connection = self.conn()?;
 
         let user = users::table
             .filter(users::id.eq(id))
@@ -53,10 +41,14 @@ impl UserReader for DieselUserRepository<'_> {
         }))
     }
 
-    fn get_by_email(&self, email: &str, hub_id: i32) -> RepositoryResult<Option<UserWithRoles>> {
+    fn get_user_by_email(
+        &self,
+        email: &str,
+        hub_id: i32,
+    ) -> RepositoryResult<Option<UserWithRoles>> {
         use crate::schema::{roles, users};
 
-        let mut connection = self.pool.get()?;
+        let mut connection = self.conn()?;
 
         let email = email.to_lowercase();
 
@@ -85,12 +77,12 @@ impl UserReader for DieselUserRepository<'_> {
         }))
     }
 
-    fn list(&self, query: UserListQuery) -> RepositoryResult<(usize, Vec<UserWithRoles>)> {
+    fn list_users(&self, query: UserListQuery) -> RepositoryResult<(usize, Vec<UserWithRoles>)> {
         use crate::schema::roles;
         use crate::schema::user_roles;
         use crate::schema::users;
 
-        let mut conn = self.pool.get()?;
+        let mut conn = self.conn()?;
 
         let query_builder = || {
             let mut items = users::table
@@ -161,7 +153,7 @@ impl UserReader for DieselUserRepository<'_> {
         use crate::schema::roles;
         use crate::schema::user_roles;
 
-        let mut connection = self.pool.get()?;
+        let mut connection = self.conn()?;
 
         let results = roles::table
             .inner_join(user_roles::table)
@@ -171,12 +163,12 @@ impl UserReader for DieselUserRepository<'_> {
         Ok(results.into_iter().map(|db_role| db_role.into()).collect())
     }
 
-    fn search(&self, query: UserListQuery) -> RepositoryResult<(usize, Vec<UserWithRoles>)> {
+    fn search_users(&self, query: UserListQuery) -> RepositoryResult<(usize, Vec<UserWithRoles>)> {
         use crate::models::user::UserCount;
         use crate::schema::roles;
         use crate::schema::user_roles;
 
-        let mut conn = self.pool.get()?;
+        let mut conn = self.conn()?;
 
         let match_query = match &query.search {
             None => return Ok((0, vec![])),
@@ -274,13 +266,15 @@ impl UserReader for DieselUserRepository<'_> {
     }
 }
 
-impl UserWriter for DieselUserRepository<'_> {
-    fn create(&self, new_user: &NewUser) -> RepositoryResult<User> {
+impl UserWriter for DieselRepository {
+    fn create_user(&self, new_user: &NewUser) -> RepositoryResult<User> {
         use crate::schema::users;
 
-        let mut connection = self.pool.get()?;
+        let mut connection = self.conn()?;
 
-        let new_db_user = NewDbUser::try_from(new_user)?;
+        let new_db_user = NewDbUser::try_from(new_user).map_err(|e| {
+            RepositoryError::ValidationError(format!("Failed to saved User to DB: {e}"))
+        })?;
 
         let user = diesel::insert_into(users::table)
             .values(&new_db_user)
@@ -289,18 +283,22 @@ impl UserWriter for DieselUserRepository<'_> {
         Ok(user)
     }
 
-    fn update(&self, user_id: i32, updates: &UpdateUser) -> RepositoryResult<User> {
+    fn update_user(&self, user_id: i32, updates: &UpdateUser) -> RepositoryResult<User> {
         use crate::schema::users;
 
-        let mut connection = self.pool.get()?;
+        let mut connection = self.conn()?;
 
         let user = self
-            .get_by_id(user_id)?
+            .get_user_by_id(user_id)?
             .ok_or(RepositoryError::NotFound)?
             .user;
 
         let password_hash = match updates.password.as_ref() {
-            Some(password) if !password.is_empty() => hash(password, DEFAULT_COST)?,
+            Some(password) if !password.is_empty() => {
+                hash(password, DEFAULT_COST).map_err(|e| {
+                    RepositoryError::ValidationError(format!("Failed to update user password: {e}"))
+                })?
+            }
             _ => user.password_hash,
         };
 
@@ -318,11 +316,11 @@ impl UserWriter for DieselUserRepository<'_> {
         Ok(user)
     }
 
-    fn delete(&self, user_id: i32) -> RepositoryResult<usize> {
+    fn delete_user(&self, user_id: i32) -> RepositoryResult<usize> {
         use crate::schema::user_roles;
         use crate::schema::users;
 
-        let mut connection = self.pool.get()?;
+        let mut connection = self.conn()?;
 
         let result = connection.transaction::<_, diesel::result::Error, _>(|conn| {
             diesel::delete(user_roles::table)
@@ -340,10 +338,10 @@ impl UserWriter for DieselUserRepository<'_> {
         Ok(result)
     }
 
-    fn assign_roles(&self, user_id: i32, role_ids: &[i32]) -> RepositoryResult<usize> {
+    fn assign_roles_to_user(&self, user_id: i32, role_ids: &[i32]) -> RepositoryResult<usize> {
         use crate::schema::user_roles;
 
-        let mut connection = self.pool.get()?;
+        let mut connection = self.conn()?;
 
         connection
             .transaction::<_, diesel::result::Error, _>(|conn| {
@@ -367,4 +365,4 @@ impl UserWriter for DieselUserRepository<'_> {
     }
 }
 
-impl UserRepository for DieselUserRepository<'_> {}
+impl UserRepository for DieselRepository {}
