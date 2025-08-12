@@ -1,27 +1,15 @@
 use diesel::prelude::*;
-use pushkind_common::db::DbPool;
+use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
 
 use crate::domain::menu::{Menu, NewMenu};
 use crate::models::menu::{Menu as DbMenu, NewMenu as NewDbMenu};
-use crate::repository::errors::{RepositoryError, RepositoryResult};
-use crate::repository::{MenuReader, MenuRepository, MenuWriter};
+use crate::repository::{DieselRepository, MenuReader, MenuRepository, MenuWriter};
 
-/// Diesel implementation of [`MenuReader`] and [`MenuWriter`].
-pub struct DieselMenuRepository<'a> {
-    pool: &'a DbPool,
-}
-
-impl<'a> DieselMenuRepository<'a> {
-    pub fn new(pool: &'a DbPool) -> Self {
-        Self { pool }
-    }
-}
-
-impl MenuWriter for DieselMenuRepository<'_> {
-    fn create(&self, new_menu: &NewMenu) -> RepositoryResult<Menu> {
+impl MenuWriter for DieselRepository {
+    fn create_menu(&self, new_menu: &NewMenu) -> RepositoryResult<Menu> {
         use crate::schema::menu;
 
-        let mut connection = self.pool.get()?;
+        let mut connection = self.conn()?;
 
         let new_db_menu = NewDbMenu::from(new_menu); // Convert to DbNewMenu
         let menu = diesel::insert_into(menu::table)
@@ -31,10 +19,10 @@ impl MenuWriter for DieselMenuRepository<'_> {
         Ok(menu)
     }
 
-    fn delete(&self, menu_id: i32) -> RepositoryResult<usize> {
+    fn delete_menu(&self, menu_id: i32) -> RepositoryResult<usize> {
         use crate::schema::menu;
 
-        let mut connection = self.pool.get()?;
+        let mut connection = self.conn()?;
 
         let result =
             diesel::delete(menu::table.filter(menu::id.eq(menu_id))).execute(&mut connection)?;
@@ -47,11 +35,11 @@ impl MenuWriter for DieselMenuRepository<'_> {
     }
 }
 
-impl MenuReader for DieselMenuRepository<'_> {
-    fn list(&self, hub_id: i32) -> RepositoryResult<Vec<Menu>> {
+impl MenuReader for DieselRepository {
+    fn list_menu(&self, hub_id: i32) -> RepositoryResult<Vec<Menu>> {
         use crate::schema::menu;
 
-        let mut connection = self.pool.get()?;
+        let mut connection = self.conn()?;
 
         let results = menu::table
             .filter(menu::hub_id.eq(hub_id))
@@ -61,4 +49,4 @@ impl MenuReader for DieselMenuRepository<'_> {
     }
 }
 
-impl MenuRepository for DieselMenuRepository<'_> {}
+impl MenuRepository for DieselRepository {}

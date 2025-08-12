@@ -3,7 +3,6 @@
 use actix_web::{HttpResponse, Responder, post, web};
 use actix_web_flash_messages::FlashMessage;
 use log::error;
-use pushkind_common::db::DbPool;
 use pushkind_common::models::auth::AuthenticatedUser;
 use pushkind_common::routes::render_template;
 use pushkind_common::routes::{ensure_role, redirect};
@@ -13,27 +12,23 @@ use crate::domain::hub::NewHub;
 use crate::domain::menu::NewMenu;
 use crate::domain::role::NewRole;
 use crate::forms::main::{AddHubForm, AddMenuForm, AddRoleForm, UpdateUserForm};
-use crate::repository::hub::DieselHubRepository;
-use crate::repository::menu::DieselMenuRepository;
-use crate::repository::role::DieselRoleRepository;
-use crate::repository::user::DieselUserRepository;
-use crate::repository::{HubWriter, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter};
+use crate::repository::{
+    DieselRepository, HubWriter, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter,
+};
 
 #[post("/role/add")]
 pub async fn add_role(
     user: AuthenticatedUser,
-    pool: web::Data<DbPool>,
+    repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<AddRoleForm>,
 ) -> impl Responder {
     if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
     }
 
-    let repo = DieselRoleRepository::new(&pool);
-
     let new_role: NewRole = (&form).into();
 
-    match repo.create(&new_role) {
+    match repo.create_role(&new_role) {
         Ok(_) => {
             FlashMessage::success("Роль добавлена.").send();
         }
@@ -49,7 +44,7 @@ pub async fn add_role(
 pub async fn user_modal(
     user_id: web::Path<i32>,
     user: AuthenticatedUser,
-    pool: web::Data<DbPool>,
+    repo: web::Data<DieselRepository>,
     tera: web::Data<Tera>,
 ) -> impl Responder {
     if let Err(resp) = ensure_role(&user, "admin", None) {
@@ -60,14 +55,11 @@ pub async fn user_modal(
 
     let user_id = user_id.into_inner();
 
-    let repo = DieselUserRepository::new(&pool);
-
-    if let Ok(Some(user)) = repo.get_by_id(user_id) {
+    if let Ok(Some(user)) = repo.get_user_by_id(user_id) {
         context.insert("user", &user.user);
     }
 
-    let repo = DieselRoleRepository::new(&pool);
-    if let Ok(roles) = repo.list() {
+    if let Ok(roles) = repo.list_roles() {
         context.insert("roles", &roles);
     }
 
@@ -78,7 +70,7 @@ pub async fn user_modal(
 pub async fn delete_user(
     user_id: web::Path<i32>,
     user: AuthenticatedUser,
-    pool: web::Data<DbPool>,
+    repo: web::Data<DieselRepository>,
 ) -> impl Responder {
     if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
@@ -99,9 +91,7 @@ pub async fn delete_user(
         return redirect("/");
     }
 
-    let repo = DieselUserRepository::new(&pool);
-
-    match repo.delete(user_id) {
+    match repo.delete_user(user_id) {
         Ok(_) => {
             FlashMessage::success("Пользователь удалён.").send();
         }
@@ -116,7 +106,7 @@ pub async fn delete_user(
 #[post("/user/update")]
 pub async fn update_user(
     user: AuthenticatedUser,
-    pool: web::Data<DbPool>,
+    repo: web::Data<DieselRepository>,
     form: web::Bytes,
 ) -> impl Responder {
     if let Err(resp) = ensure_role(&user, "admin", None) {
@@ -132,8 +122,7 @@ pub async fn update_user(
         }
     };
 
-    let repo = DieselUserRepository::new(&pool);
-    match repo.assign_roles(form.id, &form.roles) {
+    match repo.assign_roles_to_user(form.id, &form.roles) {
         Ok(_) => {
             FlashMessage::success("Роли назначены.").send();
         }
@@ -145,7 +134,7 @@ pub async fn update_user(
 
     let update_user = (&form).into();
 
-    match repo.update(form.id, &update_user) {
+    match repo.update_user(form.id, &update_user) {
         Ok(_) => {
             FlashMessage::success("Пользователь изменён.").send();
         }
@@ -160,18 +149,16 @@ pub async fn update_user(
 #[post("/hub/add")]
 pub async fn add_hub(
     user: AuthenticatedUser,
-    pool: web::Data<DbPool>,
+    repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<AddHubForm>,
 ) -> impl Responder {
     if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
     }
 
-    let repo = DieselHubRepository::new(&pool);
-
     let new_hub: NewHub = (&form).into();
 
-    match repo.create(&new_hub) {
+    match repo.create_hub(&new_hub) {
         Ok(_) => {
             FlashMessage::success("Хаб добавлен.").send();
         }
@@ -187,7 +174,7 @@ pub async fn add_hub(
 pub async fn delete_role(
     role_id: web::Path<i32>,
     user: AuthenticatedUser,
-    pool: web::Data<DbPool>,
+    repo: web::Data<DieselRepository>,
 ) -> impl Responder {
     if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
@@ -200,9 +187,7 @@ pub async fn delete_role(
         return redirect("/");
     }
 
-    let repo = DieselRoleRepository::new(&pool);
-
-    match repo.delete(role_id) {
+    match repo.delete_role(role_id) {
         Ok(_) => {
             FlashMessage::success("Роль удалена.").send();
         }
@@ -218,7 +203,7 @@ pub async fn delete_role(
 pub async fn delete_hub(
     hub_id: web::Path<i32>,
     user: AuthenticatedUser,
-    pool: web::Data<DbPool>,
+    repo: web::Data<DieselRepository>,
 ) -> impl Responder {
     if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
@@ -231,9 +216,7 @@ pub async fn delete_hub(
         return redirect("/");
     }
 
-    let repo = DieselHubRepository::new(&pool);
-
-    match repo.delete(hub_id) {
+    match repo.delete_hub(hub_id) {
         Ok(_) => {
             FlashMessage::success("Хаб удалён.").send();
         }
@@ -248,14 +231,12 @@ pub async fn delete_hub(
 #[post("/menu/add")]
 pub async fn add_menu(
     user: AuthenticatedUser,
-    pool: web::Data<DbPool>,
+    repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<AddMenuForm>,
 ) -> impl Responder {
     if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
     }
-
-    let repo = DieselMenuRepository::new(&pool);
 
     let new_menu = NewMenu {
         name: form.name.as_str(),
@@ -263,7 +244,7 @@ pub async fn add_menu(
         hub_id: user.hub_id,
     };
 
-    match repo.create(&new_menu) {
+    match repo.create_menu(&new_menu) {
         Ok(_) => {
             FlashMessage::success("Меню добавлено.").send();
         }
@@ -279,7 +260,7 @@ pub async fn add_menu(
 pub async fn delete_menu(
     menu_id: web::Path<i32>,
     user: AuthenticatedUser,
-    pool: web::Data<DbPool>,
+    repo: web::Data<DieselRepository>,
 ) -> impl Responder {
     if let Err(resp) = ensure_role(&user, "admin", None) {
         return resp;
@@ -287,9 +268,7 @@ pub async fn delete_menu(
 
     let menu_id = menu_id.into_inner();
 
-    let repo = DieselMenuRepository::new(&pool);
-
-    match repo.delete(menu_id) {
+    match repo.delete_menu(menu_id) {
         Ok(_) => {
             FlashMessage::success("Меню удалено.").send();
         }

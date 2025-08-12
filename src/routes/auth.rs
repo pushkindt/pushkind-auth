@@ -5,7 +5,6 @@ use actix_web::{HttpMessage, HttpRequest, HttpResponse};
 use actix_web::{Responder, get, post, web};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use log::error;
-use pushkind_common::db::DbPool;
 use pushkind_common::models::auth::AuthenticatedUser;
 use pushkind_common::models::config::CommonServerConfig;
 use pushkind_common::routes::render_template;
@@ -16,9 +15,7 @@ use validator::Validate;
 
 use crate::forms::auth::{LoginForm, RegisterForm};
 use crate::models::config::ServerConfig;
-use crate::repository::hub::DieselHubRepository;
-use crate::repository::user::DieselUserRepository;
-use crate::repository::{HubReader, UserReader, UserWriter};
+use crate::repository::{DieselRepository, HubReader, UserReader, UserWriter};
 use crate::routes::get_success_and_failure_redirects;
 
 #[derive(Deserialize)]
@@ -29,14 +26,12 @@ struct AuthQueryParams {
 #[post("/login")]
 pub async fn login(
     request: HttpRequest,
-    pool: web::Data<DbPool>,
+    repo: web::Data<DieselRepository>,
     server_config: web::Data<ServerConfig>,
     common_config: web::Data<CommonServerConfig>,
     web::Form(form): web::Form<LoginForm>,
     query_params: web::Query<AuthQueryParams>,
 ) -> impl Responder {
-    let repo = DieselUserRepository::new(&pool);
-
     let (success_redirect_url, failure_redirect_url) = get_success_and_failure_redirects(
         "/auth/signin",
         query_params.next.as_deref(),
@@ -82,13 +77,11 @@ pub async fn login(
 
 #[post("/register")]
 pub async fn register(
-    pool: web::Data<DbPool>,
+    repo: web::Data<DieselRepository>,
     server_config: web::Data<ServerConfig>,
     web::Form(form): web::Form<RegisterForm>,
     query_params: web::Query<AuthQueryParams>,
 ) -> impl Responder {
-    let repo = DieselUserRepository::new(&pool);
-
     let (_, failure_redirect_url) = get_success_and_failure_redirects(
         "/auth/signup",
         query_params.next.as_deref(),
@@ -102,7 +95,7 @@ pub async fn register(
     }
 
     let new_user = (&form).into();
-    match repo.create(&new_user) {
+    match repo.create_user(&new_user) {
         Ok(_) => {
             FlashMessage::success("Пользователь может войти.".to_string()).send();
         }
@@ -118,7 +111,7 @@ pub async fn register(
 pub async fn signin(
     user: Option<Identity>,
     flash_messages: IncomingFlashMessages,
-    pool: web::Data<DbPool>,
+    repo: web::Data<DieselRepository>,
     query_params: web::Query<AuthQueryParams>,
     tera: web::Data<Tera>,
 ) -> impl Responder {
@@ -126,9 +119,7 @@ pub async fn signin(
         return redirect("/");
     }
 
-    let repo = DieselHubRepository::new(&pool);
-
-    let hubs = match repo.list() {
+    let hubs = match repo.list_hubs() {
         Ok(hubs) => hubs,
         Err(e) => {
             error!("Failed to get hubs: {e}");
@@ -154,7 +145,7 @@ pub async fn signin(
 pub async fn signup(
     user: Option<Identity>,
     flash_messages: IncomingFlashMessages,
-    pool: web::Data<DbPool>,
+    repo: web::Data<DieselRepository>,
     query_params: web::Query<AuthQueryParams>,
     tera: web::Data<Tera>,
 ) -> impl Responder {
@@ -162,9 +153,7 @@ pub async fn signup(
         return redirect("/");
     }
 
-    let repo = DieselHubRepository::new(&pool);
-
-    let hubs = match repo.list() {
+    let hubs = match repo.list_hubs() {
         Ok(hubs) => hubs,
         Err(e) => {
             error!("Failed to get hubs: {e}");

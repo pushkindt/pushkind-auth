@@ -17,6 +17,7 @@ use pushkind_common::routes::logout;
 use tera::Tera;
 
 use pushkind_auth::models::config::ServerConfig;
+use pushkind_auth::repository::DieselRepository;
 use pushkind_auth::routes::admin::{
     add_hub, add_menu, add_role, delete_hub, delete_menu, delete_role, delete_user, update_user,
     user_modal,
@@ -60,6 +61,7 @@ async fn main() -> std::io::Result<()> {
             std::process::exit(1);
         }
     };
+    let repo = DieselRepository::new(pool);
 
     let message_store = CookieMessageStore::builder(secret_key.clone()).build();
     let message_framework = FlashMessagesFramework::builder(message_store).build();
@@ -116,7 +118,7 @@ async fn main() -> std::io::Result<()> {
                     .service(save_user),
             )
             .app_data(web::Data::new(tera.clone()))
-            .app_data(web::Data::new(pool.clone()))
+            .app_data(web::Data::new(repo.clone()))
             .app_data(web::Data::new(server_config.clone()))
             .app_data(web::Data::new(common_config.clone()))
     })

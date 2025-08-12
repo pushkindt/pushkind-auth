@@ -5,12 +5,11 @@ use actix_web::{
     web,
 };
 use futures_util::future::{LocalBoxFuture, Ready, ok};
-use pushkind_common::db::DbPool;
 use pushkind_common::models::auth::AuthenticatedUser;
 use std::rc::Rc;
 
+use crate::repository::DieselRepository;
 use crate::repository::UserReader;
-use crate::repository::user::DieselUserRepository;
 
 pub struct RequireUserExists;
 
@@ -50,7 +49,7 @@ where
     fn call(&self, mut req: ServiceRequest) -> Self::Future {
         let srv = Rc::clone(&self.service);
         let user = req.extract::<AuthenticatedUser>();
-        let pool = req.app_data::<web::Data<DbPool>>().cloned();
+        let repo = req.app_data::<web::Data<DieselRepository>>().cloned();
 
         Box::pin(async move {
             let claims = match user.await {
@@ -63,10 +62,9 @@ where
                 .parse()
                 .map_err(|_| ErrorUnauthorized("Invalid user"))?;
 
-            let pool = pool.ok_or_else(|| ErrorInternalServerError("DB pool not found"))?;
-            let repo = DieselUserRepository::new(&pool);
+            let repo = repo.ok_or_else(|| ErrorInternalServerError("DB repo not found"))?;
 
-            match repo.get_by_id(uid) {
+            match repo.get_user_by_id(uid) {
                 Ok(Some(_)) => srv.call(req).await,
                 _ => Err(ErrorUnauthorized("User not found")),
             }
