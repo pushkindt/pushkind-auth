@@ -1,3 +1,5 @@
+//! Custom middleware components used across the application.
+
 use actix_web::{
     Error,
     dev::{self, Service, ServiceRequest, ServiceResponse, Transform},
@@ -11,6 +13,8 @@ use std::rc::Rc;
 use crate::repository::DieselRepository;
 use crate::repository::UserReader;
 
+/// Middleware ensuring that the authenticated user referenced in the request
+/// actually exists in the database.
 pub struct RequireUserExists;
 
 impl<S, B> Transform<S, ServiceRequest> for RequireUserExists
@@ -31,6 +35,7 @@ where
     }
 }
 
+/// Service wrapper produced by [`RequireUserExists`].
 pub struct RequireUserExistsMiddleware<S> {
     service: Rc<S>,
 }

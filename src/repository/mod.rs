@@ -34,11 +34,16 @@ impl DieselRepository {
     }
 }
 
+/// Parameters used when querying for a list of users.
 #[derive(Debug, Clone)]
 pub struct UserListQuery {
+    /// Identifier of the hub to which the users belong.
     pub hub_id: i32,
+    /// Optional role to filter the resulting users by.
     pub role: Option<String>,
-    pub search: Option<String>, // Only makes sense when using Search
+    /// Text term used when performing search queries.
+    pub search: Option<String>,
+    /// Pagination information for limiting results.
     pub pagination: Option<Pagination>,
 }
 
@@ -77,17 +82,20 @@ pub trait UserReader {
     ) -> RepositoryResult<Option<UserWithRoles>>;
     fn list_users(&self, query: UserListQuery) -> RepositoryResult<(usize, Vec<UserWithRoles>)>;
     fn verify_password(&self, password: &str, stored_hash: &str) -> bool;
+    /// Attempts to authenticate a user by email, password and hub.
+    ///
+    /// Returns the full user with roles on success, or [`None`] when
+    /// authentication fails.
     fn login(
         &self,
         email: &str,
         password: &str,
         hub_id: i32,
     ) -> RepositoryResult<Option<UserWithRoles>> {
-        let ur = self.get_user_by_email(email, hub_id)?;
-        if let Some(ur) = ur
-            && self.verify_password(password, &ur.user.password_hash)
-        {
-            return Ok(Some(ur));
+        if let Some(ur) = self.get_user_by_email(email, hub_id)? {
+            if self.verify_password(password, &ur.user.password_hash) {
+                return Ok(Some(ur));
+            }
         }
         Ok(None)
     }
