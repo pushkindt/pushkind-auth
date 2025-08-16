@@ -4,8 +4,8 @@ use std::env;
 
 use actix_cors::Cors;
 use actix_identity::IdentityMiddleware;
-use actix_session::{SessionMiddleware, storage::CookieSessionStore};
-use actix_web::cookie::Key;
+use actix_session::{SessionMiddleware, config::PersistentSession, storage::CookieSessionStore};
+use actix_web::cookie::{Key, time::Duration};
 use actix_web::{App, HttpServer, middleware, web};
 use actix_web_flash_messages::{FlashMessagesFramework, storage::CookieMessageStore};
 use dotenvy::dotenv;
@@ -81,6 +81,9 @@ async fn main() -> std::io::Result<()> {
             .wrap(IdentityMiddleware::default())
             .wrap(
                 SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
+                    .session_lifecycle(
+                        PersistentSession::default().session_ttl(Duration::days(7)),
+                    )
                     .cookie_secure(false) // set to true in prod
                     .cookie_domain(Some(format!(".{domain}")))
                     .build(),
