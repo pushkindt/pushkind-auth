@@ -92,10 +92,10 @@ pub trait UserReader {
         password: &str,
         hub_id: i32,
     ) -> RepositoryResult<Option<UserWithRoles>> {
-        if let Some(ur) = self.get_user_by_email(email, hub_id)? {
-            if self.verify_password(password, &ur.user.password_hash) {
-                return Ok(Some(ur));
-            }
+        if let Some(ur) = self.get_user_by_email(email, hub_id)?
+            && self.verify_password(password, &ur.user.password_hash)
+        {
+            return Ok(Some(ur));
         }
         Ok(None)
     }

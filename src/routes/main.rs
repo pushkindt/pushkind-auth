@@ -21,6 +21,18 @@ pub async fn index(
     flash_messages: IncomingFlashMessages,
     tera: web::Data<Tera>,
 ) -> impl Responder {
+    let hub = match repo.get_hub_by_id(user.hub_id) {
+        Ok(Some(hub)) => hub,
+        Ok(None) => {
+            error!("Hub not found");
+            return HttpResponse::InternalServerError().finish();
+        }
+        Err(e) => {
+            error!("Failed to get hub: {e}");
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
     let users = match repo.list_users(UserListQuery::new(user.hub_id)) {
         Ok((_total, users)) => users,
         Err(e) => {
@@ -62,6 +74,7 @@ pub async fn index(
     context.insert("alerts", &alerts);
     context.insert("current_user", &user);
     context.insert("current_page", "index");
+    context.insert("current_hub", &hub);
     context.insert("users", &users);
     context.insert("roles", &roles);
     context.insert("hubs", &hubs);
