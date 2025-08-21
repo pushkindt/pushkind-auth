@@ -70,9 +70,22 @@ pub async fn index(
         .map(|f| (f.content(), alert_level_to_str(&f.level())))
         .collect::<Vec<_>>();
 
+    let user_name = match repo.get_user_by_email(&user.email, user.hub_id) {
+        Ok(Some(user)) => user.user.name,
+        Ok(None) => {
+            error!("User not found");
+            return HttpResponse::InternalServerError().finish();
+        }
+        Err(e) => {
+            error!("Failed to get user: {e}");
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
     let mut context = Context::new();
     context.insert("alerts", &alerts);
     context.insert("current_user", &user);
+    context.insert("user_name", &user_name);
     context.insert("current_page", "index");
     context.insert("current_hub", &hub);
     context.insert("users", &users);
