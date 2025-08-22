@@ -49,3 +49,4 @@ The codebase is organized into several layers:
 - Define error types inside their unit of fallibility
 - Run `cargo fmt`, `cargo clippy`, and `cargo test` before all commits
 - Document all public APIs and breaking changes
+- Always run formatting and linting before create PRs
