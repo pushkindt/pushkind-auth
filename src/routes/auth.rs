@@ -94,7 +94,7 @@ pub async fn register(
         return redirect(&failure_redirect_url);
     }
 
-    let new_user = (&form).into();
+    let new_user = form.into();
     match repo.create_user(&new_user) {
         Ok(_) => {
             FlashMessage::success("Пользователь может войти.".to_string()).send();

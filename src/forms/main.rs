@@ -2,7 +2,7 @@ use serde::Deserialize;
 use validator::Validate;
 
 use crate::domain::{
-    hub::NewHub as DomainNewHub, role::NewRole as DomainNewRole,
+    hub::NewHub as DomainNewHub, menu::NewMenu as DomainNewMenu, role::NewRole as DomainNewRole,
     user::UpdateUser as DomainUpdateUser,
 };
 
@@ -14,11 +14,12 @@ pub struct SaveUserForm {
     pub password: Option<String>,
 }
 
-impl<'a> From<&'a SaveUserForm> for DomainUpdateUser<'a> {
-    fn from(form: &'a SaveUserForm) -> Self {
+impl From<SaveUserForm> for DomainUpdateUser {
+    fn from(form: SaveUserForm) -> Self {
         Self {
-            name: &form.name,
-            password: form.password.as_deref(),
+            name: form.name,
+            password: form.password,
+            roles: None,
         }
     }
 }
@@ -29,11 +30,9 @@ pub struct AddRoleForm {
     pub name: String,
 }
 
-impl<'a> From<&'a AddRoleForm> for DomainNewRole<'a> {
-    fn from(form: &'a AddRoleForm) -> Self {
-        Self {
-            name: form.name.as_str(),
-        }
+impl From<AddRoleForm> for DomainNewRole {
+    fn from(form: AddRoleForm) -> Self {
+        Self { name: form.name }
     }
 }
 
@@ -48,11 +47,12 @@ pub struct UpdateUserForm {
     pub roles: Vec<i32>,
 }
 
-impl<'a> From<&'a UpdateUserForm> for DomainUpdateUser<'a> {
-    fn from(form: &'a UpdateUserForm) -> Self {
+impl From<UpdateUserForm> for DomainUpdateUser {
+    fn from(form: UpdateUserForm) -> Self {
         Self {
-            name: &form.name,
-            password: form.password.as_deref(),
+            name: form.name,
+            password: form.password,
+            roles: Some(form.roles),
         }
     }
 }
@@ -63,11 +63,9 @@ pub struct AddHubForm {
     pub name: String,
 }
 
-impl<'a> From<&'a AddHubForm> for DomainNewHub<'a> {
-    fn from(form: &'a AddHubForm) -> Self {
-        Self {
-            name: form.name.as_str(),
-        }
+impl From<AddHubForm> for DomainNewHub {
+    fn from(form: AddHubForm) -> Self {
+        Self { name: form.name }
     }
 }
 
@@ -76,6 +74,16 @@ impl<'a> From<&'a AddHubForm> for DomainNewHub<'a> {
 pub struct AddMenuForm {
     pub name: String,
     pub url: String,
+}
+
+impl AddMenuForm {
+    pub fn to_new_menu(&self, hub_id: i32) -> DomainNewMenu {
+        DomainNewMenu {
+            name: self.name.clone(),
+            url: self.url.clone(),
+            hub_id,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -92,10 +100,10 @@ mod tests {
             password: Some("password".to_string()),
         };
 
-        let update: DomainUpdateUser = (&form).into();
+        let update: DomainUpdateUser = form.into();
 
         assert_eq!(update.name, "Alice");
-        assert_eq!(update.password, Some("password"));
+        assert_eq!(update.password.as_deref(), Some("password"));
     }
 
     #[test]
@@ -104,7 +112,7 @@ mod tests {
             name: "editor".to_string(),
         };
 
-        let role: DomainNewRole = (&form).into();
+        let role: DomainNewRole = form.into();
 
         assert_eq!(role.name, "editor");
     }
@@ -118,10 +126,10 @@ mod tests {
             roles: vec![1, 2],
         };
 
-        let update: DomainUpdateUser = (&form).into();
+        let update: DomainUpdateUser = form.into();
 
         assert_eq!(update.name, "Bob");
-        assert_eq!(update.password, Some("pwd"));
+        assert_eq!(update.password.as_deref(), Some("pwd"));
     }
 
     #[test]
@@ -130,7 +138,7 @@ mod tests {
             name: "My Hub".to_string(),
         };
 
-        let hub: DomainNewHub = (&form).into();
+        let hub: DomainNewHub = form.into();
 
         assert_eq!(hub.name, "My Hub");
     }

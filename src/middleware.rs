@@ -69,7 +69,7 @@ where
 
             let repo = repo.ok_or_else(|| ErrorInternalServerError("DB repo not found"))?;
 
-            match repo.get_user_by_id(uid) {
+            match repo.get_user_by_id(uid, claims.hub_id) {
                 Ok(Some(_)) => srv.call(req).await,
                 _ => Err(ErrorUnauthorized("User not found")),
             }

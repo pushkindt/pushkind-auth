@@ -36,6 +36,19 @@ impl MenuWriter for DieselRepository {
 }
 
 impl MenuReader for DieselRepository {
+    fn get_menu_by_id(&self, menu_id: i32, hub_id: i32) -> RepositoryResult<Option<Menu>> {
+        use crate::schema::menu;
+
+        let mut connection = self.conn()?;
+
+        let result = menu::table
+            .filter(menu::id.eq(menu_id))
+            .filter(menu::hub_id.eq(hub_id))
+            .first::<DbMenu>(&mut connection)
+            .optional()?;
+        Ok(result.map(|db_menu| db_menu.into())) // Convert DbMenu to DomainMenu
+    }
+
     fn list_menu(&self, hub_id: i32) -> RepositoryResult<Vec<Menu>> {
         use crate::schema::menu;
 

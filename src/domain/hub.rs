@@ -12,6 +12,6 @@ pub struct Hub {
 
 #[derive(Clone, Debug, Deserialize)]
 /// Data used for creating a new [`Hub`].
-pub struct NewHub<'a> {
-    pub name: &'a str,
+pub struct NewHub {
+    pub name: String,
 }

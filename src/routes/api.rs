@@ -14,12 +14,12 @@ struct ApiV1IdParams {
 #[get("/v1/id")]
 pub async fn api_v1_id(
     params: web::Query<ApiV1IdParams>,
-    user: AuthenticatedUser,
+    current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
     match params.id {
-        Some(id) => match repo.get_user_by_id(id) {
-            Ok(Some(found_user)) if user.hub_id == found_user.user.hub_id => {
+        Some(id) => match repo.get_user_by_id(id, current_user.hub_id) {
+            Ok(Some(found_user)) => {
                 HttpResponse::Ok().json(AuthenticatedUser::from(found_user.user))
             }
             Err(e) => {
@@ -28,7 +28,7 @@ pub async fn api_v1_id(
             }
             _ => HttpResponse::NotFound().finish(),
         },
-        None => HttpResponse::Ok().json(user),
+        None => HttpResponse::Ok().json(current_user),
     }
 }
 
