@@ -23,7 +23,7 @@ pub struct RegisterForm {
     pub hub_id: i32,
 }
 
-impl<'a> From<RegisterForm> for DomainNewUser {
+impl From<RegisterForm> for DomainNewUser {
     fn from(form: RegisterForm) -> Self {
         DomainNewUser::new(form.email, None, form.hub_id, form.password)
     }

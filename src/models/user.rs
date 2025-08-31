@@ -75,7 +75,7 @@ impl<'a> TryFrom<&'a DomainNewUser> for NewUser {
     }
 }
 
-impl<'a> TryFrom<DomainNewUser> for NewUser {
+impl TryFrom<DomainNewUser> for NewUser {
     type Error = bcrypt::BcryptError;
 
     fn try_from(nu: DomainNewUser) -> Result<Self, Self::Error> {

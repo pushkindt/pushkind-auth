@@ -14,7 +14,7 @@ pub struct SaveUserForm {
     pub password: Option<String>,
 }
 
-impl<'a> From<SaveUserForm> for DomainUpdateUser {
+impl From<SaveUserForm> for DomainUpdateUser {
     fn from(form: SaveUserForm) -> Self {
         Self {
             name: form.name,
@@ -30,7 +30,7 @@ pub struct AddRoleForm {
     pub name: String,
 }
 
-impl<'a> From<AddRoleForm> for DomainNewRole {
+impl From<AddRoleForm> for DomainNewRole {
     fn from(form: AddRoleForm) -> Self {
         Self { name: form.name }
     }
@@ -47,7 +47,7 @@ pub struct UpdateUserForm {
     pub roles: Vec<i32>,
 }
 
-impl<'a> From<UpdateUserForm> for DomainUpdateUser {
+impl From<UpdateUserForm> for DomainUpdateUser {
     fn from(form: UpdateUserForm) -> Self {
         Self {
             name: form.name,
