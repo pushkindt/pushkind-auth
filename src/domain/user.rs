@@ -29,10 +29,22 @@ pub struct UserWithRoles {
 #[derive(Clone, Debug, Deserialize)]
 /// Data required to create a new user.
 pub struct NewUser<'a> {
-    pub email: &'a str,
+    pub email: String,
     pub name: Option<&'a str>,
     pub hub_id: i32,
     pub password: &'a str,
+}
+
+impl<'a> NewUser<'a> {
+    /// Creates a new [`NewUser`] ensuring the email is lowercased.
+    pub fn new(email: &'a str, name: Option<&'a str>, hub_id: i32, password: &'a str) -> Self {
+        Self {
+            email: email.to_lowercase(),
+            name,
+            hub_id,
+            password,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]

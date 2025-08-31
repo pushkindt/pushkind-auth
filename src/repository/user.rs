@@ -50,10 +50,8 @@ impl UserReader for DieselRepository {
 
         let mut connection = self.conn()?;
 
-        let email = email.to_lowercase();
-
         let user = users::table
-            .filter(users::email.eq(&email))
+            .filter(users::email.eq(email))
             .filter(users::hub_id.eq(hub_id))
             .first::<DbUser>(&mut connection)
             .optional()?;

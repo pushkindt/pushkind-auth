@@ -25,12 +25,12 @@ pub struct RegisterForm {
 
 impl<'a> From<&'a RegisterForm> for DomainNewUser<'a> {
     fn from(form: &'a RegisterForm) -> Self {
-        DomainNewUser {
-            email: form.email.as_str(),
-            name: None,
-            hub_id: form.hub_id,
-            password: form.password.as_str(),
-        }
+        DomainNewUser::new(
+            form.email.as_str(),
+            None,
+            form.hub_id,
+            form.password.as_str(),
+        )
     }
 }
 

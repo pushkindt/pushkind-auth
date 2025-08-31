@@ -67,7 +67,7 @@ impl<'a> TryFrom<&DomainNewUser<'a>> for NewUser {
         let password_hash = hash(nu.password, DEFAULT_COST)?;
 
         Ok(NewUser {
-            email: nu.email.to_lowercase(),
+            email: nu.email.clone(),
             name: nu.name.map(|n| n.to_string()),
             hub_id: nu.hub_id,
             password_hash,
@@ -91,12 +91,7 @@ mod tests {
 
     #[test]
     fn test_new_user_try_from() {
-        let domain = DomainNewUser {
-            email: "John@Example.com",
-            name: Some("John Doe"),
-            hub_id: 5,
-            password: "super_secret",
-        };
+        let domain = DomainNewUser::new("John@Example.com", Some("John Doe"), 5, "super_secret");
 
         let db_user = NewUser::try_from(domain).expect("conversion failed");
 

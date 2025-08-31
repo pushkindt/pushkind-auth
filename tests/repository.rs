@@ -68,12 +68,7 @@ fn test_user_repository_crud() {
     let user_repo = DieselRepository::new(test_db.pool());
 
     // Create User
-    let new_user = NewUser {
-        name: Some("TestUser"),
-        hub_id: hub.id,
-        email: "test@test.test",
-        password: "test",
-    };
+    let new_user = NewUser::new("test@test.test", Some("TestUser"), hub.id, "test");
     let user = user_repo.create_user(&new_user).unwrap();
     assert_eq!(user.name, Some("TestUser".to_string()));
     assert_eq!(user.email, "test@test.test");
@@ -164,12 +159,7 @@ fn test_email_lowercase_and_login_case_insensitive() {
     let user_repo = DieselRepository::new(test_db.pool());
 
     // Register user with mixed case email
-    let new_user = NewUser {
-        name: Some("Case"),
-        hub_id: hub.id,
-        email: "Mixed@Example.COM",
-        password: "pwd",
-    };
+    let new_user = NewUser::new("Mixed@Example.COM", Some("Case"), hub.id, "pwd");
     let user = user_repo.create_user(&new_user).unwrap();
     assert_eq!(user.email, "mixed@example.com");
 
@@ -180,12 +170,7 @@ fn test_email_lowercase_and_login_case_insensitive() {
     assert!(login.is_some());
 
     // Creating another user with same email (different case) should fail
-    let dup_user = NewUser {
-        name: Some("Dup"),
-        hub_id: hub.id,
-        email: "MIXED@example.com",
-        password: "pwd",
-    };
+    let dup_user = NewUser::new("MIXED@example.com", Some("Dup"), hub.id, "pwd");
     let res = user_repo.create_user(&dup_user);
     assert!(res.is_err());
 }
@@ -203,12 +188,12 @@ fn test_assign_roles_atomic() {
         .unwrap();
 
     let user = user_repo
-        .create_user(&NewUser {
-            name: Some("Atomic"),
-            hub_id: hub.id,
-            email: "atomic@example.com",
-            password: "pwd",
-        })
+        .create_user(&NewUser::new(
+            "atomic@example.com",
+            Some("Atomic"),
+            hub.id,
+            "pwd",
+        ))
         .unwrap();
 
     // Assign a valid role
