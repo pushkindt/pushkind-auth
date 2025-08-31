@@ -37,6 +37,7 @@ pub struct NewUser {
 
 impl NewUser {
     /// Creates a new [`NewUser`] ensuring the email is lowercased.
+    #[must_use]
     pub fn new(email: String, name: Option<String>, hub_id: i32, password: String) -> Self {
         Self {
             email: email.to_lowercase(),
