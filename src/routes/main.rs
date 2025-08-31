@@ -98,11 +98,11 @@ pub async fn index(
 
 #[post("/user/save")]
 pub async fn save_user(
-    user: AuthenticatedUser,
+    current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<SaveUserForm>,
 ) -> impl Responder {
-    let user_id = match user.sub.parse() {
+    let user_id = match current_user.sub.parse() {
         Ok(user_id) => user_id,
         Err(e) => {
             error!("Failed to parse user_id: {e}");
@@ -110,8 +110,8 @@ pub async fn save_user(
         }
     };
 
-    let update_user = (&form).into();
-    match repo.update_user(user_id, &update_user) {
+    let update_user = form.into();
+    match repo.update_user(user_id, current_user.hub_id, &update_user) {
         Ok(_) => {
             FlashMessage::success("Параметры изменены.".to_string()).send();
         }

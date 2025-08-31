@@ -23,14 +23,9 @@ pub struct RegisterForm {
     pub hub_id: i32,
 }
 
-impl<'a> From<&'a RegisterForm> for DomainNewUser<'a> {
-    fn from(form: &'a RegisterForm) -> Self {
-        DomainNewUser::new(
-            form.email.as_str(),
-            None,
-            form.hub_id,
-            form.password.as_str(),
-        )
+impl<'a> From<RegisterForm> for DomainNewUser {
+    fn from(form: RegisterForm) -> Self {
+        DomainNewUser::new(form.email, None, form.hub_id, form.password)
     }
 }
 
@@ -48,7 +43,7 @@ mod tests {
             hub_id: 7,
         };
 
-        let user: DomainNewUser = (&form).into();
+        let user: DomainNewUser = form.into();
 
         assert_eq!(user.email, "test@example.com");
         assert_eq!(user.password, "secret");

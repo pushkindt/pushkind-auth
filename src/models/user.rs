@@ -60,26 +60,33 @@ impl From<User> for DomainUser {
     }
 }
 
-impl<'a> TryFrom<&DomainNewUser<'a>> for NewUser {
+impl<'a> TryFrom<&'a DomainNewUser> for NewUser {
     type Error = bcrypt::BcryptError;
 
-    fn try_from(nu: &DomainNewUser<'a>) -> Result<Self, Self::Error> {
-        let password_hash = hash(nu.password, DEFAULT_COST)?;
+    fn try_from(nu: &'a DomainNewUser) -> Result<Self, Self::Error> {
+        let password_hash = hash(nu.password.clone(), DEFAULT_COST)?;
 
         Ok(NewUser {
             email: nu.email.clone(),
-            name: nu.name.map(|n| n.to_string()),
+            name: nu.name.clone(),
             hub_id: nu.hub_id,
             password_hash,
         })
     }
 }
 
-impl<'a> TryFrom<DomainNewUser<'a>> for NewUser {
+impl<'a> TryFrom<DomainNewUser> for NewUser {
     type Error = bcrypt::BcryptError;
 
-    fn try_from(nu: DomainNewUser<'a>) -> Result<Self, Self::Error> {
-        Self::try_from(&nu)
+    fn try_from(nu: DomainNewUser) -> Result<Self, Self::Error> {
+        let password_hash = hash(nu.password, DEFAULT_COST)?;
+
+        Ok(NewUser {
+            email: nu.email,
+            name: nu.name,
+            hub_id: nu.hub_id,
+            password_hash,
+        })
     }
 }
 
@@ -91,7 +98,12 @@ mod tests {
 
     #[test]
     fn test_new_user_try_from() {
-        let domain = DomainNewUser::new("John@Example.com", Some("John Doe"), 5, "super_secret");
+        let domain = DomainNewUser::new(
+            "John@Example.com".to_string(),
+            Some("John Doe".to_string()),
+            5,
+            "super_secret".to_string(),
+        );
 
         let db_user = NewUser::try_from(domain).expect("conversion failed");
 

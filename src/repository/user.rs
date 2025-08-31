@@ -11,13 +11,14 @@ use crate::models::user::{NewUser as NewDbUser, UpdateUser as DbUpdateUser, User
 use crate::repository::{DieselRepository, UserListQuery, UserReader, UserRepository, UserWriter};
 
 impl UserReader for DieselRepository {
-    fn get_user_by_id(&self, id: i32) -> RepositoryResult<Option<UserWithRoles>> {
+    fn get_user_by_id(&self, id: i32, hub_id: i32) -> RepositoryResult<Option<UserWithRoles>> {
         use crate::schema::{roles, users};
 
         let mut connection = self.conn()?;
 
         let user = users::table
             .filter(users::id.eq(id))
+            .filter(users::hub_id.eq(hub_id))
             .first::<DbUser>(&mut connection)
             .optional()?;
 
@@ -281,13 +282,18 @@ impl UserWriter for DieselRepository {
         Ok(user)
     }
 
-    fn update_user(&self, user_id: i32, updates: &UpdateUser) -> RepositoryResult<User> {
+    fn update_user(
+        &self,
+        user_id: i32,
+        hub_id: i32,
+        updates: &UpdateUser,
+    ) -> RepositoryResult<User> {
         use crate::schema::users;
 
         let mut connection = self.conn()?;
 
         let user = self
-            .get_user_by_id(user_id)?
+            .get_user_by_id(user_id, hub_id)?
             .ok_or(RepositoryError::NotFound)?
             .user;
 
@@ -301,7 +307,7 @@ impl UserWriter for DieselRepository {
         };
 
         let db_updates = DbUpdateUser {
-            name: updates.name,
+            name: updates.name.as_str(),
             password_hash,
             updated_at: Utc::now().naive_utc(),
         };

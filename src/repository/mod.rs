@@ -74,7 +74,7 @@ impl UserListQuery {
 }
 
 pub trait UserReader {
-    fn get_user_by_id(&self, id: i32) -> RepositoryResult<Option<UserWithRoles>>;
+    fn get_user_by_id(&self, id: i32, hub_id: i32) -> RepositoryResult<Option<UserWithRoles>>;
     fn get_user_by_email(
         &self,
         email: &str,
@@ -108,7 +108,12 @@ pub trait UserReader {
 pub trait UserWriter {
     fn create_user(&self, new_user: &NewUser) -> RepositoryResult<User>;
     fn assign_roles_to_user(&self, user_id: i32, role_ids: &[i32]) -> RepositoryResult<usize>;
-    fn update_user(&self, user_id: i32, updates: &UpdateUser) -> RepositoryResult<User>;
+    fn update_user(
+        &self,
+        user_id: i32,
+        hub_id: i32,
+        updates: &UpdateUser,
+    ) -> RepositoryResult<User>;
     fn delete_user(&self, user_id: i32) -> RepositoryResult<usize>;
 }
 
@@ -146,6 +151,7 @@ pub trait RoleRepository: RoleReader + RoleWriter {}
 impl<T> RoleRepository for T where T: RoleReader + RoleWriter {}
 
 pub trait MenuReader {
+    fn get_menu_by_id(&self, menu_id: i32, hub_id: i32) -> RepositoryResult<Option<Menu>>;
     fn list_menu(&self, hub_id: i32) -> RepositoryResult<Vec<Menu>>;
 }
 

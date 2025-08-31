@@ -34,19 +34,13 @@ impl From<DomainMenu> for Menu {
     }
 }
 
-impl<'a> From<&DomainNewMenu<'a>> for NewMenu<'a> {
-    fn from(menu: &DomainNewMenu<'a>) -> Self {
+impl<'a> From<&'a DomainNewMenu> for NewMenu<'a> {
+    fn from(menu: &'a DomainNewMenu) -> Self {
         Self {
-            name: menu.name,
-            url: menu.url,
+            name: menu.name.as_str(),
+            url: menu.url.as_str(),
             hub_id: menu.hub_id,
         }
-    }
-}
-
-impl<'a> From<DomainNewMenu<'a>> for NewMenu<'a> {
-    fn from(menu: DomainNewMenu<'a>) -> Self {
-        Self::from(&menu)
     }
 }
 

@@ -9,24 +9,24 @@ use pushkind_common::routes::{ensure_role, redirect};
 use tera::{Context, Tera};
 
 use crate::domain::hub::NewHub;
-use crate::domain::menu::NewMenu;
 use crate::domain::role::NewRole;
 use crate::forms::main::{AddHubForm, AddMenuForm, AddRoleForm, UpdateUserForm};
 use crate::repository::{
-    DieselRepository, HubWriter, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter,
+    DieselRepository, HubWriter, MenuReader, MenuWriter, RoleReader, RoleWriter, UserReader,
+    UserWriter,
 };
 
 #[post("/role/add")]
 pub async fn add_role(
-    user: AuthenticatedUser,
+    current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<AddRoleForm>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin", None) {
+    if let Err(resp) = ensure_role(&current_user, "admin", None) {
         return resp;
     }
 
-    let new_role: NewRole = (&form).into();
+    let new_role: NewRole = form.into();
 
     match repo.create_role(&new_role) {
         Ok(_) => {
@@ -43,11 +43,11 @@ pub async fn add_role(
 #[post("/user/modal/{user_id}")]
 pub async fn user_modal(
     user_id: web::Path<i32>,
-    user: AuthenticatedUser,
+    current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
     tera: web::Data<Tera>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin", None) {
+    if let Err(resp) = ensure_role(&current_user, "admin", None) {
         return resp;
     }
 
@@ -55,7 +55,7 @@ pub async fn user_modal(
 
     let user_id = user_id.into_inner();
 
-    if let Ok(Some(user)) = repo.get_user_by_id(user_id) {
+    if let Ok(Some(user)) = repo.get_user_by_id(user_id, current_user.hub_id) {
         context.insert("user", &user.user);
     }
 
@@ -69,16 +69,27 @@ pub async fn user_modal(
 #[post("/user/delete/{user_id}")]
 pub async fn delete_user(
     user_id: web::Path<i32>,
-    user: AuthenticatedUser,
+    current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin", None) {
+    if let Err(resp) = ensure_role(&current_user, "admin", None) {
         return resp;
     }
 
-    let user_id = user_id.into_inner();
+    let user = match repo.get_user_by_id(user_id.into_inner(), current_user.hub_id) {
+        Ok(Some(user)) => user.user,
+        Ok(None) => {
+            FlashMessage::error("Пользователь не найден.").send();
+            return redirect("/");
+        }
+        Err(err) => {
+            log::error!("Failed to get user: {err}");
+            FlashMessage::error("Ошибка при получении пользователя").send();
+            return redirect("/");
+        }
+    };
 
-    let current_user_id: i32 = match user.sub.parse() {
+    let current_user_id: i32 = match current_user.sub.parse() {
         Ok(user_id) => user_id,
         Err(e) => {
             error!("Failed to parse user_id: {e}");
@@ -86,12 +97,12 @@ pub async fn delete_user(
         }
     };
 
-    if user_id == current_user_id {
+    if user.id == current_user_id {
         FlashMessage::error("Недостаточно прав.").send();
         return redirect("/");
     }
 
-    match repo.delete_user(user_id) {
+    match repo.delete_user(user.id) {
         Ok(_) => {
             FlashMessage::success("Пользователь удалён.").send();
         }
@@ -105,11 +116,11 @@ pub async fn delete_user(
 
 #[post("/user/update")]
 pub async fn update_user(
-    user: AuthenticatedUser,
+    current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
     form: web::Bytes,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin", None) {
+    if let Err(resp) = ensure_role(&current_user, "admin", None) {
         return resp;
     }
 
@@ -118,6 +129,19 @@ pub async fn update_user(
         Err(err) => {
             log::error!("Failed to process form: {err}");
             FlashMessage::error("Ошибка при обработке формы").send();
+            return redirect("/");
+        }
+    };
+
+    let user = match repo.get_user_by_id(form.id, current_user.hub_id) {
+        Ok(Some(user)) => user.user,
+        Ok(None) => {
+            FlashMessage::error("Пользователь не найден.").send();
+            return redirect("/");
+        }
+        Err(err) => {
+            log::error!("Failed to get user: {err}");
+            FlashMessage::error("Ошибка при получении пользователя").send();
             return redirect("/");
         }
     };
@@ -132,9 +156,9 @@ pub async fn update_user(
         }
     }
 
-    let update_user = (&form).into();
+    let update_user = form.into();
 
-    match repo.update_user(form.id, &update_user) {
+    match repo.update_user(user.id, user.hub_id, &update_user) {
         Ok(_) => {
             FlashMessage::success("Пользователь изменён.").send();
         }
@@ -148,15 +172,15 @@ pub async fn update_user(
 
 #[post("/hub/add")]
 pub async fn add_hub(
-    user: AuthenticatedUser,
+    current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<AddHubForm>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin", None) {
+    if let Err(resp) = ensure_role(&current_user, "admin", None) {
         return resp;
     }
 
-    let new_hub: NewHub = (&form).into();
+    let new_hub: NewHub = form.into();
 
     match repo.create_hub(&new_hub) {
         Ok(_) => {
@@ -173,10 +197,10 @@ pub async fn add_hub(
 #[post("/role/delete/{role_id}")]
 pub async fn delete_role(
     role_id: web::Path<i32>,
-    user: AuthenticatedUser,
+    current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin", None) {
+    if let Err(resp) = ensure_role(&current_user, "admin", None) {
         return resp;
     }
 
@@ -202,16 +226,16 @@ pub async fn delete_role(
 #[post("/hub/delete/{hub_id}")]
 pub async fn delete_hub(
     hub_id: web::Path<i32>,
-    user: AuthenticatedUser,
+    current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin", None) {
+    if let Err(resp) = ensure_role(&current_user, "admin", None) {
         return resp;
     }
 
     let hub_id = hub_id.into_inner();
 
-    if user.hub_id == hub_id {
+    if current_user.hub_id == hub_id {
         FlashMessage::error("Недостаточно прав.").send();
         return redirect("/");
     }
@@ -230,19 +254,15 @@ pub async fn delete_hub(
 
 #[post("/menu/add")]
 pub async fn add_menu(
-    user: AuthenticatedUser,
+    current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<AddMenuForm>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin", None) {
+    if let Err(resp) = ensure_role(&current_user, "admin", None) {
         return resp;
     }
 
-    let new_menu = NewMenu {
-        name: form.name.as_str(),
-        url: form.url.as_str(),
-        hub_id: user.hub_id,
-    };
+    let new_menu = form.to_new_menu(current_user.hub_id);
 
     match repo.create_menu(&new_menu) {
         Ok(_) => {
@@ -259,16 +279,27 @@ pub async fn add_menu(
 #[post("/menu/delete/{menu_id}")]
 pub async fn delete_menu(
     menu_id: web::Path<i32>,
-    user: AuthenticatedUser,
+    current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&user, "admin", None) {
+    if let Err(resp) = ensure_role(&current_user, "admin", None) {
         return resp;
     }
 
-    let menu_id = menu_id.into_inner();
+    let menu = match repo.get_menu_by_id(menu_id.into_inner(), current_user.hub_id) {
+        Ok(Some(menu)) => menu,
+        Ok(None) => {
+            FlashMessage::error("Меню не найдено.").send();
+            return redirect("/");
+        }
+        Err(err) => {
+            log::error!("Failed to get menu: {err}");
+            FlashMessage::error("Ошибка при получении меню").send();
+            return redirect("/");
+        }
+    };
 
-    match repo.delete_menu(menu_id) {
+    match repo.delete_menu(menu.id) {
         Ok(_) => {
             FlashMessage::success("Меню удалено.").send();
         }
