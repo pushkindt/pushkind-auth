@@ -3,7 +3,7 @@
 use actix_web::{HttpResponse, Responder, post, web};
 use actix_web_flash_messages::FlashMessage;
 use log::error;
-use pushkind_common::models::auth::AuthenticatedUser;
+use pushkind_common::domain::auth::AuthenticatedUser;
 use pushkind_common::routes::render_template;
 use pushkind_common::routes::{ensure_role, redirect};
 use tera::{Context, Tera};

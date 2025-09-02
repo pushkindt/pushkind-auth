@@ -45,6 +45,7 @@ The codebase is organized into several layers:
 ### Key Development Rules
 
 - Use idiomatic Rust everywhere
+- Follow the Clean Code and Clean Architecture principles
 - Use `thiserror` for error definitions; avoid `anyhow::Result`
 - Define error types inside their unit of fallibility
 - Run `cargo fmt`, `cargo clippy`, and `cargo test` before all commits

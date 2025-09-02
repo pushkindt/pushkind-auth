@@ -1,5 +1,5 @@
 use chrono::NaiveDateTime;
-use pushkind_common::models::auth::AuthenticatedUser;
+use pushkind_common::domain::auth::AuthenticatedUser;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::role::Role;
