@@ -1,6 +1,6 @@
 use actix_web::{HttpResponse, Responder, get, web};
 use log::error;
-use pushkind_common::models::auth::AuthenticatedUser;
+use pushkind_common::domain::auth::AuthenticatedUser;
 use pushkind_common::pagination::DEFAULT_ITEMS_PER_PAGE;
 use serde::Deserialize;
 

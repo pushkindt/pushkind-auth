@@ -7,7 +7,7 @@ use actix_web::{
     web,
 };
 use futures_util::future::{LocalBoxFuture, Ready, ok};
-use pushkind_common::models::auth::AuthenticatedUser;
+use pushkind_common::domain::auth::AuthenticatedUser;
 use std::rc::Rc;
 
 use crate::repository::DieselRepository;
