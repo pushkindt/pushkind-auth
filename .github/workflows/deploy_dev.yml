@@ -41,9 +41,10 @@ jobs:
           if_key_exists: fail # replace / ignore / fail; optional (defaults to fail)
       - name: Deploy
         run: |
-          ssh cicd@users.pushkind.com "supervisorctl stop auth_dev"
+          ssh cicd@users.pushkind.com "supervisorctl stop auth"
           scp ./target/release/pushkind-auth cicd@users.pushkind.com:/var/www7/html/
           scp -r ./assets/ cicd@users.pushkind.com:/var/www7/html/
           scp -r ./templates/ cicd@users.pushkind.com:/var/www7/html/
           scp -r ./migrations/ cicd@users.pushkind.com:/var/www7/html/
-          ssh cicd@users.pushkind.com "cd /var/www7/html/ && /home/cicd/.cargo/bin/diesel migration run && supervisorctl start auth_dev"
+          ssh cicd@users.pushkind.com "cd /var/www7/html/ && /home/cicd/.cargo/bin/diesel migration run"
+          ssh cicd@users.pushkind.com "supervisorctl start auth"
