@@ -15,7 +15,7 @@ use crate::repository::{
 };
 
 #[get("/")]
-pub async fn index(
+pub async fn show_index(
     user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
     flash_messages: IncomingFlashMessages,
