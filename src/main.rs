@@ -24,7 +24,7 @@ use pushkind_auth::routes::admin::{
 };
 use pushkind_auth::routes::api::{api_v1_id, api_v1_users};
 use pushkind_auth::routes::auth::{login, register, signin, signup};
-use pushkind_auth::routes::main::{index, save_user};
+use pushkind_auth::routes::main::{save_user, show_index};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -115,7 +115,7 @@ async fn main() -> std::io::Result<()> {
                 web::scope("")
                     .wrap(RequireUserExists)
                     .wrap(RedirectUnauthorized)
-                    .service(index)
+                    .service(show_index)
                     .service(save_user),
             )
             .app_data(web::Data::new(tera.clone()))

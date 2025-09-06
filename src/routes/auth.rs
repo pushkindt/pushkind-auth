@@ -21,6 +21,7 @@ use crate::routes::get_success_and_failure_redirects;
 #[derive(Deserialize)]
 struct AuthQueryParams {
     next: Option<String>,
+    token: Option<String>,
 }
 
 #[post("/login")]
@@ -109,14 +110,48 @@ pub async fn register(
 
 #[get("/signin")]
 pub async fn signin(
+    request: HttpRequest,
     user: Option<Identity>,
     flash_messages: IncomingFlashMessages,
     repo: web::Data<DieselRepository>,
     query_params: web::Query<AuthQueryParams>,
     tera: web::Data<Tera>,
+    common_config: web::Data<CommonServerConfig>,
 ) -> impl Responder {
     if user.is_some() {
         return redirect("/");
+    }
+
+    if let Some(token) = query_params.token.as_deref() {
+        let user = match AuthenticatedUser::from_jwt(token, &common_config.secret) {
+            Ok(user) => user,
+            Err(e) => {
+                error!("Failed to get user by token: {e}");
+                FlashMessage::error("Ошибка при аутентификации пользователя").send();
+                return redirect("/signin");
+            }
+        };
+
+        match repo.get_user_by_email(&user.email, user.hub_id) {
+            Ok(Some(_)) => (),
+            Ok(None) => {
+                error!("User not found");
+                FlashMessage::error("Пользователь не найден").send();
+                return redirect("/signin");
+            }
+            Err(e) => {
+                error!("Failed to get user by email: {e}");
+                return HttpResponse::InternalServerError().finish();
+            }
+        }
+
+        match Identity::login(&request.extensions(), token.to_string()) {
+            Ok(_) => return redirect("/"),
+            Err(e) => {
+                error!("Failed to login: {e}");
+                return redirect("/signin");
+            }
+        }
     }
 
     let hubs = match repo.list_hubs() {

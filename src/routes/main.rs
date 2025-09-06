@@ -6,20 +6,30 @@ use log::error;
 use pushkind_common::domain::auth::AuthenticatedUser;
 use pushkind_common::routes::render_template;
 use pushkind_common::routes::{alert_level_to_str, redirect};
+use serde::Deserialize;
 use tera::{Context, Tera};
 
 use crate::forms::main::SaveUserForm;
+use crate::models::config::ServerConfig;
 use crate::repository::UserListQuery;
 use crate::repository::{
     DieselRepository, HubReader, MenuReader, RoleReader, UserReader, UserWriter,
 };
+use crate::routes::is_valid_next;
+
+#[derive(Deserialize)]
+struct ShowIndexParams {
+    next: Option<String>,
+}
 
 #[get("/")]
-pub async fn index(
+pub async fn show_index(
+    params: web::Query<ShowIndexParams>,
     user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
     flash_messages: IncomingFlashMessages,
     tera: web::Data<Tera>,
+    server_config: web::Data<ServerConfig>,
 ) -> impl Responder {
     let hub = match repo.get_hub_by_id(user.hub_id) {
         Ok(Some(hub)) => hub,
@@ -32,6 +42,12 @@ pub async fn index(
             return HttpResponse::InternalServerError().finish();
         }
     };
+
+    if let Some(next) = params.next.as_deref()
+        && is_valid_next(next, &server_config.domain)
+    {
+        return redirect(next);
+    }
 
     let users = match repo.list_users(UserListQuery::new(user.hub_id)) {
         Ok((_total, users)) => users,
