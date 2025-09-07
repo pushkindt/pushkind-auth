@@ -23,6 +23,14 @@ pub struct RegisterForm {
     pub hub_id: i32,
 }
 
+#[derive(Deserialize, Validate)]
+/// Form data used to recover a forgotten password.
+pub struct RecoverForm {
+    #[validate(email)]
+    pub email: String,
+    pub hub_id: i32,
+}
+
 impl From<RegisterForm> for DomainNewUser {
     fn from(form: RegisterForm) -> Self {
         DomainNewUser::new(form.email, None, form.hub_id, form.password)

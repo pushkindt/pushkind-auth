@@ -31,6 +31,8 @@ url = "2.5.6"
 pushkind-common = { git = "https://github.com/pushkindt/pushkind-common.git", branch = "main", features = [
     "db",
     "actix",
+    "zeromq",
+    "emailer",
 ] }
 
 
