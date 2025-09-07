@@ -1,19 +1,25 @@
 //! Authentication and session management endpoints.
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use actix_identity::Identity;
 use actix_web::{HttpMessage, HttpRequest, HttpResponse};
 use actix_web::{Responder, get, post, web};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use log::error;
 use pushkind_common::domain::auth::AuthenticatedUser;
+use pushkind_common::domain::emailer::email::{NewEmail, NewEmailRecipient};
 use pushkind_common::models::config::CommonServerConfig;
+use pushkind_common::models::emailer::zmq::ZMQSendEmailMessage;
 use pushkind_common::routes::render_template;
 use pushkind_common::routes::{alert_level_to_str, redirect};
+use pushkind_common::zmq::ZmqSender;
 use serde::Deserialize;
 use tera::{Context, Tera};
 use validator::Validate;
 
-use crate::forms::auth::{LoginForm, RegisterForm};
+use crate::forms::auth::{LoginForm, RecoverForm, RegisterForm};
 use crate::models::config::ServerConfig;
 use crate::repository::{DieselRepository, HubReader, UserReader, UserWriter};
 use crate::routes::get_success_and_failure_redirects;
@@ -57,7 +63,7 @@ pub async fn login(
         }
     };
 
-    let mut claims = AuthenticatedUser::from(user_roles);
+    let claims = AuthenticatedUser::from(user_roles);
 
     let jwt = match claims.to_jwt(&common_config.secret) {
         Ok(jwt) => jwt,
@@ -208,4 +214,72 @@ pub async fn signup(
     context.insert("next", &query_params.next);
 
     render_template(&tera, "auth/register.html", &context)
+}
+
+#[post("/recover")]
+pub async fn recover_password(
+    request: HttpRequest,
+    zmq_sender: web::Data<Arc<ZmqSender>>,
+    repo: web::Data<DieselRepository>,
+    common_config: web::Data<CommonServerConfig>,
+    web::Form(form): web::Form<RecoverForm>,
+) -> impl Responder {
+    if let Err(e) = form.validate() {
+        log::error!("Failed to validate form: {e}");
+        FlashMessage::error("Ошибка валидации формы").send();
+        return redirect("/auth/signin");
+    }
+
+    let mut user: AuthenticatedUser = match repo.get_user_by_email(&form.email, form.hub_id) {
+        Ok(Some(user)) => user.into(),
+        Ok(None) => {
+            FlashMessage::error("Пользователь не найден").send();
+            return redirect("/auth/signin");
+        }
+        Err(e) => {
+            error!("Failed to get user by email: {e}");
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    user.set_expiration(1);
+
+    let jwt = match user.to_jwt(&common_config.secret) {
+        Ok(jwt) => jwt,
+        Err(e) => {
+            error!("Failed to encode claims: {e}");
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
+    // Build full URL from current request: schema://host{auth_service_url}?token={jwt}
+    let conn_info = request.connection_info();
+    let scheme = conn_info.scheme();
+    let host = conn_info.host();
+    let recovery_url = format!("{}://{}/login?token={}", scheme, host, jwt);
+
+    let new_email = NewEmail {
+        message: format!(
+            "Для входа в систему перейдите по ссылке: {}\nЕсли вы не запрашивали восстановление, проигнорируйте это письмо.",
+            recovery_url
+        ),
+        subject: Some("Восстановление пароля".to_string()),
+        attachment: None,
+        attachment_name: None,
+        attachment_mime: None,
+        hub_id: form.hub_id,
+        recipients: vec![NewEmailRecipient {
+            address: form.email,
+            name: "".to_string(),
+            fields: HashMap::new(),
+        }],
+    };
+
+    let zmq_message = ZMQSendEmailMessage::NewEmail(Box::new((user, new_email)));
+
+    match zmq_sender.send_json(&zmq_message).await {
+        Ok(_) => HttpResponse::Ok().body("Ссылка для входа выслана на электронную почту."),
+        Err(err) => {
+            HttpResponse::Ok().body(format!("Ошибка при добавлении сообщения в очередь: {err}"))
+        }
+    }
 }

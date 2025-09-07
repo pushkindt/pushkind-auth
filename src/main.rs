@@ -1,6 +1,7 @@
 //! Application entry point building the Actix-Web server.
 
 use std::env;
+use std::sync::Arc;
 
 use actix_cors::Cors;
 use actix_identity::IdentityMiddleware;
@@ -14,6 +15,7 @@ use pushkind_common::db::establish_connection_pool;
 use pushkind_common::middleware::RedirectUnauthorized;
 use pushkind_common::models::config::CommonServerConfig;
 use pushkind_common::routes::logout;
+use pushkind_common::zmq::{ZmqSender, ZmqSenderOptions};
 use tera::Tera;
 
 use pushkind_auth::models::config::ServerConfig;
@@ -23,7 +25,7 @@ use pushkind_auth::routes::admin::{
     user_modal,
 };
 use pushkind_auth::routes::api::{api_v1_id, api_v1_users};
-use pushkind_auth::routes::auth::{login, register, signin, signup};
+use pushkind_auth::routes::auth::{login, recover_password, register, signin, signup};
 use pushkind_auth::routes::main::{save_user, show_index};
 
 #[actix_web::main]
@@ -35,6 +37,17 @@ async fn main() -> std::io::Result<()> {
     let port = env::var("PORT").unwrap_or("8080".to_string());
     let port = port.parse::<u16>().unwrap_or(8080);
     let address = env::var("ADDRESS").unwrap_or("127.0.0.1".to_string());
+    let zmq_address = env::var("ZMQ_EMAILER_PUB").unwrap_or("tcp://127.0.0.1:5557".to_string());
+
+    let zmq_sender = match ZmqSender::start(ZmqSenderOptions::pub_default(&zmq_address)) {
+        Ok(zmq_sender) => zmq_sender,
+        Err(e) => {
+            log::error!("Failed to start ZMQ sender: {e}");
+            std::process::exit(1);
+        }
+    };
+
+    let zmq_sender = Arc::new(zmq_sender);
 
     let secret = env::var("SECRET_KEY");
     let secret = match secret {
@@ -94,7 +107,8 @@ async fn main() -> std::io::Result<()> {
                     .service(login)
                     .service(signin)
                     .service(signup)
-                    .service(register),
+                    .service(register)
+                    .service(recover_password),
             )
             .service(
                 web::scope("/admin")
@@ -122,6 +136,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(repo.clone()))
             .app_data(web::Data::new(server_config.clone()))
             .app_data(web::Data::new(common_config.clone()))
+            .app_data(web::Data::new(zmq_sender.clone()))
     })
     .bind((address, port))?
     .run()
