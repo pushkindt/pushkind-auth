@@ -252,10 +252,12 @@ pub async fn recover_password(
     };
 
     // Build full URL from current request: schema://host{auth_service_url}?token={jwt}
-    let conn_info = request.connection_info();
-    let scheme = conn_info.scheme();
-    let host = conn_info.host();
-    let recovery_url = format!("{}://{}/login?token={}", scheme, host, jwt);
+    let recovery_url = {
+        let conn_info = request.connection_info();
+        let scheme = conn_info.scheme();
+        let host = conn_info.host();
+        format!("{}://{}/signin?token={}", scheme, host, jwt)
+    };
 
     let new_email = NewEmail {
         message: format!(
