@@ -268,7 +268,7 @@ pub async fn recover_password(
         hub_id: form.hub_id,
         recipients: vec![NewEmailRecipient {
             address: form.email,
-            name: "".to_string(),
+            name: user.name.clone(),
             fields: HashMap::from([("recovery_url".to_string(), recovery_url)]),
         }],
     };
