@@ -256,14 +256,11 @@ pub async fn recover_password(
         let conn_info = request.connection_info();
         let scheme = conn_info.scheme();
         let host = conn_info.host();
-        format!("{}://{}/signin?token={}", scheme, host, jwt)
+        format!("{}://{}/auth/signin?token={}", scheme, host, jwt)
     };
 
     let new_email = NewEmail {
-        message: format!(
-            "Для входа в систему перейдите по ссылке: {}\nЕсли вы не запрашивали восстановление, проигнорируйте это письмо.",
-            recovery_url
-        ),
+        message: "Для входа в систему перейдите по ссылке: {recovery_url}\nЕсли вы не запрашивали восстановление, проигнорируйте это письмо.".to_string(),
         subject: Some("Восстановление пароля".to_string()),
         attachment: None,
         attachment_name: None,
@@ -271,8 +268,8 @@ pub async fn recover_password(
         hub_id: form.hub_id,
         recipients: vec![NewEmailRecipient {
             address: form.email,
-            name: "".to_string(),
-            fields: HashMap::new(),
+            name: user.name.clone(),
+            fields: HashMap::from([("recovery_url".to_string(), recovery_url)]),
         }],
     };
 
