@@ -7,11 +7,11 @@ use actix_identity::Identity;
 use actix_web::{HttpMessage, HttpRequest, HttpResponse};
 use actix_web::{Responder, get, post, web};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
-use log::error;
 use pushkind_common::domain::auth::AuthenticatedUser;
 use pushkind_common::domain::emailer::email::{NewEmail, NewEmailRecipient};
 use pushkind_common::models::config::CommonServerConfig;
 use pushkind_common::models::emailer::zmq::ZMQSendEmailMessage;
+use pushkind_common::repository::errors::RepositoryError;
 use pushkind_common::routes::render_template;
 use pushkind_common::routes::{alert_level_to_str, redirect};
 use pushkind_common::zmq::ZmqSender;
@@ -58,7 +58,7 @@ pub async fn login(
             return redirect(&failure_redirect_url);
         }
         Err(e) => {
-            error!("Login error: {e}");
+            log::error!("Login error: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -68,7 +68,7 @@ pub async fn login(
     let jwt = match claims.to_jwt(&common_config.secret) {
         Ok(jwt) => jwt,
         Err(e) => {
-            error!("Failed to encode claims: {e}");
+            log::error!("Failed to encode claims: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -76,7 +76,7 @@ pub async fn login(
     match Identity::login(&request.extensions(), jwt) {
         Ok(_) => redirect(&success_redirect_url),
         Err(e) => {
-            error!("Failed to login: {e}");
+            log::error!("Failed to login: {e}");
             HttpResponse::InternalServerError().finish()
         }
     }
@@ -85,33 +85,30 @@ pub async fn login(
 #[post("/register")]
 pub async fn register(
     repo: web::Data<DieselRepository>,
-    server_config: web::Data<ServerConfig>,
     web::Form(form): web::Form<RegisterForm>,
-    query_params: web::Query<AuthQueryParams>,
 ) -> impl Responder {
-    let (_, failure_redirect_url) = get_success_and_failure_redirects(
-        "/auth/signup",
-        query_params.next.as_deref(),
-        &server_config.domain,
-    );
-
     if let Err(e) = form.validate() {
         log::error!("Failed to validate form: {e}");
         FlashMessage::error("Ошибка валидации формы").send();
-        return redirect(&failure_redirect_url);
+        return redirect("/auth/signup");
     }
 
     let new_user = form.into();
     match repo.create_user(&new_user) {
         Ok(_) => {
             FlashMessage::success("Пользователь может войти.".to_string()).send();
+            redirect("/auth/signin")
+        }
+        Err(RepositoryError::ConstraintViolation(_)) => {
+            FlashMessage::error("Пользователь уже существует").send();
+            redirect("/auth/signup")
         }
         Err(err) => {
             log::error!("Failed to create user: {err}");
             FlashMessage::error("Ошибка при создании пользователя").send();
+            HttpResponse::InternalServerError().finish()
         }
     }
-    redirect(&failure_redirect_url)
 }
 
 #[get("/signin")]
@@ -132,7 +129,7 @@ pub async fn signin(
         let user = match AuthenticatedUser::from_jwt(token, &common_config.secret) {
             Ok(user) => user,
             Err(e) => {
-                error!("Failed to get user by token: {e}");
+                log::error!("Failed to get user by token: {e}");
                 FlashMessage::error("Ошибка при аутентификации пользователя").send();
                 return redirect("/signin");
             }
@@ -141,12 +138,12 @@ pub async fn signin(
         match repo.get_user_by_email(&user.email, user.hub_id) {
             Ok(Some(_)) => (),
             Ok(None) => {
-                error!("User not found");
+                log::error!("User not found");
                 FlashMessage::error("Пользователь не найден").send();
                 return redirect("/signin");
             }
             Err(e) => {
-                error!("Failed to get user by email: {e}");
+                log::error!("Failed to get user by email: {e}");
                 return HttpResponse::InternalServerError().finish();
             }
         }
@@ -154,7 +151,7 @@ pub async fn signin(
         match Identity::login(&request.extensions(), token.to_string()) {
             Ok(_) => return redirect("/"),
             Err(e) => {
-                error!("Failed to login: {e}");
+                log::error!("Failed to login: {e}");
                 return redirect("/signin");
             }
         }
@@ -163,7 +160,7 @@ pub async fn signin(
     let hubs = match repo.list_hubs() {
         Ok(hubs) => hubs,
         Err(e) => {
-            error!("Failed to get hubs: {e}");
+            log::error!("Failed to get hubs: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -197,7 +194,7 @@ pub async fn signup(
     let hubs = match repo.list_hubs() {
         Ok(hubs) => hubs,
         Err(e) => {
-            error!("Failed to get hubs: {e}");
+            log::error!("Failed to get hubs: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -237,7 +234,7 @@ pub async fn recover_password(
             return redirect("/auth/signin");
         }
         Err(e) => {
-            error!("Failed to get user by email: {e}");
+            log::error!("Failed to get user by email: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -246,7 +243,7 @@ pub async fn recover_password(
     let jwt = match user.to_jwt(&common_config.secret) {
         Ok(jwt) => jwt,
         Err(e) => {
-            error!("Failed to encode claims: {e}");
+            log::error!("Failed to encode claims: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
