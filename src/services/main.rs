@@ -19,16 +19,24 @@ pub fn get_index_data(
     user_email: &str,
     repo: &(impl HubReader + UserReader + RoleReader + MenuReader),
 ) -> ServiceResult<IndexData> {
-    let hub = repo.get_hub_by_id(hub_id)?.ok_or_else(|| pushkind_common::services::errors::ServiceError::NotFound)?;
+    let hub = repo
+        .get_hub_by_id(hub_id)?
+        .ok_or(pushkind_common::services::errors::ServiceError::NotFound)?;
     let (_total, users) = repo.list_users(UserListQuery::new(hub_id))?;
     let roles = repo.list_roles()?;
     let hubs = repo.list_hubs()?;
     let menu = repo.list_menu(hub_id)?;
     let user_name = repo
         .get_user_by_email(user_email, hub_id)?
-        .map(|u| u.user.name)
-        .flatten();
-    Ok(IndexData { hub, users, roles, hubs, menu, user_name })
+        .and_then(|u| u.user.name);
+    Ok(IndexData {
+        hub,
+        users,
+        roles,
+        hubs,
+        menu,
+        user_name,
+    })
 }
 
 pub fn update_current_user(
@@ -48,10 +56,30 @@ mod tests {
 
     fn sample() -> TestRepository {
         let now = TestRepository::now();
-        let hub = Hub { id: 5, name: "h".into(), created_at: now, updated_at: now };
-        let user = crate::domain::user::User { id: 9, email: "a@b".into(), name: Some("N".into()), hub_id: 5, password_hash: "".into(), created_at: now, updated_at: now, roles: vec![] };
-        let uwr = UserWithRoles { user, roles: vec![] };
-        TestRepository::with_users(vec![uwr]).with_hubs(vec![hub]).with_roles(vec![]).with_menus(vec![])
+        let hub = Hub {
+            id: 5,
+            name: "h".into(),
+            created_at: now,
+            updated_at: now,
+        };
+        let user = crate::domain::user::User {
+            id: 9,
+            email: "a@b".into(),
+            name: Some("N".into()),
+            hub_id: 5,
+            password_hash: "".into(),
+            created_at: now,
+            updated_at: now,
+            roles: vec![],
+        };
+        let uwr = UserWithRoles {
+            user,
+            roles: vec![],
+        };
+        TestRepository::with_users(vec![uwr])
+            .with_hubs(vec![hub])
+            .with_roles(vec![])
+            .with_menus(vec![])
     }
 
     #[test]
