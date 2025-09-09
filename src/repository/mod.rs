@@ -18,6 +18,8 @@ pub mod hub;
 pub mod menu;
 pub mod role;
 pub mod user;
+#[cfg(test)]
+pub mod test;
 
 #[derive(Clone)]
 pub struct DieselRepository {

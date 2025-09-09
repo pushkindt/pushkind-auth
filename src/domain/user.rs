@@ -20,7 +20,7 @@ pub struct User {
     pub roles: Vec<i32>,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct UserWithRoles {
     pub user: User,
     pub roles: Vec<Role>,

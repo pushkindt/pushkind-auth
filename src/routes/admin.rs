@@ -4,17 +4,17 @@ use actix_web::{HttpResponse, Responder, post, web};
 use actix_web_flash_messages::FlashMessage;
 use log::error;
 use pushkind_common::domain::auth::AuthenticatedUser;
+use pushkind_common::routes::redirect;
 use pushkind_common::routes::render_template;
-use pushkind_common::routes::{ensure_role, redirect};
+use pushkind_common::services::errors::ServiceError;
 use tera::{Context, Tera};
 
 use crate::domain::hub::NewHub;
 use crate::domain::role::NewRole;
 use crate::forms::main::{AddHubForm, AddMenuForm, AddRoleForm, UpdateUserForm};
-use crate::repository::{
-    DieselRepository, HubWriter, MenuReader, MenuWriter, RoleReader, RoleWriter, UserReader,
-    UserWriter,
-};
+use crate::repository::DieselRepository;
+// use crate::repository::UserReader; // no longer needed in thin routes
+use crate::services::admin as admin_service;
 
 #[post("/role/add")]
 pub async fn add_role(
@@ -22,15 +22,16 @@ pub async fn add_role(
     repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<AddRoleForm>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&current_user, "admin", None) {
-        return resp;
-    }
-
     let new_role: NewRole = form.into();
-
-    match repo.create_role(&new_role) {
+    match admin_service::create_role(&current_user, &new_role, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Роль добавлена.").send();
+        }
+        Err(ServiceError::Conflict) => {
+            FlashMessage::error("Роль уже существует.").send();
+        }
+        Err(ServiceError::Unauthorized) => {
+            FlashMessage::error("Недостаточно прав.").send();
         }
         Err(err) => {
             log::error!("Failed to add role: {err}");
@@ -47,20 +48,25 @@ pub async fn user_modal(
     repo: web::Data<DieselRepository>,
     tera: web::Data<Tera>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&current_user, "admin", None) {
-        return resp;
-    }
-
     let mut context = Context::new();
 
     let user_id = user_id.into_inner();
 
-    if let Ok(Some(user)) = repo.get_user_by_id(user_id, current_user.hub_id) {
-        context.insert("user", &user.user);
-    }
-
-    if let Ok(roles) = repo.list_roles() {
-        context.insert("roles", &roles);
+    match admin_service::user_modal_data(&current_user, user_id, repo.get_ref()) {
+        Ok((maybe_user, roles)) => {
+            if let Some(user) = maybe_user {
+                context.insert("user", &user);
+            }
+            context.insert("roles", &roles);
+        }
+        Err(ServiceError::Unauthorized) => {
+            FlashMessage::error("Недостаточно прав.").send();
+            return HttpResponse::Unauthorized().finish();
+        }
+        Err(e) => {
+            error!("Failed to build user modal data: {e}");
+            return HttpResponse::InternalServerError().finish();
+        }
     }
 
     render_template(&tera, "main/modal_body.html", &context)
@@ -72,39 +78,17 @@ pub async fn delete_user(
     current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&current_user, "admin", None) {
-        return resp;
-    }
+    let target_id = user_id.into_inner();
 
-    let user = match repo.get_user_by_id(user_id.into_inner(), current_user.hub_id) {
-        Ok(Some(user)) => user.user,
-        Ok(None) => {
-            FlashMessage::error("Пользователь не найден.").send();
-            return redirect("/");
-        }
-        Err(err) => {
-            log::error!("Failed to get user: {err}");
-            FlashMessage::error("Ошибка при получении пользователя").send();
-            return redirect("/");
-        }
-    };
-
-    let current_user_id: i32 = match current_user.sub.parse() {
-        Ok(user_id) => user_id,
-        Err(e) => {
-            error!("Failed to parse user_id: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    if user.id == current_user_id {
-        FlashMessage::error("Недостаточно прав.").send();
-        return redirect("/");
-    }
-
-    match repo.delete_user(user.id) {
+    match admin_service::delete_user_by_id(&current_user, target_id, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Пользователь удалён.").send();
+        }
+        Err(ServiceError::NotFound) => {
+            FlashMessage::error("Пользователь не найден.").send();
+        }
+        Err(ServiceError::Unauthorized) => {
+            FlashMessage::error("Недостаточно прав.").send();
         }
         Err(err) => {
             log::error!("Failed to delete user: {err}");
@@ -120,10 +104,6 @@ pub async fn update_user(
     repo: web::Data<DieselRepository>,
     form: web::Bytes,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&current_user, "admin", None) {
-        return resp;
-    }
-
     let form: UpdateUserForm = match serde_html_form::from_bytes(&form) {
         Ok(form) => form,
         Err(err) => {
@@ -133,38 +113,28 @@ pub async fn update_user(
         }
     };
 
-    let user = match repo.get_user_by_id(form.id, current_user.hub_id) {
-        Ok(Some(user)) => user.user,
-        Ok(None) => {
-            FlashMessage::error("Пользователь не найден.").send();
-            return redirect("/");
-        }
-        Err(err) => {
-            log::error!("Failed to get user: {err}");
-            FlashMessage::error("Ошибка при получении пользователя").send();
-            return redirect("/");
-        }
-    };
-
-    match repo.assign_roles_to_user(form.id, &form.roles) {
-        Ok(_) => {
-            FlashMessage::success("Роли назначены.").send();
-        }
-        Err(err) => {
-            log::error!("Failed to assign roles: {err}");
-            FlashMessage::error("Ошибка при назначении ролей").send();
-        }
-    }
-
-    let update_user = form.into();
-
-    match repo.update_user(user.id, user.hub_id, &update_user) {
+    let target_id = form.id;
+    let update_user: crate::domain::user::UpdateUser = form.into();
+    let role_ids = update_user.roles.clone().unwrap_or_default();
+    match admin_service::assign_roles_and_update_user(
+        &current_user,
+        target_id,
+        &update_user,
+        &role_ids,
+        repo.get_ref(),
+    ) {
         Ok(_) => {
             FlashMessage::success("Пользователь изменён.").send();
         }
+        Err(ServiceError::NotFound) => {
+            FlashMessage::error("Пользователь не найден.").send();
+        }
+        Err(ServiceError::Unauthorized) => {
+            FlashMessage::error("Недостаточно прав.").send();
+        }
         Err(err) => {
             log::error!("Failed to update user: {err}");
-            FlashMessage::error("Ошибка при изменении пользователя").send();
+            return HttpResponse::InternalServerError().finish();
         }
     }
     redirect("/")
@@ -176,19 +146,18 @@ pub async fn add_hub(
     repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<AddHubForm>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&current_user, "admin", None) {
-        return resp;
-    }
-
     let new_hub: NewHub = form.into();
 
-    match repo.create_hub(&new_hub) {
+    match admin_service::create_hub(&current_user, &new_hub, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Хаб добавлен.").send();
         }
+        Err(ServiceError::Unauthorized) => {
+            FlashMessage::error("Недостаточно прав.").send();
+        }
         Err(err) => {
             log::error!("Failed to add hub: {err}");
-            FlashMessage::error("Ошибка при добавлении хаба").send();
+            return HttpResponse::InternalServerError().finish();
         }
     }
     redirect("/")
@@ -200,24 +169,21 @@ pub async fn delete_role(
     current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&current_user, "admin", None) {
-        return resp;
-    }
-
     let role_id = role_id.into_inner();
 
-    if role_id == 1 {
-        FlashMessage::error("Недостаточно прав.").send();
-        return redirect("/");
-    }
-
-    match repo.delete_role(role_id) {
+    match admin_service::delete_role_by_id(&current_user, role_id, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Роль удалена.").send();
         }
+        Err(ServiceError::NotFound) => {
+            FlashMessage::error("Роль не найдена.").send();
+        }
+        Err(ServiceError::Unauthorized) => {
+            FlashMessage::error("Недостаточно прав.").send();
+        }
         Err(err) => {
             log::error!("Failed to delete role: {err}");
-            FlashMessage::error("Ошибка при удалении роли").send();
+            return HttpResponse::InternalServerError().finish();
         }
     }
     redirect("/")
@@ -229,24 +195,21 @@ pub async fn delete_hub(
     current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&current_user, "admin", None) {
-        return resp;
-    }
-
     let hub_id = hub_id.into_inner();
 
-    if current_user.hub_id == hub_id {
-        FlashMessage::error("Недостаточно прав.").send();
-        return redirect("/");
-    }
-
-    match repo.delete_hub(hub_id) {
+    match admin_service::delete_hub_by_id(&current_user, hub_id, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Хаб удалён.").send();
         }
+        Err(ServiceError::NotFound) => {
+            FlashMessage::error("Хаб не найден.").send();
+        }
+        Err(ServiceError::Unauthorized) => {
+            FlashMessage::error("Недостаточно прав.").send();
+        }
         Err(err) => {
             log::error!("Failed to delete hub: {err}");
-            FlashMessage::error("Ошибка при удалении хаба").send();
+            return HttpResponse::InternalServerError().finish();
         }
     }
     redirect("/")
@@ -258,19 +221,18 @@ pub async fn add_menu(
     repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<AddMenuForm>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&current_user, "admin", None) {
-        return resp;
-    }
-
     let new_menu = form.to_new_menu(current_user.hub_id);
 
-    match repo.create_menu(&new_menu) {
+    match admin_service::create_menu(&current_user, &new_menu, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Меню добавлено.").send();
         }
+        Err(ServiceError::Unauthorized) => {
+            FlashMessage::error("Недостаточно прав.").send();
+        }
         Err(err) => {
             log::error!("Failed to add menu: {err}");
-            FlashMessage::error("Ошибка при добавлении меню").send();
+            return HttpResponse::InternalServerError().finish();
         }
     }
     redirect("/")
@@ -282,30 +244,20 @@ pub async fn delete_menu(
     current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
-    if let Err(resp) = ensure_role(&current_user, "admin", None) {
-        return resp;
-    }
-
-    let menu = match repo.get_menu_by_id(menu_id.into_inner(), current_user.hub_id) {
-        Ok(Some(menu)) => menu,
-        Ok(None) => {
-            FlashMessage::error("Меню не найдено.").send();
-            return redirect("/");
-        }
-        Err(err) => {
-            log::error!("Failed to get menu: {err}");
-            FlashMessage::error("Ошибка при получении меню").send();
-            return redirect("/");
-        }
-    };
-
-    match repo.delete_menu(menu.id) {
+    let menu_id = menu_id.into_inner();
+    match admin_service::delete_menu_by_id(&current_user, menu_id, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Меню удалено.").send();
         }
+        Err(ServiceError::NotFound) => {
+            FlashMessage::error("Меню не найдено.").send();
+        }
+        Err(ServiceError::Unauthorized) => {
+            FlashMessage::error("Недостаточно прав.").send();
+        }
         Err(err) => {
             log::error!("Failed to delete menu: {err}");
-            FlashMessage::error("Ошибка при удалении меню").send();
+            return HttpResponse::InternalServerError().finish();
         }
     }
     redirect("/")

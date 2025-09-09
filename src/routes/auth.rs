@@ -11,7 +11,7 @@ use pushkind_common::domain::auth::AuthenticatedUser;
 use pushkind_common::domain::emailer::email::{NewEmail, NewEmailRecipient};
 use pushkind_common::models::config::CommonServerConfig;
 use pushkind_common::models::emailer::zmq::ZMQSendEmailMessage;
-use pushkind_common::repository::errors::RepositoryError;
+use pushkind_common::services::errors::ServiceError;
 use pushkind_common::routes::render_template;
 use pushkind_common::routes::{alert_level_to_str, redirect};
 use pushkind_common::zmq::ZmqSender;
@@ -21,7 +21,8 @@ use validator::Validate;
 
 use crate::forms::auth::{LoginForm, RecoverForm, RegisterForm};
 use crate::models::config::ServerConfig;
-use crate::repository::{DieselRepository, HubReader, UserReader, UserWriter};
+use crate::repository::{DieselRepository, UserReader};
+use crate::services::auth as auth_service;
 use crate::routes::get_success_and_failure_redirects;
 
 #[derive(Deserialize)]
@@ -51,9 +52,9 @@ pub async fn login(
         return redirect(&failure_redirect_url);
     }
 
-    let user_roles = match repo.login(&form.email, &form.password, form.hub_id) {
-        Ok(Some(user_roles)) => user_roles,
-        Ok(None) => {
+    let claims = match auth_service::login_user(&form.email, &form.password, form.hub_id, repo.get_ref()) {
+        Ok(claims) => claims,
+        Err(ServiceError::Unauthorized) => {
             FlashMessage::error("Неверный логин или пароль.").send();
             return redirect(&failure_redirect_url);
         }
@@ -62,8 +63,6 @@ pub async fn login(
             return HttpResponse::InternalServerError().finish();
         }
     };
-
-    let claims = AuthenticatedUser::from(user_roles);
 
     let jwt = match claims.to_jwt(&common_config.secret) {
         Ok(jwt) => jwt,
@@ -94,14 +93,10 @@ pub async fn register(
     }
 
     let new_user = form.into();
-    match repo.create_user(&new_user) {
+    match auth_service::register_user(&new_user, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Пользователь может войти.".to_string()).send();
             redirect("/auth/signin")
-        }
-        Err(RepositoryError::ConstraintViolation(_)) => {
-            FlashMessage::error("Пользователь уже существует").send();
-            redirect("/auth/signup")
         }
         Err(err) => {
             log::error!("Failed to create user: {err}");
@@ -157,7 +152,7 @@ pub async fn signin(
         }
     }
 
-    let hubs = match repo.list_hubs() {
+    let hubs = match auth_service::list_hubs(repo.get_ref()) {
         Ok(hubs) => hubs,
         Err(e) => {
             log::error!("Failed to get hubs: {e}");
@@ -191,7 +186,7 @@ pub async fn signup(
         return redirect("/");
     }
 
-    let hubs = match repo.list_hubs() {
+    let hubs = match auth_service::list_hubs(repo.get_ref()) {
         Ok(hubs) => hubs,
         Err(e) => {
             log::error!("Failed to get hubs: {e}");
