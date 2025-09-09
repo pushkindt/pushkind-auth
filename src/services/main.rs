@@ -5,6 +5,11 @@ use crate::domain::user::{UpdateUser, UserWithRoles};
 use crate::repository::{HubReader, MenuReader, RoleReader, UserListQuery, UserReader, UserWriter};
 use pushkind_common::services::errors::ServiceResult;
 
+/// Aggregated information required to render the index page.
+///
+/// The struct bundles data about the current hub, available users, roles,
+/// hubs and menu entries, as well as the name of the current user if
+/// available.
 pub struct IndexData {
     pub hub: Hub,
     pub users: Vec<UserWithRoles>,
@@ -14,6 +19,11 @@ pub struct IndexData {
     pub user_name: Option<String>,
 }
 
+/// Gathers all information necessary to render the main index view for a hub.
+///
+/// Returns an [`IndexData`] instance populated from the provided repository or
+/// a [`ServiceError`] if any of the underlying lookups fail or the hub is not
+/// found.
 pub fn get_index_data(
     hub_id: i32,
     user_email: &str,
@@ -39,6 +49,10 @@ pub fn get_index_data(
     })
 }
 
+/// Updates the currently authenticated user with the provided changes.
+///
+/// The update is delegated to the [`UserWriter`] implementation and any
+/// repository errors are propagated to the caller.
 pub fn update_current_user(
     user_id: i32,
     hub_id: i32,
@@ -89,5 +103,117 @@ mod tests {
         assert_eq!(data.hub.id, 5);
         assert_eq!(data.users.len(), 1);
         assert_eq!(data.user_name.as_deref(), Some("N"));
+    }
+
+    #[test]
+    fn test_update_current_user_success() {
+        let repo = sample();
+        let updates = UpdateUser {
+            name: "X".into(),
+            password: None,
+            roles: None,
+        };
+        let res = update_current_user(9, 5, &updates, &repo);
+        assert!(res.is_ok());
+    }
+
+    use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
+
+    struct MissingUserRepo;
+
+    impl UserWriter for MissingUserRepo {
+        fn create_user(
+            &self,
+            _new_user: &crate::domain::user::NewUser,
+        ) -> RepositoryResult<crate::domain::user::User> {
+            unimplemented!()
+        }
+
+        fn assign_roles_to_user(
+            &self,
+            _user_id: i32,
+            _role_ids: &[i32],
+        ) -> RepositoryResult<usize> {
+            unimplemented!()
+        }
+
+        fn update_user(
+            &self,
+            _user_id: i32,
+            _hub_id: i32,
+            _updates: &UpdateUser,
+        ) -> RepositoryResult<crate::domain::user::User> {
+            Err(RepositoryError::NotFound)
+        }
+
+        fn delete_user(&self, _user_id: i32) -> RepositoryResult<usize> {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn test_update_current_user_missing_user() {
+        let repo = MissingUserRepo;
+        let updates = UpdateUser {
+            name: "X".into(),
+            password: None,
+            roles: None,
+        };
+        let res = update_current_user(1, 1, &updates, &repo);
+        assert!(matches!(
+            res,
+            Err(pushkind_common::services::errors::ServiceError::Repository(
+                RepositoryError::NotFound
+            ))
+        ));
+    }
+
+    struct FailingRepo;
+
+    impl UserWriter for FailingRepo {
+        fn create_user(
+            &self,
+            _new_user: &crate::domain::user::NewUser,
+        ) -> RepositoryResult<crate::domain::user::User> {
+            unimplemented!()
+        }
+
+        fn assign_roles_to_user(
+            &self,
+            _user_id: i32,
+            _role_ids: &[i32],
+        ) -> RepositoryResult<usize> {
+            unimplemented!()
+        }
+
+        fn update_user(
+            &self,
+            _user_id: i32,
+            _hub_id: i32,
+            _updates: &UpdateUser,
+        ) -> RepositoryResult<crate::domain::user::User> {
+            Err(RepositoryError::ValidationError("fail".into()))
+        }
+
+        fn delete_user(&self, _user_id: i32) -> RepositoryResult<usize> {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn test_update_current_user_failure() {
+        let repo = FailingRepo;
+        let updates = UpdateUser {
+            name: "X".into(),
+            password: None,
+            roles: None,
+        };
+        let res = update_current_user(1, 1, &updates, &repo);
+        assert!(matches!(
+            res,
+            Err(pushkind_common::services::errors::ServiceError::Repository(
+                RepositoryError::ValidationError(_)
+            ))
+        ));
     }
 }
