@@ -1,3 +1,5 @@
+//! Services powering the main application views, such as loading index data and updating users.
+
 use crate::domain::hub::Hub;
 use crate::domain::menu::Menu;
 use crate::domain::role::Role;

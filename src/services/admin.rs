@@ -1,3 +1,5 @@
+//! Administrative services for managing users, roles, menus, and hubs.
+
 use crate::domain::hub::NewHub;
 use crate::domain::role::Role;
 use crate::domain::user::{UpdateUser, User};
