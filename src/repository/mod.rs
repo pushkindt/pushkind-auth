@@ -17,9 +17,9 @@ use crate::domain::user::{NewUser, UpdateUser, User};
 pub mod hub;
 pub mod menu;
 pub mod role;
-pub mod user;
 #[cfg(test)]
 pub mod test;
+pub mod user;
 
 #[derive(Clone)]
 pub struct DieselRepository {
@@ -96,10 +96,11 @@ pub trait UserReader {
     ) -> RepositoryResult<Option<UserWithRoles>> {
         let email = email.to_lowercase();
         let user = self.get_user_by_email(&email, hub_id)?;
-        if let Some(ur) = user
-            && self.verify_password(password, &ur.user.password_hash) {
+        if let Some(ur) = user {
+            if self.verify_password(password, &ur.user.password_hash) {
                 return Ok(Some(ur));
             }
+        }
         Ok(None)
     }
     fn get_roles(&self, user_id: i32) -> RepositoryResult<Vec<Role>>;

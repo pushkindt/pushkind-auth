@@ -4,6 +4,10 @@ use pushkind_common::services::errors::{ServiceError, ServiceResult};
 use crate::domain::user::NewUser;
 use crate::repository::{HubReader, UserReader, UserWriter};
 
+/// Attempts to authenticate a user for the given hub.
+///
+/// On success returns an [`AuthenticatedUser`] containing the user's claims.
+/// Returns [`ServiceError::Unauthorized`] when credentials are invalid.
 pub fn login_user(
     email: &str,
     password: &str,
@@ -12,15 +16,19 @@ pub fn login_user(
 ) -> ServiceResult<AuthenticatedUser> {
     let user_roles = repo
         .login(email, password, hub_id)?
-        .ok_or_else(|| ServiceError::Unauthorized)?;
+        .ok_or(ServiceError::Unauthorized)?;
     Ok(AuthenticatedUser::from(user_roles))
 }
 
+/// Persists a new user using the provided repository.
+///
+/// Returns [`ServiceError`] if the underlying repository fails to create the user.
 pub fn register_user(new_user: &NewUser, repo: &impl UserWriter) -> ServiceResult<()> {
     repo.create_user(new_user)?;
     Ok(())
 }
 
+/// Retrieves all hubs available in the system.
 pub fn list_hubs(repo: &impl HubReader) -> ServiceResult<Vec<crate::domain::hub::Hub>> {
     Ok(repo.list_hubs()?)
 }
@@ -29,6 +37,36 @@ pub fn list_hubs(repo: &impl HubReader) -> ServiceResult<Vec<crate::domain::hub:
 mod tests {
     use super::*;
     use crate::repository::test::TestRepository;
+    use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
+
+    struct FailingRepo;
+
+    impl UserWriter for FailingRepo {
+        fn create_user(&self, _new_user: &NewUser) -> RepositoryResult<crate::domain::user::User> {
+            Err(RepositoryError::ValidationError("fail".into()))
+        }
+
+        fn assign_roles_to_user(
+            &self,
+            _user_id: i32,
+            _role_ids: &[i32],
+        ) -> RepositoryResult<usize> {
+            unimplemented!()
+        }
+
+        fn update_user(
+            &self,
+            _user_id: i32,
+            _hub_id: i32,
+            _updates: &crate::domain::user::UpdateUser,
+        ) -> RepositoryResult<crate::domain::user::User> {
+            unimplemented!()
+        }
+
+        fn delete_user(&self, _user_id: i32) -> RepositoryResult<usize> {
+            unimplemented!()
+        }
+    }
 
     #[test]
     fn test_login_user_success() {
@@ -38,10 +76,61 @@ mod tests {
     }
 
     #[test]
-    fn test_register_user() {
+    fn test_login_user_invalid_password() {
+        let repo = TestRepository::with_users(vec![TestRepository::make_user(1, "a@b", 2, vec![])]);
+        let res = login_user("a@b", "wrong", 2, &repo);
+        assert!(matches!(res, Err(ServiceError::Unauthorized)));
+    }
+
+    #[test]
+    fn test_login_user_unknown_user() {
+        let repo = TestRepository::new();
+        let res = login_user("missing@ex", "pass", 1, &repo);
+        assert!(matches!(res, Err(ServiceError::Unauthorized)));
+    }
+
+    #[test]
+    fn test_register_user_success() {
         let repo = TestRepository::new();
         let new = NewUser::new("x@y".into(), None, 1, "p".into());
         let res = register_user(&new, &repo);
         assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_register_user_error() {
+        let repo = FailingRepo;
+        let new = NewUser::new("x@y".into(), None, 1, "p".into());
+        let res = register_user(&new, &repo);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_list_hubs_returns_all() {
+        let now = TestRepository::now();
+        let hubs = vec![
+            crate::domain::hub::Hub {
+                id: 1,
+                name: "h1".into(),
+                created_at: now,
+                updated_at: now,
+            },
+            crate::domain::hub::Hub {
+                id: 2,
+                name: "h2".into(),
+                created_at: now,
+                updated_at: now,
+            },
+        ];
+        let repo = TestRepository::new().with_hubs(hubs.clone());
+        let res = list_hubs(&repo).unwrap();
+        assert_eq!(res, hubs);
+    }
+
+    #[test]
+    fn test_list_hubs_empty() {
+        let repo = TestRepository::new();
+        let res = list_hubs(&repo).unwrap();
+        assert!(res.is_empty());
     }
 }
