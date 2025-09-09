@@ -1,3 +1,5 @@
+//! API services for retrieving and listing users.
+
 use pushkind_common::domain::auth::AuthenticatedUser;
 use pushkind_common::pagination::DEFAULT_ITEMS_PER_PAGE;
 use pushkind_common::services::errors::ServiceResult;
@@ -69,7 +71,14 @@ mod tests {
     #[test]
     fn get_user_by_optional_id_none_returns_current() {
         let repo = sample_repo();
-        let current = AuthenticatedUser { sub: "42".into(), email: "me@hub".into(), hub_id: 10, name: "Me".into(), roles: vec![], exp: 0 };
+        let current = AuthenticatedUser {
+            sub: "42".into(),
+            email: "me@hub".into(),
+            hub_id: 10,
+            name: "Me".into(),
+            roles: vec![],
+            exp: 0,
+        };
         let res = get_user_by_optional_id(None, current, &repo).unwrap();
         assert_eq!(res.unwrap().email, "me@hub");
     }
@@ -77,7 +86,14 @@ mod tests {
     #[test]
     fn get_user_by_optional_id_some_found() {
         let repo = sample_repo();
-        let current = AuthenticatedUser { sub: "1".into(), email: "user1@example.com".into(), hub_id: 10, name: "User1".into(), roles: vec![], exp: 0 };
+        let current = AuthenticatedUser {
+            sub: "1".into(),
+            email: "user1@example.com".into(),
+            hub_id: 10,
+            name: "User1".into(),
+            roles: vec![],
+            exp: 0,
+        };
         let res = get_user_by_optional_id(Some(1), current, &repo).unwrap();
         assert_eq!(res.unwrap().sub, "1");
     }
@@ -85,7 +101,14 @@ mod tests {
     #[test]
     fn get_user_by_optional_id_some_not_found() {
         let repo = sample_repo();
-        let current = AuthenticatedUser { sub: "1".into(), email: "user1@example.com".into(), hub_id: 10, name: "User1".into(), roles: vec![], exp: 0 };
+        let current = AuthenticatedUser {
+            sub: "1".into(),
+            email: "user1@example.com".into(),
+            hub_id: 10,
+            name: "User1".into(),
+            roles: vec![],
+            exp: 0,
+        };
         let res = get_user_by_optional_id(Some(999), current, &repo).unwrap();
         assert!(res.is_none());
     }
@@ -111,6 +134,5 @@ mod tests {
         let out = list_users(Some("member".into()), None, Some(1), 10, &repo).unwrap();
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].email, "user2@example.com");
-        
     }
 }

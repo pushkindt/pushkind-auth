@@ -1,3 +1,5 @@
+//! Authentication services for logging in users, registering new accounts, and listing hubs.
+
 use pushkind_common::domain::auth::AuthenticatedUser;
 use pushkind_common::services::errors::{ServiceError, ServiceResult};
 
