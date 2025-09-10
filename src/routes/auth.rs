@@ -48,13 +48,13 @@ pub async fn login_token(
         Err(e) => {
             log::error!("Failed to reissue session: {e}");
             FlashMessage::error("Ошибка при аутентификации пользователя").send();
-            return redirect("/signin");
+            return redirect("/auth/signin");
         }
     };
     if let Err(e) = Identity::login(&request.extensions(), jwt) {
         log::error!("Failed to login: {e}");
         FlashMessage::error("Ошибка при аутентификации пользователя").send();
-        return redirect("/signin");
+        return redirect("/auth/signin");
     }
     redirect("/")
 }
