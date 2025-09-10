@@ -80,7 +80,7 @@ pub fn assign_roles_and_update_user(
     // Validate user exists in the hub
     let user = match repo.get_user_by_id(user_id, current_user.hub_id)? {
         Some(u) => u.user,
-        None => return Ok(()),
+        None => return Err(ServiceError::NotFound),
     };
     repo.assign_roles_to_user(user_id, role_ids)?;
     repo.update_user(user.id, user.hub_id, updates)?;
@@ -252,7 +252,10 @@ mod tests {
             roles: None,
         };
         assert!(assign_roles_and_update_user(&admin_user(), 2, &updates, &[1, 2], &repo).is_ok());
-        assert!(assign_roles_and_update_user(&admin_user(), 99, &updates, &[], &repo).is_ok());
+        assert!(matches!(
+            assign_roles_and_update_user(&admin_user(), 99, &updates, &[], &repo),
+            Err(ServiceError::NotFound)
+        ));
         assert!(matches!(
             assign_roles_and_update_user(&regular_user(), 2, &updates, &[], &repo),
             Err(ServiceError::Unauthorized)
