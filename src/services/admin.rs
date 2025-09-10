@@ -7,7 +7,6 @@ use crate::repository::{
     HubWriter, MenuReader, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter,
 };
 use pushkind_common::domain::auth::AuthenticatedUser;
-use pushkind_common::repository::errors::RepositoryError;
 use pushkind_common::routes::check_role;
 use pushkind_common::services::errors::{ServiceError, ServiceResult};
 
@@ -110,11 +109,8 @@ pub fn delete_role_by_id(
         // Protect the base admin role from deletion.
         return Err(ServiceError::Unauthorized);
     }
-    match repo.delete_role(role_id) {
-        Ok(_) => Ok(()),
-        Err(RepositoryError::NotFound) => Err(ServiceError::NotFound),
-        Err(err) => Err(ServiceError::Repository(err)),
-    }
+    repo.delete_role(role_id)?;
+    Ok(())
 }
 
 /// Deletes a hub by ID, preventing removal of the current user's hub.
@@ -128,11 +124,8 @@ pub fn delete_hub_by_id(
         // Prevent deleting the hub currently associated with the user.
         return Err(ServiceError::Unauthorized);
     }
-    match repo.delete_hub(hub_id) {
-        Ok(_) => Ok(()),
-        Err(RepositoryError::NotFound) => Err(ServiceError::NotFound),
-        Err(err) => Err(ServiceError::Repository(err)),
-    }
+    repo.delete_hub(hub_id)?;
+    Ok(())
 }
 
 /// Creates a new menu entry for the given hub.
@@ -157,11 +150,8 @@ pub fn delete_menu_by_id(
         Some(m) => m,
         None => return Err(ServiceError::NotFound),
     };
-    match repo.delete_menu(menu.id) {
-        Ok(_) => Ok(()),
-        Err(RepositoryError::NotFound) => Err(ServiceError::NotFound),
-        Err(err) => Err(ServiceError::Repository(err)),
-    }
+    repo.delete_menu(menu.id)?;
+    Ok(())
 }
 
 #[cfg(test)]
