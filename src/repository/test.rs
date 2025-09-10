@@ -4,7 +4,7 @@
 //! services to run logic against predictable data.
 
 use chrono::{NaiveDateTime, Utc};
-use pushkind_common::repository::errors::RepositoryResult;
+use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
 
 use crate::domain::hub::{Hub, NewHub};
 use crate::domain::menu::{Menu, NewMenu};
@@ -275,8 +275,12 @@ impl RoleWriter for TestRepository {
         })
     }
 
-    fn delete_role(&self, _role_id: i32) -> RepositoryResult<usize> {
-        Ok(1)
+    fn delete_role(&self, role_id: i32) -> RepositoryResult<usize> {
+        if self.roles.iter().any(|r| r.id == role_id) {
+            Ok(1)
+        } else {
+            Err(RepositoryError::NotFound)
+        }
     }
 }
 
@@ -309,8 +313,12 @@ impl MenuWriter for TestRepository {
         })
     }
 
-    fn delete_menu(&self, _menu_id: i32) -> RepositoryResult<usize> {
-        Ok(1)
+    fn delete_menu(&self, menu_id: i32) -> RepositoryResult<usize> {
+        if self.menus.iter().any(|m| m.id == menu_id) {
+            Ok(1)
+        } else {
+            Err(RepositoryError::NotFound)
+        }
     }
 }
 
@@ -339,7 +347,11 @@ impl HubWriter for TestRepository {
         })
     }
 
-    fn delete_hub(&self, _hub_id: i32) -> RepositoryResult<usize> {
-        Ok(1)
+    fn delete_hub(&self, hub_id: i32) -> RepositoryResult<usize> {
+        if self.hubs.iter().any(|h| h.id == hub_id) {
+            Ok(1)
+        } else {
+            Err(RepositoryError::NotFound)
+        }
     }
 }

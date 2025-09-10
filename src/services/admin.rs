@@ -7,6 +7,7 @@ use crate::repository::{
     HubWriter, MenuReader, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter,
 };
 use pushkind_common::domain::auth::AuthenticatedUser;
+use pushkind_common::repository::errors::RepositoryError;
 use pushkind_common::routes::check_role;
 use pushkind_common::services::errors::{ServiceError, ServiceResult};
 
@@ -109,8 +110,11 @@ pub fn delete_role_by_id(
         // Protect the base admin role from deletion.
         return Err(ServiceError::Unauthorized);
     }
-    repo.delete_role(role_id)?;
-    Ok(())
+    match repo.delete_role(role_id) {
+        Ok(_) => Ok(()),
+        Err(RepositoryError::NotFound) => Err(ServiceError::NotFound),
+        Err(err) => Err(ServiceError::Repository(err)),
+    }
 }
 
 /// Deletes a hub by ID, preventing removal of the current user's hub.
@@ -124,8 +128,11 @@ pub fn delete_hub_by_id(
         // Prevent deleting the hub currently associated with the user.
         return Err(ServiceError::Unauthorized);
     }
-    repo.delete_hub(hub_id)?;
-    Ok(())
+    match repo.delete_hub(hub_id) {
+        Ok(_) => Ok(()),
+        Err(RepositoryError::NotFound) => Err(ServiceError::NotFound),
+        Err(err) => Err(ServiceError::Repository(err)),
+    }
 }
 
 /// Creates a new menu entry for the given hub.
@@ -148,16 +155,19 @@ pub fn delete_menu_by_id(
     ensure_admin(current_user)?;
     let menu = match repo.get_menu_by_id(menu_id, current_user.hub_id)? {
         Some(m) => m,
-        None => return Ok(()),
+        None => return Err(ServiceError::NotFound),
     };
-    repo.delete_menu(menu.id)?;
-    Ok(())
+    match repo.delete_menu(menu.id) {
+        Ok(_) => Ok(()),
+        Err(RepositoryError::NotFound) => Err(ServiceError::NotFound),
+        Err(err) => Err(ServiceError::Repository(err)),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::hub::NewHub;
+    use crate::domain::hub::{Hub, NewHub};
     use crate::domain::menu::{Menu, NewMenu};
     use crate::domain::role::{NewRole, Role};
     use crate::domain::user::UpdateUser;
@@ -261,7 +271,13 @@ mod tests {
 
     #[test]
     fn create_and_delete_hub() {
-        let repo = TestRepository::new();
+        let now = TestRepository::now();
+        let repo = TestRepository::new().with_hubs(vec![Hub {
+            id: 2,
+            name: "hub".into(),
+            created_at: now,
+            updated_at: now,
+        }]);
         let new_hub = NewHub { name: "hub".into() };
         assert!(create_hub(&admin_user(), &new_hub, &repo).is_ok());
         assert!(matches!(
@@ -274,6 +290,10 @@ mod tests {
             Err(ServiceError::Unauthorized)
         ));
         assert!(matches!(
+            delete_hub_by_id(&admin_user(), 99, &repo),
+            Err(ServiceError::NotFound)
+        ));
+        assert!(matches!(
             delete_hub_by_id(&regular_user(), 2, &repo),
             Err(ServiceError::Unauthorized)
         ));
@@ -281,11 +301,21 @@ mod tests {
 
     #[test]
     fn delete_role_by_id_paths() {
-        let repo = TestRepository::new();
+        let now = TestRepository::now();
+        let repo = TestRepository::new().with_roles(vec![Role {
+            id: 2,
+            name: "r".into(),
+            created_at: now,
+            updated_at: now,
+        }]);
         assert!(delete_role_by_id(&admin_user(), 2, &repo).is_ok());
         assert!(matches!(
             delete_role_by_id(&admin_user(), 1, &repo),
             Err(ServiceError::Unauthorized)
+        ));
+        assert!(matches!(
+            delete_role_by_id(&admin_user(), 99, &repo),
+            Err(ServiceError::NotFound)
         ));
         assert!(matches!(
             delete_role_by_id(&regular_user(), 2, &repo),
@@ -315,7 +345,10 @@ mod tests {
         };
         let repo_with_menu = TestRepository::new().with_menus(vec![menu]);
         assert!(delete_menu_by_id(&admin_user(), 1, &repo_with_menu).is_ok());
-        assert!(delete_menu_by_id(&admin_user(), 99, &repo).is_ok());
+        assert!(matches!(
+            delete_menu_by_id(&admin_user(), 99, &repo),
+            Err(ServiceError::NotFound)
+        ));
         assert!(matches!(
             delete_menu_by_id(&regular_user(), 1, &repo),
             Err(ServiceError::Unauthorized)
