@@ -34,6 +34,7 @@ struct LoginTokenParams {
 #[get("/login")]
 pub async fn login_token(
     request: HttpRequest,
+    repo: web::Data<DieselRepository>,
     common_config: web::Data<CommonServerConfig>,
     query_params: web::Query<LoginTokenParams>,
 ) -> impl Responder {
@@ -41,6 +42,7 @@ pub async fn login_token(
         &query_params.token,
         &common_config.secret,
         7,
+        repo.get_ref(),
     ) {
         Ok(jwt) => jwt,
         Err(e) => {
