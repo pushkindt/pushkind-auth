@@ -29,7 +29,10 @@ impl TestRepository {
     }
 
     pub fn with_users(users: Vec<UserWithRoles>) -> Self {
-        Self { users, ..Default::default() }
+        Self {
+            users,
+            ..Default::default()
+        }
     }
 
     pub fn with_roles(mut self, roles: Vec<Role>) -> Self {
@@ -52,12 +55,7 @@ impl TestRepository {
     }
 
     /// Helper to create a `UserWithRoles` with provided roles by name.
-    pub fn make_user(
-        id: i32,
-        email: &str,
-        hub_id: i32,
-        roles: Vec<&str>,
-    ) -> UserWithRoles {
+    pub fn make_user(id: i32, email: &str, hub_id: i32, roles: Vec<&str>) -> UserWithRoles {
         let now = Self::now();
         let user = User {
             id,
@@ -72,9 +70,17 @@ impl TestRepository {
         let roles_vec: Vec<Role> = roles
             .into_iter()
             .enumerate()
-            .map(|(i, name)| Role { id: i as i32 + 1, name: name.to_string(), created_at: now, updated_at: now })
+            .map(|(i, name)| Role {
+                id: i as i32 + 1,
+                name: name.to_string(),
+                created_at: now,
+                updated_at: now,
+            })
             .collect();
-        UserWithRoles { user, roles: roles_vec }
+        UserWithRoles {
+            user,
+            roles: roles_vec,
+        }
     }
 }
 
@@ -84,15 +90,25 @@ impl UserReader for TestRepository {
             .users
             .iter()
             .find(|u| u.user.id == id && u.user.hub_id == hub_id);
-        Ok(found.map(|u| UserWithRoles { user: u.user.clone(), roles: u.roles.clone() }))
+        Ok(found.map(|u| UserWithRoles {
+            user: u.user.clone(),
+            roles: u.roles.clone(),
+        }))
     }
 
-    fn get_user_by_email(&self, email: &str, hub_id: i32) -> RepositoryResult<Option<UserWithRoles>> {
+    fn get_user_by_email(
+        &self,
+        email: &str,
+        hub_id: i32,
+    ) -> RepositoryResult<Option<UserWithRoles>> {
         let found = self
             .users
             .iter()
             .find(|u| u.user.email == email && u.user.hub_id == hub_id);
-        Ok(found.map(|u| UserWithRoles { user: u.user.clone(), roles: u.roles.clone() }))
+        Ok(found.map(|u| UserWithRoles {
+            user: u.user.clone(),
+            roles: u.roles.clone(),
+        }))
     }
 
     fn list_users(&self, query: UserListQuery) -> RepositoryResult<(usize, Vec<UserWithRoles>)> {
@@ -100,7 +116,10 @@ impl UserReader for TestRepository {
             .users
             .iter()
             .filter(|u| u.user.hub_id == query.hub_id)
-            .map(|u| UserWithRoles { user: u.user.clone(), roles: u.roles.clone() })
+            .map(|u| UserWithRoles {
+                user: u.user.clone(),
+                roles: u.roles.clone(),
+            })
             .collect();
         if let Some(role) = query.role {
             filtered.retain(|u| u.roles.iter().any(|r| r.name == role));
@@ -112,7 +131,10 @@ impl UserReader for TestRepository {
             filtered = if start < filtered.len() {
                 filtered[start..end]
                     .iter()
-                    .map(|u| UserWithRoles { user: u.user.clone(), roles: u.roles.clone() })
+                    .map(|u| UserWithRoles {
+                        user: u.user.clone(),
+                        roles: u.roles.clone(),
+                    })
                     .collect()
             } else {
                 vec![]
@@ -141,7 +163,10 @@ impl UserReader for TestRepository {
             .users
             .iter()
             .filter(|u| u.user.hub_id == query.hub_id)
-            .map(|u| UserWithRoles { user: u.user.clone(), roles: u.roles.clone() })
+            .map(|u| UserWithRoles {
+                user: u.user.clone(),
+                roles: u.roles.clone(),
+            })
             .collect();
         if let Some(role) = query.role {
             filtered.retain(|u| u.roles.iter().any(|r| r.name == role));
@@ -149,10 +174,7 @@ impl UserReader for TestRepository {
         if let Some(search) = query.search {
             let s = search.to_lowercase();
             filtered.retain(|u| {
-                u.user
-                    .email
-                    .to_lowercase()
-                    .contains(&s)
+                u.user.email.to_lowercase().contains(&s)
                     || u.user
                         .name
                         .clone()
@@ -168,7 +190,10 @@ impl UserReader for TestRepository {
             filtered = if start < filtered.len() {
                 filtered[start..end]
                     .iter()
-                    .map(|u| UserWithRoles { user: u.user.clone(), roles: u.roles.clone() })
+                    .map(|u| UserWithRoles {
+                        user: u.user.clone(),
+                        roles: u.roles.clone(),
+                    })
                     .collect()
             } else {
                 vec![]
@@ -209,7 +234,11 @@ impl UserWriter for TestRepository {
             email: format!("user{user_id}@hub{hub_id}"),
             name: Some(updates.name.clone()),
             hub_id,
-            password_hash: if updates.password.is_some() { "new_hash".into() } else { "hash".into() },
+            password_hash: if updates.password.is_some() {
+                "new_hash".into()
+            } else {
+                "hash".into()
+            },
             created_at: now,
             updated_at: now,
             roles: updates.roles.clone().unwrap_or_default(),
@@ -238,7 +267,12 @@ impl RoleReader for TestRepository {
 impl RoleWriter for TestRepository {
     fn create_role(&self, new_role: &NewRole) -> RepositoryResult<Role> {
         let now = Self::now();
-        Ok(Role { id: 1, name: new_role.name.clone(), created_at: now, updated_at: now })
+        Ok(Role {
+            id: 1,
+            name: new_role.name.clone(),
+            created_at: now,
+            updated_at: now,
+        })
     }
 
     fn delete_role(&self, _role_id: i32) -> RepositoryResult<usize> {
@@ -248,17 +282,31 @@ impl RoleWriter for TestRepository {
 
 impl MenuReader for TestRepository {
     fn get_menu_by_id(&self, id: i32, hub_id: i32) -> RepositoryResult<Option<Menu>> {
-        Ok(self.menus.iter().find(|m| m.id == id && m.hub_id == hub_id).cloned())
+        Ok(self
+            .menus
+            .iter()
+            .find(|m| m.id == id && m.hub_id == hub_id)
+            .cloned())
     }
 
     fn list_menu(&self, hub_id: i32) -> RepositoryResult<Vec<Menu>> {
-        Ok(self.menus.iter().filter(|m| m.hub_id == hub_id).cloned().collect())
+        Ok(self
+            .menus
+            .iter()
+            .filter(|m| m.hub_id == hub_id)
+            .cloned()
+            .collect())
     }
 }
 
 impl MenuWriter for TestRepository {
     fn create_menu(&self, new_menu: &NewMenu) -> RepositoryResult<Menu> {
-        Ok(Menu { id: 1, name: new_menu.name.clone(), url: new_menu.url.clone(), hub_id: new_menu.hub_id })
+        Ok(Menu {
+            id: 1,
+            name: new_menu.name.clone(),
+            url: new_menu.url.clone(),
+            hub_id: new_menu.hub_id,
+        })
     }
 
     fn delete_menu(&self, _menu_id: i32) -> RepositoryResult<usize> {
@@ -283,11 +331,15 @@ impl HubReader for TestRepository {
 impl HubWriter for TestRepository {
     fn create_hub(&self, new_hub: &NewHub) -> RepositoryResult<Hub> {
         let now = Self::now();
-        Ok(Hub { id: 1, name: new_hub.name.clone(), created_at: now, updated_at: now })
+        Ok(Hub {
+            id: 1,
+            name: new_hub.name.clone(),
+            created_at: now,
+            updated_at: now,
+        })
     }
 
     fn delete_hub(&self, _hub_id: i32) -> RepositoryResult<usize> {
         Ok(1)
     }
 }
-

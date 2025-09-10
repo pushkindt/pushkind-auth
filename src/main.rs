@@ -25,7 +25,9 @@ use pushkind_auth::routes::admin::{
     user_modal,
 };
 use pushkind_auth::routes::api::{api_v1_id, api_v1_users};
-use pushkind_auth::routes::auth::{login, recover_password, register, signin, signup};
+use pushkind_auth::routes::auth::{
+    login, login_token, recover_password, register, signin_page, signup_page,
+};
 use pushkind_auth::routes::main::{save_user, show_index};
 
 #[actix_web::main]
@@ -105,8 +107,9 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/auth")
                     .service(logout)
                     .service(login)
-                    .service(signin)
-                    .service(signup)
+                    .service(login_token)
+                    .service(signin_page)
+                    .service(signup_page)
                     .service(register)
                     .service(recover_password),
             )

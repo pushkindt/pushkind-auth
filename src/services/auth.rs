@@ -1,7 +1,10 @@
 //! Authentication services for logging in users, registering new accounts, and listing hubs.
 
 use pushkind_common::domain::auth::AuthenticatedUser;
+use pushkind_common::domain::emailer::email::{NewEmail, NewEmailRecipient};
+use pushkind_common::models::emailer::zmq::ZMQSendEmailMessage;
 use pushkind_common::services::errors::{ServiceError, ServiceResult};
+use pushkind_common::zmq::ZmqSender;
 
 use crate::domain::user::NewUser;
 use crate::repository::{HubReader, UserReader, UserWriter};
@@ -33,6 +36,79 @@ pub fn register_user(new_user: &NewUser, repo: &impl UserWriter) -> ServiceResul
 /// Retrieves all hubs available in the system.
 pub fn list_hubs(repo: &impl HubReader) -> ServiceResult<Vec<crate::domain::hub::Hub>> {
     Ok(repo.list_hubs()?)
+}
+
+/// Encodes the provided claims into a JWT using the given secret.
+pub fn issue_jwt(user: &AuthenticatedUser, secret: &str) -> ServiceResult<String> {
+    user.to_jwt(secret).map_err(|_| ServiceError::Internal)
+}
+
+/// Verifies an incoming token and reissues a new session token
+/// with the provided expiration in days.
+pub fn reissue_session_from_token(
+    token: &str,
+    secret: &str,
+    expiration_days: i64,
+) -> ServiceResult<String> {
+    let mut user =
+        AuthenticatedUser::from_jwt(token, secret).map_err(|_| ServiceError::Unauthorized)?;
+    user.set_expiration(expiration_days);
+    issue_jwt(&user, secret)
+}
+
+/// Performs login and issues a session JWT on success.
+pub fn login_and_issue_token(
+    email: &str,
+    password: &str,
+    hub_id: i32,
+    repo: &impl UserReader,
+    secret: &str,
+) -> ServiceResult<String> {
+    let claims = login_user(email, password, hub_id, repo)?;
+    issue_jwt(&claims, secret)
+}
+
+/// Sends a recovery email containing a login link with a short-lived token.
+///
+/// `base_url` should be something like `https://example.com` (scheme + host).
+pub async fn send_recovery_email(
+    zmq_sender: &ZmqSender,
+    repo: &impl UserReader,
+    secret: &str,
+    hub_id: i32,
+    email: &str,
+    base_url: &str,
+) -> ServiceResult<()> {
+    let mut user: AuthenticatedUser = match repo.get_user_by_email(email, hub_id)? {
+        Some(user) => user.into(),
+        None => return Err(ServiceError::NotFound),
+    };
+
+    // 1-day token for recovery
+    user.set_expiration(1);
+    let jwt = issue_jwt(&user, secret)?;
+    let recovery_url = format!("{}/auth/login?token={}", base_url, jwt);
+
+    let new_email = NewEmail {
+        message: "Для входа в систему перейдите по ссылке: {recovery_url}\nЕсли вы не запрашивали восстановление, проигнорируйте это письмо.".to_string(),
+        subject: Some("Восстановление пароля".to_string()),
+        attachment: None,
+        attachment_name: None,
+        attachment_mime: None,
+        hub_id,
+        recipients: vec![NewEmailRecipient {
+            address: email.to_string(),
+            name: user.name.clone(),
+            fields: std::iter::once(("recovery_url".to_string(), recovery_url)).collect(),
+        }],
+    };
+
+    let zmq_message = ZMQSendEmailMessage::NewEmail(Box::new((user, new_email)));
+    zmq_sender
+        .send_json(&zmq_message)
+        .await
+        .map_err(|_| ServiceError::Internal)?;
+    Ok(())
 }
 
 #[cfg(test)]

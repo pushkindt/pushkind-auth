@@ -1,19 +1,15 @@
 //! Authentication and session management endpoints.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use actix_identity::Identity;
 use actix_web::{HttpMessage, HttpRequest, HttpResponse};
 use actix_web::{Responder, get, post, web};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
-use pushkind_common::domain::auth::AuthenticatedUser;
-use pushkind_common::domain::emailer::email::{NewEmail, NewEmailRecipient};
 use pushkind_common::models::config::CommonServerConfig;
-use pushkind_common::models::emailer::zmq::ZMQSendEmailMessage;
-use pushkind_common::services::errors::ServiceError;
 use pushkind_common::routes::render_template;
 use pushkind_common::routes::{alert_level_to_str, redirect};
+use pushkind_common::services::errors::ServiceError;
 use pushkind_common::zmq::ZmqSender;
 use serde::Deserialize;
 use tera::{Context, Tera};
@@ -21,14 +17,44 @@ use validator::Validate;
 
 use crate::forms::auth::{LoginForm, RecoverForm, RegisterForm};
 use crate::models::config::ServerConfig;
-use crate::repository::{DieselRepository, UserReader};
-use crate::services::auth as auth_service;
+use crate::repository::DieselRepository;
 use crate::routes::get_success_and_failure_redirects;
+use crate::services::auth as auth_service;
 
 #[derive(Deserialize)]
 struct AuthQueryParams {
     next: Option<String>,
-    token: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct LoginTokenParams {
+    token: String,
+}
+
+#[get("/login")]
+pub async fn login_token(
+    request: HttpRequest,
+    common_config: web::Data<CommonServerConfig>,
+    query_params: web::Query<LoginTokenParams>,
+) -> impl Responder {
+    let jwt = match auth_service::reissue_session_from_token(
+        &query_params.token,
+        &common_config.secret,
+        7,
+    ) {
+        Ok(jwt) => jwt,
+        Err(e) => {
+            log::error!("Failed to reissue session: {e}");
+            FlashMessage::error("Ошибка при аутентификации пользователя").send();
+            return redirect("/signin");
+        }
+    };
+    if let Err(e) = Identity::login(&request.extensions(), jwt) {
+        log::error!("Failed to login: {e}");
+        FlashMessage::error("Ошибка при аутентификации пользователя").send();
+        return redirect("/signin");
+    }
+    redirect("/")
 }
 
 #[post("/login")]
@@ -52,22 +78,20 @@ pub async fn login(
         return redirect(&failure_redirect_url);
     }
 
-    let claims = match auth_service::login_user(&form.email, &form.password, form.hub_id, repo.get_ref()) {
-        Ok(claims) => claims,
+    let jwt = match auth_service::login_and_issue_token(
+        &form.email,
+        &form.password,
+        form.hub_id,
+        repo.get_ref(),
+        &common_config.secret,
+    ) {
+        Ok(jwt) => jwt,
         Err(ServiceError::Unauthorized) => {
             FlashMessage::error("Неверный логин или пароль.").send();
             return redirect(&failure_redirect_url);
         }
         Err(e) => {
             log::error!("Login error: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    let jwt = match claims.to_jwt(&common_config.secret) {
-        Ok(jwt) => jwt,
-        Err(e) => {
-            log::error!("Failed to encode claims: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -107,49 +131,15 @@ pub async fn register(
 }
 
 #[get("/signin")]
-pub async fn signin(
-    request: HttpRequest,
+pub async fn signin_page(
     user: Option<Identity>,
     flash_messages: IncomingFlashMessages,
     repo: web::Data<DieselRepository>,
     query_params: web::Query<AuthQueryParams>,
     tera: web::Data<Tera>,
-    common_config: web::Data<CommonServerConfig>,
 ) -> impl Responder {
     if user.is_some() {
         return redirect("/");
-    }
-
-    if let Some(token) = query_params.token.as_deref() {
-        let user = match AuthenticatedUser::from_jwt(token, &common_config.secret) {
-            Ok(user) => user,
-            Err(e) => {
-                log::error!("Failed to get user by token: {e}");
-                FlashMessage::error("Ошибка при аутентификации пользователя").send();
-                return redirect("/signin");
-            }
-        };
-
-        match repo.get_user_by_email(&user.email, user.hub_id) {
-            Ok(Some(_)) => (),
-            Ok(None) => {
-                log::error!("User not found");
-                FlashMessage::error("Пользователь не найден").send();
-                return redirect("/signin");
-            }
-            Err(e) => {
-                log::error!("Failed to get user by email: {e}");
-                return HttpResponse::InternalServerError().finish();
-            }
-        }
-
-        match Identity::login(&request.extensions(), token.to_string()) {
-            Ok(_) => return redirect("/"),
-            Err(e) => {
-                log::error!("Failed to login: {e}");
-                return redirect("/signin");
-            }
-        }
     }
 
     let hubs = match auth_service::list_hubs(repo.get_ref()) {
@@ -175,7 +165,7 @@ pub async fn signin(
 }
 
 #[get("/signup")]
-pub async fn signup(
+pub async fn signup_page(
     user: Option<Identity>,
     flash_messages: IncomingFlashMessages,
     repo: web::Data<DieselRepository>,
@@ -222,55 +212,30 @@ pub async fn recover_password(
         return redirect("/auth/signin");
     }
 
-    let mut user: AuthenticatedUser = match repo.get_user_by_email(&form.email, form.hub_id) {
-        Ok(Some(user)) => user.into(),
-        Ok(None) => {
-            FlashMessage::error("Пользователь не найден").send();
-            return redirect("/auth/signin");
-        }
-        Err(e) => {
-            log::error!("Failed to get user by email: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-    user.set_expiration(1);
-
-    let jwt = match user.to_jwt(&common_config.secret) {
-        Ok(jwt) => jwt,
-        Err(e) => {
-            log::error!("Failed to encode claims: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    // Build full URL from current request: schema://host{auth_service_url}?token={jwt}
-    let recovery_url = {
+    // Build base URL from current request: schema://host
+    let base_url = {
         let conn_info = request.connection_info();
-        let scheme = conn_info.scheme();
-        let host = conn_info.host();
-        format!("{}://{}/auth/signin?token={}", scheme, host, jwt)
+        format!("{}://{}", conn_info.scheme(), conn_info.host())
     };
 
-    let new_email = NewEmail {
-        message: "Для входа в систему перейдите по ссылке: {recovery_url}\nЕсли вы не запрашивали восстановление, проигнорируйте это письмо.".to_string(),
-        subject: Some("Восстановление пароля".to_string()),
-        attachment: None,
-        attachment_name: None,
-        attachment_mime: None,
-        hub_id: form.hub_id,
-        recipients: vec![NewEmailRecipient {
-            address: form.email,
-            name: user.name.clone(),
-            fields: HashMap::from([("recovery_url".to_string(), recovery_url)]),
-        }],
-    };
-
-    let zmq_message = ZMQSendEmailMessage::NewEmail(Box::new((user, new_email)));
-
-    match zmq_sender.send_json(&zmq_message).await {
+    match auth_service::send_recovery_email(
+        zmq_sender.get_ref().as_ref(),
+        repo.get_ref(),
+        &common_config.secret,
+        form.hub_id,
+        &form.email,
+        &base_url,
+    )
+    .await
+    {
         Ok(_) => HttpResponse::Ok().body("Ссылка для входа выслана на электронную почту."),
+        Err(ServiceError::NotFound) => {
+            FlashMessage::error("Пользователь не найден").send();
+            redirect("/auth/signin")
+        }
         Err(err) => {
-            HttpResponse::Ok().body(format!("Ошибка при добавлении сообщения в очередь: {err}"))
+            log::error!("Failed to send recovery email: {err}");
+            HttpResponse::InternalServerError().finish()
         }
     }
 }
