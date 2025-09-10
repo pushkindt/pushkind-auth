@@ -9,10 +9,8 @@ use pushkind_common::routes::{alert_level_to_str, redirect};
 use tera::{Context, Tera};
 
 use crate::forms::main::SaveUserForm;
-use crate::repository::UserListQuery;
-use crate::repository::{
-    DieselRepository, HubReader, MenuReader, RoleReader, UserReader, UserWriter,
-};
+use crate::repository::DieselRepository;
+use crate::services::main as main_service;
 
 #[get("/")]
 pub async fn show_index(
@@ -21,46 +19,10 @@ pub async fn show_index(
     flash_messages: IncomingFlashMessages,
     tera: web::Data<Tera>,
 ) -> impl Responder {
-    let hub = match repo.get_hub_by_id(user.hub_id) {
-        Ok(Some(hub)) => hub,
-        Ok(None) => {
-            error!("Hub not found");
-            return HttpResponse::InternalServerError().finish();
-        }
+    let data = match main_service::get_index_data(user.hub_id, &user.email, repo.get_ref()) {
+        Ok(d) => d,
         Err(e) => {
-            error!("Failed to get hub: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    let users = match repo.list_users(UserListQuery::new(user.hub_id)) {
-        Ok((_total, users)) => users,
-        Err(e) => {
-            error!("Failed to list users: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    let roles = match repo.list_roles() {
-        Ok(roles) => roles,
-        Err(e) => {
-            error!("Failed to list roles: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    let hubs = match repo.list_hubs() {
-        Ok(hubs) => hubs,
-        Err(e) => {
-            error!("Failed to list hubs: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    let menu = match repo.list_menu(user.hub_id) {
-        Ok(menu) => menu,
-        Err(e) => {
-            error!("Failed to list menu: {e}");
+            error!("Failed to build index data: {e}");
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -70,28 +32,18 @@ pub async fn show_index(
         .map(|f| (f.content(), alert_level_to_str(&f.level())))
         .collect::<Vec<_>>();
 
-    let user_name = match repo.get_user_by_email(&user.email, user.hub_id) {
-        Ok(Some(user)) => user.user.name,
-        Ok(None) => {
-            error!("User not found");
-            return HttpResponse::InternalServerError().finish();
-        }
-        Err(e) => {
-            error!("Failed to get user: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
+    let user_name = data.user_name;
 
     let mut context = Context::new();
     context.insert("alerts", &alerts);
     context.insert("current_user", &user);
     context.insert("user_name", &user_name);
     context.insert("current_page", "index");
-    context.insert("current_hub", &hub);
-    context.insert("users", &users);
-    context.insert("roles", &roles);
-    context.insert("hubs", &hubs);
-    context.insert("menu", &menu);
+    context.insert("current_hub", &data.hub);
+    context.insert("users", &data.users);
+    context.insert("roles", &data.roles);
+    context.insert("hubs", &data.hubs);
+    context.insert("menu", &data.menu);
 
     render_template(&tera, "main/index.html", &context)
 }
@@ -111,7 +63,12 @@ pub async fn save_user(
     };
 
     let update_user = form.into();
-    match repo.update_user(user_id, current_user.hub_id, &update_user) {
+    match main_service::update_current_user(
+        user_id,
+        current_user.hub_id,
+        &update_user,
+        repo.get_ref(),
+    ) {
         Ok(_) => {
             FlashMessage::success("Параметры изменены.".to_string()).send();
         }

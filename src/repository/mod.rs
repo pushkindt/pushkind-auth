@@ -17,6 +17,8 @@ use crate::domain::user::{NewUser, UpdateUser, User};
 pub mod hub;
 pub mod menu;
 pub mod role;
+#[cfg(test)]
+pub mod test;
 pub mod user;
 
 #[derive(Clone)]

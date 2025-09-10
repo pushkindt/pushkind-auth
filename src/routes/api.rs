@@ -1,10 +1,10 @@
 use actix_web::{HttpResponse, Responder, get, web};
 use log::error;
 use pushkind_common::domain::auth::AuthenticatedUser;
-use pushkind_common::pagination::DEFAULT_ITEMS_PER_PAGE;
 use serde::Deserialize;
 
-use crate::repository::{DieselRepository, UserListQuery, UserReader};
+use crate::repository::DieselRepository;
+use crate::services::api as api_service;
 
 #[derive(Deserialize)]
 struct ApiV1IdParams {
@@ -17,18 +17,13 @@ pub async fn api_v1_id(
     current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
-    match params.id {
-        Some(id) => match repo.get_user_by_id(id, current_user.hub_id) {
-            Ok(Some(found_user)) => {
-                HttpResponse::Ok().json(AuthenticatedUser::from(found_user.user))
-            }
-            Err(e) => {
-                error!("Failed to get user: {e}");
-                HttpResponse::InternalServerError().finish()
-            }
-            _ => HttpResponse::NotFound().finish(),
-        },
-        None => HttpResponse::Ok().json(current_user),
+    match api_service::get_user_by_optional_id(params.id, current_user, repo.get_ref()) {
+        Ok(Some(user)) => HttpResponse::Ok().json(user),
+        Ok(None) => HttpResponse::NotFound().finish(),
+        Err(e) => {
+            error!("Failed to get user: {e}");
+            HttpResponse::InternalServerError().finish()
+        }
     }
 }
 
@@ -45,33 +40,16 @@ pub async fn api_v1_users(
     user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
-    let mut list_query = UserListQuery::new(user.hub_id);
+    let users = api_service::list_users(
+        params.role.clone(),
+        params.query.clone(),
+        params.page,
+        user.hub_id,
+        repo.get_ref(),
+    );
 
-    if let Some(role) = &params.role {
-        list_query = list_query.role(role);
-    }
-
-    if let Some(page) = params.page {
-        list_query = list_query.paginate(page, DEFAULT_ITEMS_PER_PAGE);
-    }
-
-    let result = match &params.query {
-        Some(query) if !query.is_empty() => {
-            list_query = list_query.search(query);
-            repo.search_users(list_query)
-        }
-        _ => repo.list_users(list_query),
-    };
-
-    match result {
-        Ok((_total, users_with_roles)) => {
-            let users: Vec<AuthenticatedUser> = users_with_roles
-                .into_iter()
-                .map(|user_with_roles| AuthenticatedUser::from(user_with_roles.user))
-                .collect();
-
-            HttpResponse::Ok().json(users)
-        }
+    match users {
+        Ok(users) => HttpResponse::Ok().json(users),
         Err(e) => {
             error!("Failed to list users: {e}");
             HttpResponse::InternalServerError().finish()
