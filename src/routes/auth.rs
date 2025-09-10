@@ -122,6 +122,10 @@ pub async fn register(
             FlashMessage::success("Пользователь может войти.".to_string()).send();
             redirect("/auth/signin")
         }
+        Err(ServiceError::Conflict) => {
+            FlashMessage::error("Пользователь с таким email уже существует.").send();
+            redirect("/auth/signup")
+        }
         Err(err) => {
             log::error!("Failed to create user: {err}");
             FlashMessage::error("Ошибка при создании пользователя").send();

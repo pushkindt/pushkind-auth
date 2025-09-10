@@ -164,9 +164,7 @@ mod tests {
         let res = update_current_user(1, 1, &updates, &repo);
         assert!(matches!(
             res,
-            Err(pushkind_common::services::errors::ServiceError::Repository(
-                RepositoryError::NotFound
-            ))
+            Err(pushkind_common::services::errors::ServiceError::NotFound)
         ));
     }
 
