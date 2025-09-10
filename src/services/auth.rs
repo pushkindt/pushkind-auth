@@ -49,11 +49,18 @@ pub fn reissue_session_from_token(
     token: &str,
     secret: &str,
     expiration_days: i64,
+    repo: &impl UserReader,
 ) -> ServiceResult<String> {
     let mut user =
         AuthenticatedUser::from_jwt(token, secret).map_err(|_| ServiceError::Unauthorized)?;
-    user.set_expiration(expiration_days);
-    issue_jwt(&user, secret)
+    // Ensure the user still exists and belongs to the hub before issuing a new session
+    match repo.get_user_by_email(&user.email, user.hub_id)? {
+        Some(_) => {
+            user.set_expiration(expiration_days);
+            issue_jwt(&user, secret)
+        }
+        None => Err(ServiceError::Unauthorized),
+    }
 }
 
 /// Performs login and issues a session JWT on success.
@@ -210,5 +217,25 @@ mod tests {
         let repo = TestRepository::new();
         let res = list_hubs(&repo).unwrap();
         assert!(res.is_empty());
+    }
+
+    #[test]
+    fn test_reissue_session_from_token_requires_existing_user() {
+        let repo = TestRepository::new();
+        let mut user: AuthenticatedUser = TestRepository::make_user(1, "a@b", 2, vec![]).into();
+        user.set_expiration(1);
+        let token = issue_jwt(&user, "secret").unwrap();
+        let res = reissue_session_from_token(&token, "secret", 7, &repo);
+        assert!(matches!(res, Err(ServiceError::Unauthorized)));
+    }
+
+    #[test]
+    fn test_reissue_session_from_token_success() {
+        let repo = TestRepository::with_users(vec![TestRepository::make_user(1, "a@b", 2, vec![])]);
+        let mut user: AuthenticatedUser = repo.get_user_by_email("a@b", 2).unwrap().unwrap().into();
+        user.set_expiration(1);
+        let token = issue_jwt(&user, "secret").unwrap();
+        let res = reissue_session_from_token(&token, "secret", 7, &repo);
+        assert!(res.is_ok());
     }
 }
