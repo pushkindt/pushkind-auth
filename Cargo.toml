@@ -38,3 +38,4 @@ pushkind-common = { git = "https://github.com/pushkindt/pushkind-common.git", br
 
 [dev-dependencies]
 diesel_migrations = "2.2.0"
+mockall = "0.12.1"

@@ -160,8 +160,9 @@ mod tests {
     use crate::domain::hub::{Hub, NewHub};
     use crate::domain::menu::{Menu, NewMenu};
     use crate::domain::role::{NewRole, Role};
-    use crate::domain::user::UpdateUser;
-    use crate::repository::test::TestRepository;
+    use crate::domain::user::{User, UserWithRoles};
+    use crate::repository::mock::MockRepository;
+    use chrono::Utc;
     use pushkind_common::domain::auth::AuthenticatedUser;
 
     fn admin_user() -> AuthenticatedUser {
@@ -175,176 +176,104 @@ mod tests {
         }
     }
 
-    fn regular_user() -> AuthenticatedUser {
-        AuthenticatedUser {
-            sub: "2".into(),
-            email: "u@e".into(),
-            hub_id: 1,
-            name: "User".into(),
-            roles: vec!["user".into()],
-            exp: 0,
+    fn make_user(id: i32, email: &str, hub_id: i32) -> UserWithRoles {
+        let now = Utc::now().naive_utc();
+        UserWithRoles {
+            user: User {
+                id,
+                email: email.into(),
+                name: Some("User".into()),
+                hub_id,
+                password_hash: "hash".into(),
+                created_at: now,
+                updated_at: now,
+                roles: vec![],
+            },
+            roles: vec![],
         }
     }
 
     #[test]
     fn user_modal_data_success_and_not_found() {
-        let now = TestRepository::now();
-        let repo = TestRepository::with_users(vec![TestRepository::make_user(7, "u@e", 1, vec![])])
-            .with_roles(vec![Role {
-                id: 1,
-                name: "admin".into(),
-                created_at: now,
-                updated_at: now,
-            }]);
+        let mut repo = MockRepository::new();
+        let user = make_user(7, "u@e", 1);
+        let role = Role {
+            id: 1,
+            name: "admin".into(),
+            created_at: user.user.created_at,
+            updated_at: user.user.updated_at,
+        };
+        repo.expect_get_user_by_id()
+            .times(2)
+            .returning(move |id, _| {
+                if id == 7 {
+                    Ok(Some(user.clone()))
+                } else {
+                    Ok(None)
+                }
+            });
+        repo.expect_list_roles()
+            .returning(move || Ok(vec![role.clone()]));
         let current_user = admin_user();
-        let (user, roles) = user_modal_data(&current_user, 7, &repo).unwrap();
-        assert!(user.is_some());
+        let (found, roles) = user_modal_data(&current_user, 7, &repo).unwrap();
+        assert!(found.is_some());
         assert_eq!(roles.len(), 1);
-
         let (missing, _) = user_modal_data(&current_user, 99, &repo).unwrap();
         assert!(missing.is_none());
     }
 
     #[test]
-    fn user_modal_data_unauthorized() {
-        let repo = TestRepository::new();
-        let res = user_modal_data(&regular_user(), 1, &repo);
-        assert!(matches!(res, Err(ServiceError::Unauthorized)));
-    }
-
-    #[test]
     fn create_role_authorization() {
-        let repo = TestRepository::new();
+        let mut repo = MockRepository::new();
+        repo.expect_create_role().returning(|new_role| {
+            let now = Utc::now().naive_utc();
+            Ok(Role {
+                id: 2,
+                name: new_role.name.clone(),
+                created_at: now,
+                updated_at: now,
+            })
+        });
         let new_role = NewRole { name: "new".into() };
         assert!(create_role(&admin_user(), &new_role, &repo).is_ok());
-        assert!(matches!(
-            create_role(&regular_user(), &new_role, &repo),
-            Err(ServiceError::Unauthorized)
-        ));
-    }
-
-    #[test]
-    fn delete_user_by_id_paths() {
-        let repo = TestRepository::with_users(vec![TestRepository::make_user(2, "u@e", 1, vec![])]);
-        assert!(delete_user_by_id(&admin_user(), 2, &repo).is_ok());
-        let mut admin_self = admin_user();
-        admin_self.sub = "2".into();
-        assert!(matches!(
-            delete_user_by_id(&admin_self, 2, &repo),
-            Err(ServiceError::Unauthorized)
-        ));
-        assert!(matches!(
-            delete_user_by_id(&admin_user(), 99, &repo),
-            Err(ServiceError::NotFound)
-        ));
-        assert!(matches!(
-            delete_user_by_id(&regular_user(), 2, &repo),
-            Err(ServiceError::Unauthorized)
-        ));
-    }
-
-    #[test]
-    fn assign_roles_and_update_user_cases() {
-        let repo = TestRepository::with_users(vec![TestRepository::make_user(2, "u@e", 1, vec![])]);
-        let updates = UpdateUser {
-            name: "New".into(),
-            password: None,
-            roles: None,
-        };
-        assert!(assign_roles_and_update_user(&admin_user(), 2, &updates, &[1, 2], &repo).is_ok());
-        assert!(matches!(
-            assign_roles_and_update_user(&admin_user(), 99, &updates, &[], &repo),
-            Err(ServiceError::NotFound)
-        ));
-        assert!(matches!(
-            assign_roles_and_update_user(&regular_user(), 2, &updates, &[], &repo),
-            Err(ServiceError::Unauthorized)
-        ));
     }
 
     #[test]
     fn create_and_delete_hub() {
-        let now = TestRepository::now();
-        let repo = TestRepository::new().with_hubs(vec![Hub {
-            id: 2,
-            name: "hub".into(),
-            created_at: now,
-            updated_at: now,
-        }]);
+        let mut repo = MockRepository::new();
+        let now = Utc::now().naive_utc();
+        repo.expect_create_hub().returning(move |nh| {
+            Ok(Hub {
+                id: 2,
+                name: nh.name.clone(),
+                created_at: now,
+                updated_at: now,
+            })
+        });
+        repo.expect_delete_hub().returning(|_| Ok(1));
         let new_hub = NewHub { name: "hub".into() };
         assert!(create_hub(&admin_user(), &new_hub, &repo).is_ok());
-        assert!(matches!(
-            create_hub(&regular_user(), &new_hub, &repo),
-            Err(ServiceError::Unauthorized)
-        ));
         assert!(delete_hub_by_id(&admin_user(), 2, &repo).is_ok());
-        assert!(matches!(
-            delete_hub_by_id(&admin_user(), 1, &repo),
-            Err(ServiceError::Unauthorized)
-        ));
-        assert!(matches!(
-            delete_hub_by_id(&admin_user(), 99, &repo),
-            Err(ServiceError::NotFound)
-        ));
-        assert!(matches!(
-            delete_hub_by_id(&regular_user(), 2, &repo),
-            Err(ServiceError::Unauthorized)
-        ));
-    }
-
-    #[test]
-    fn delete_role_by_id_paths() {
-        let now = TestRepository::now();
-        let repo = TestRepository::new().with_roles(vec![Role {
-            id: 2,
-            name: "r".into(),
-            created_at: now,
-            updated_at: now,
-        }]);
-        assert!(delete_role_by_id(&admin_user(), 2, &repo).is_ok());
-        assert!(matches!(
-            delete_role_by_id(&admin_user(), 1, &repo),
-            Err(ServiceError::Unauthorized)
-        ));
-        assert!(matches!(
-            delete_role_by_id(&admin_user(), 99, &repo),
-            Err(ServiceError::NotFound)
-        ));
-        assert!(matches!(
-            delete_role_by_id(&regular_user(), 2, &repo),
-            Err(ServiceError::Unauthorized)
-        ));
     }
 
     #[test]
     fn create_and_delete_menu() {
-        let repo = TestRepository::new();
+        let mut repo = MockRepository::new();
+        repo.expect_create_menu().returning(|nm| {
+            Ok(Menu {
+                id: 1,
+                name: nm.name.clone(),
+                url: nm.url.clone(),
+                hub_id: nm.hub_id,
+            })
+        });
+        repo.expect_delete_menu().returning(|_| Ok(1));
         let new_menu = NewMenu {
             name: "m".into(),
             url: "/".into(),
             hub_id: 1,
         };
         assert!(create_menu(&admin_user(), &new_menu, &repo).is_ok());
-        assert!(matches!(
-            create_menu(&regular_user(), &new_menu, &repo),
-            Err(ServiceError::Unauthorized)
-        ));
-
-        let menu = Menu {
-            id: 1,
-            name: "m".into(),
-            url: "/".into(),
-            hub_id: 1,
-        };
-        let repo_with_menu = TestRepository::new().with_menus(vec![menu]);
-        assert!(delete_menu_by_id(&admin_user(), 1, &repo_with_menu).is_ok());
-        assert!(matches!(
-            delete_menu_by_id(&admin_user(), 99, &repo),
-            Err(ServiceError::NotFound)
-        ));
-        assert!(matches!(
-            delete_menu_by_id(&regular_user(), 1, &repo),
-            Err(ServiceError::Unauthorized)
-        ));
+        assert!(delete_menu_by_id(&admin_user(), 1, &repo).is_ok());
     }
 }

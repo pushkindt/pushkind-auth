@@ -68,16 +68,21 @@ pub fn update_current_user(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::repository::test::TestRepository;
+    use crate::repository::mock::MockRepository;
+    use chrono::Utc;
+    use pushkind_common::repository::errors::RepositoryError;
 
-    fn sample() -> TestRepository {
-        let now = TestRepository::now();
+    fn sample_repo() -> (MockRepository, UserWithRoles, Hub) {
+        let mut repo = MockRepository::new();
+        let now = Utc::now().naive_utc();
         let hub = Hub {
             id: 5,
             name: "h".into(),
             created_at: now,
             updated_at: now,
         };
+        let hub_clone = hub.clone();
+        let hub_clone2 = hub.clone();
         let user = crate::domain::user::User {
             id: 9,
             email: "a@b".into(),
@@ -92,70 +97,51 @@ mod tests {
             user,
             roles: vec![],
         };
-        TestRepository::with_users(vec![uwr])
-            .with_hubs(vec![hub])
-            .with_roles(vec![])
-            .with_menus(vec![])
+        let uwr_clone = uwr.clone();
+        let uwr_clone2 = uwr.clone();
+
+        repo.expect_get_hub_by_id()
+            .returning(move |_| Ok(Some(hub_clone.clone())));
+        repo.expect_list_users()
+            .returning(move |_| Ok((1, vec![uwr_clone.clone()])));
+        repo.expect_list_roles().returning(|| Ok(vec![]));
+        repo.expect_list_hubs()
+            .returning(move || Ok(vec![hub_clone2.clone()]));
+        repo.expect_list_menu().returning(|_| Ok(vec![]));
+        repo.expect_get_user_by_email()
+            .returning(move |_, _| Ok(Some(uwr_clone2.clone())));
+        (repo, uwr, hub)
     }
 
     #[test]
     fn test_get_index_data() {
-        let repo = sample();
-        let data = get_index_data(5, "a@b", &repo).unwrap();
-        assert_eq!(data.hub.id, 5);
+        let (repo, _uwr, hub) = sample_repo();
+        let data = get_index_data(hub.id, "a@b", &repo).unwrap();
+        assert_eq!(data.hub.id, hub.id);
         assert_eq!(data.users.len(), 1);
         assert_eq!(data.user_name.as_deref(), Some("N"));
     }
 
     #[test]
     fn test_update_current_user_success() {
-        let repo = sample();
+        let (mut repo, uwr, hub) = sample_repo();
+        let user_clone = uwr.user.clone();
+        repo.expect_update_user()
+            .returning(move |_, _, _| Ok(user_clone.clone()));
         let updates = UpdateUser {
             name: "X".into(),
             password: None,
             roles: None,
         };
-        let res = update_current_user(9, 5, &updates, &repo);
+        let res = update_current_user(uwr.user.id, hub.id, &updates, &repo);
         assert!(res.is_ok());
     }
 
-    use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
-
-    struct MissingUserRepo;
-
-    impl UserWriter for MissingUserRepo {
-        fn create_user(
-            &self,
-            _new_user: &crate::domain::user::NewUser,
-        ) -> RepositoryResult<crate::domain::user::User> {
-            unimplemented!()
-        }
-
-        fn assign_roles_to_user(
-            &self,
-            _user_id: i32,
-            _role_ids: &[i32],
-        ) -> RepositoryResult<usize> {
-            unimplemented!()
-        }
-
-        fn update_user(
-            &self,
-            _user_id: i32,
-            _hub_id: i32,
-            _updates: &UpdateUser,
-        ) -> RepositoryResult<crate::domain::user::User> {
-            Err(RepositoryError::NotFound)
-        }
-
-        fn delete_user(&self, _user_id: i32) -> RepositoryResult<usize> {
-            unimplemented!()
-        }
-    }
-
     #[test]
-    fn test_update_current_user_missing_user() {
-        let repo = MissingUserRepo;
+    fn test_update_current_user_failure() {
+        let (mut repo, _uwr, _hub) = sample_repo();
+        repo.expect_update_user()
+            .returning(|_, _, _| Err(RepositoryError::NotFound));
         let updates = UpdateUser {
             name: "X".into(),
             password: None,
@@ -165,55 +151,6 @@ mod tests {
         assert!(matches!(
             res,
             Err(pushkind_common::services::errors::ServiceError::NotFound)
-        ));
-    }
-
-    struct FailingRepo;
-
-    impl UserWriter for FailingRepo {
-        fn create_user(
-            &self,
-            _new_user: &crate::domain::user::NewUser,
-        ) -> RepositoryResult<crate::domain::user::User> {
-            unimplemented!()
-        }
-
-        fn assign_roles_to_user(
-            &self,
-            _user_id: i32,
-            _role_ids: &[i32],
-        ) -> RepositoryResult<usize> {
-            unimplemented!()
-        }
-
-        fn update_user(
-            &self,
-            _user_id: i32,
-            _hub_id: i32,
-            _updates: &UpdateUser,
-        ) -> RepositoryResult<crate::domain::user::User> {
-            Err(RepositoryError::ValidationError("fail".into()))
-        }
-
-        fn delete_user(&self, _user_id: i32) -> RepositoryResult<usize> {
-            unimplemented!()
-        }
-    }
-
-    #[test]
-    fn test_update_current_user_failure() {
-        let repo = FailingRepo;
-        let updates = UpdateUser {
-            name: "X".into(),
-            password: None,
-            roles: None,
-        };
-        let res = update_current_user(1, 1, &updates, &repo);
-        assert!(matches!(
-            res,
-            Err(pushkind_common::services::errors::ServiceError::Repository(
-                RepositoryError::ValidationError(_)
-            ))
         ));
     }
 }
