@@ -59,18 +59,30 @@ pub fn list_users(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::repository::test::TestRepository;
+    use crate::domain::user::{User, UserWithRoles};
+    use crate::repository::mock::MockRepository;
+    use chrono::Utc;
 
-    fn sample_repo() -> TestRepository {
-        let u1 = TestRepository::make_user(1, "user1@example.com", 10, vec!["admin"]);
-        let u2 = TestRepository::make_user(2, "user2@example.com", 10, vec!["member"]);
-        let u3 = TestRepository::make_user(3, "other@example.com", 99, vec!["admin"]);
-        TestRepository::with_users(vec![u1, u2, u3])
+    fn make_user(id: i32, email: &str, hub_id: i32) -> UserWithRoles {
+        let now = Utc::now().naive_utc();
+        UserWithRoles {
+            user: User {
+                id,
+                email: email.into(),
+                name: Some(format!("User{id}")),
+                hub_id,
+                password_hash: "hash".into(),
+                created_at: now,
+                updated_at: now,
+                roles: vec![],
+            },
+            roles: vec![],
+        }
     }
 
     #[test]
     fn get_user_by_optional_id_none_returns_current() {
-        let repo = sample_repo();
+        let repo = MockRepository::new();
         let current = AuthenticatedUser {
             sub: "42".into(),
             email: "me@hub".into(),
@@ -85,7 +97,10 @@ mod tests {
 
     #[test]
     fn get_user_by_optional_id_some_found() {
-        let repo = sample_repo();
+        let mut repo = MockRepository::new();
+        let user = make_user(1, "user1@example.com", 10);
+        repo.expect_get_user_by_id()
+            .returning(move |_, _| Ok(Some(user.clone())));
         let current = AuthenticatedUser {
             sub: "1".into(),
             email: "user1@example.com".into(),
@@ -100,7 +115,8 @@ mod tests {
 
     #[test]
     fn get_user_by_optional_id_some_not_found() {
-        let repo = sample_repo();
+        let mut repo = MockRepository::new();
+        repo.expect_get_user_by_id().returning(|_, _| Ok(None));
         let current = AuthenticatedUser {
             sub: "1".into(),
             email: "user1@example.com".into(),
@@ -115,14 +131,21 @@ mod tests {
 
     #[test]
     fn list_users_no_query() {
-        let repo = sample_repo();
+        let mut repo = MockRepository::new();
+        let u1 = make_user(1, "user1@example.com", 10);
+        let u2 = make_user(2, "user2@example.com", 10);
+        repo.expect_list_users()
+            .returning(move |_| Ok((2, vec![u1.clone(), u2.clone()])));
         let out = list_users(None, None, None, 10, &repo).unwrap();
         assert_eq!(out.len(), 2);
     }
 
     #[test]
     fn list_users_with_query_filters() {
-        let repo = sample_repo();
+        let mut repo = MockRepository::new();
+        let u1 = make_user(1, "user1@example.com", 10);
+        repo.expect_search_users()
+            .returning(move |_| Ok((1, vec![u1.clone()])));
         let out = list_users(None, Some("user1".into()), None, 10, &repo).unwrap();
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].email, "user1@example.com");
@@ -130,7 +153,10 @@ mod tests {
 
     #[test]
     fn list_users_with_role_and_pagination() {
-        let repo = sample_repo();
+        let mut repo = MockRepository::new();
+        let u2 = make_user(2, "user2@example.com", 10);
+        repo.expect_list_users()
+            .returning(move |_| Ok((1, vec![u2.clone()])));
         let out = list_users(Some("member".into()), None, Some(1), 10, &repo).unwrap();
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].email, "user2@example.com");

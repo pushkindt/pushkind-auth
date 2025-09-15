@@ -121,62 +121,71 @@ pub async fn send_recovery_email(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::repository::test::TestRepository;
-    use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
+    use crate::domain::hub::Hub;
+    use crate::domain::user::{User, UserWithRoles};
+    use crate::repository::mock::MockRepository;
+    use chrono::Utc;
+    use pushkind_common::repository::errors::RepositoryError;
 
-    struct FailingRepo;
-
-    impl UserWriter for FailingRepo {
-        fn create_user(&self, _new_user: &NewUser) -> RepositoryResult<crate::domain::user::User> {
-            Err(RepositoryError::ValidationError("fail".into()))
-        }
-
-        fn assign_roles_to_user(
-            &self,
-            _user_id: i32,
-            _role_ids: &[i32],
-        ) -> RepositoryResult<usize> {
-            unimplemented!()
-        }
-
-        fn update_user(
-            &self,
-            _user_id: i32,
-            _hub_id: i32,
-            _updates: &crate::domain::user::UpdateUser,
-        ) -> RepositoryResult<crate::domain::user::User> {
-            unimplemented!()
-        }
-
-        fn delete_user(&self, _user_id: i32) -> RepositoryResult<usize> {
-            unimplemented!()
+    fn make_user(id: i32, email: &str, hub_id: i32) -> UserWithRoles {
+        let now = Utc::now().naive_utc();
+        UserWithRoles {
+            user: User {
+                id,
+                email: email.into(),
+                name: Some("User".into()),
+                hub_id,
+                password_hash: "hash".into(),
+                created_at: now,
+                updated_at: now,
+                roles: vec![],
+            },
+            roles: vec![],
         }
     }
 
     #[test]
     fn test_login_user_success() {
-        let repo = TestRepository::with_users(vec![TestRepository::make_user(9, "a@b", 5, vec![])]);
+        let mut repo = MockRepository::new();
+        let user = make_user(9, "a@b", 5);
+        repo.expect_login()
+            .returning(move |_, _, _| Ok(Some(user.clone())));
         let claims = login_user("a@b", "pass", 5, &repo).unwrap();
         assert_eq!(claims.email, "a@b");
     }
 
     #[test]
     fn test_login_user_invalid_password() {
-        let repo = TestRepository::with_users(vec![TestRepository::make_user(1, "a@b", 2, vec![])]);
+        let mut repo = MockRepository::new();
+        repo.expect_login().returning(|_, _, _| Ok(None));
         let res = login_user("a@b", "wrong", 2, &repo);
         assert!(matches!(res, Err(ServiceError::Unauthorized)));
     }
 
     #[test]
     fn test_login_user_unknown_user() {
-        let repo = TestRepository::new();
+        let mut repo = MockRepository::new();
+        repo.expect_login().returning(|_, _, _| Ok(None));
         let res = login_user("missing@ex", "pass", 1, &repo);
         assert!(matches!(res, Err(ServiceError::Unauthorized)));
     }
 
     #[test]
     fn test_register_user_success() {
-        let repo = TestRepository::new();
+        let mut repo = MockRepository::new();
+        repo.expect_create_user().returning(|new| {
+            let now = Utc::now().naive_utc();
+            Ok(User {
+                id: 1,
+                email: new.email.clone(),
+                name: new.name.clone(),
+                hub_id: new.hub_id,
+                password_hash: "".into(),
+                created_at: now,
+                updated_at: now,
+                roles: vec![],
+            })
+        });
         let new = NewUser::new("x@y".into(), None, 1, "p".into());
         let res = register_user(&new, &repo);
         assert!(res.is_ok());
@@ -184,7 +193,9 @@ mod tests {
 
     #[test]
     fn test_register_user_error() {
-        let repo = FailingRepo;
+        let mut repo = MockRepository::new();
+        repo.expect_create_user()
+            .returning(|_| Err(RepositoryError::ValidationError("fail".into())));
         let new = NewUser::new("x@y".into(), None, 1, "p".into());
         let res = register_user(&new, &repo);
         assert!(res.is_err());
@@ -192,37 +203,42 @@ mod tests {
 
     #[test]
     fn test_list_hubs_returns_all() {
-        let now = TestRepository::now();
+        let mut repo = MockRepository::new();
+        let now = Utc::now().naive_utc();
         let hubs = vec![
-            crate::domain::hub::Hub {
+            Hub {
                 id: 1,
                 name: "h1".into(),
                 created_at: now,
                 updated_at: now,
             },
-            crate::domain::hub::Hub {
+            Hub {
                 id: 2,
                 name: "h2".into(),
                 created_at: now,
                 updated_at: now,
             },
         ];
-        let repo = TestRepository::new().with_hubs(hubs.clone());
+        let hubs_clone = hubs.clone();
+        repo.expect_list_hubs()
+            .returning(move || Ok(hubs_clone.clone()));
         let res = list_hubs(&repo).unwrap();
         assert_eq!(res, hubs);
     }
 
     #[test]
     fn test_list_hubs_empty() {
-        let repo = TestRepository::new();
+        let mut repo = MockRepository::new();
+        repo.expect_list_hubs().returning(|| Ok(vec![]));
         let res = list_hubs(&repo).unwrap();
         assert!(res.is_empty());
     }
 
     #[test]
     fn test_reissue_session_from_token_requires_existing_user() {
-        let repo = TestRepository::new();
-        let mut user: AuthenticatedUser = TestRepository::make_user(1, "a@b", 2, vec![]).into();
+        let mut repo = MockRepository::new();
+        repo.expect_get_user_by_email().returning(|_, _| Ok(None));
+        let mut user: AuthenticatedUser = make_user(1, "a@b", 2).into();
         user.set_expiration(1);
         let token = issue_jwt(&user, "secret").unwrap();
         let res = reissue_session_from_token(&token, "secret", 7, &repo);
@@ -231,8 +247,12 @@ mod tests {
 
     #[test]
     fn test_reissue_session_from_token_success() {
-        let repo = TestRepository::with_users(vec![TestRepository::make_user(1, "a@b", 2, vec![])]);
-        let mut user: AuthenticatedUser = repo.get_user_by_email("a@b", 2).unwrap().unwrap().into();
+        let mut repo = MockRepository::new();
+        let uwr = make_user(1, "a@b", 2);
+        let uwr_clone = uwr.clone();
+        repo.expect_get_user_by_email()
+            .returning(move |_, _| Ok(Some(uwr_clone.clone())));
+        let mut user: AuthenticatedUser = uwr.into();
         user.set_expiration(1);
         let token = issue_jwt(&user, "secret").unwrap();
         let res = reissue_session_from_token(&token, "secret", 7, &repo);
