@@ -28,9 +28,11 @@ impl TestDb {
         }
     }
     pub fn pool(&self) -> DbPool {
-        self.pool.clone().expect("DB pool already dropped")
+        self.pool
+            .as_ref()
+            .expect("TestDb pool should be available")
+            .clone()
     }
-
     fn remove_old_files(filename: &str) {
         std::fs::remove_file(filename).ok();
         std::fs::remove_file(format!("{}-shm", filename)).ok();

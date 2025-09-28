@@ -97,9 +97,10 @@ pub trait UserReader {
         let email = email.to_lowercase();
         let user = self.get_user_by_email(&email, hub_id)?;
         if let Some(ur) = user
-            && self.verify_password(password, &ur.user.password_hash) {
-                return Ok(Some(ur));
-            }
+            && self.verify_password(password, &ur.user.password_hash)
+        {
+            return Ok(Some(ur));
+        }
         Ok(None)
     }
     fn get_roles(&self, user_id: i32) -> RepositoryResult<Vec<Role>>;
