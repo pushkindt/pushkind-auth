@@ -260,15 +260,14 @@ mod tests {
     fn create_and_delete_menu() {
         let mut repo = MockRepository::new();
         // The service first fetches the menu by id and hub before deleting.
-        repo.expect_get_menu_by_id()
-            .returning(|id, hub_id| {
-                Ok(Some(Menu {
-                    id,
-                    name: "m".into(),
-                    url: "/".into(),
-                    hub_id,
-                }))
-            });
+        repo.expect_get_menu_by_id().returning(|id, hub_id| {
+            Ok(Some(Menu {
+                id,
+                name: "m".into(),
+                url: "/".into(),
+                hub_id,
+            }))
+        });
         repo.expect_create_menu().returning(|nm| {
             Ok(Menu {
                 id: 1,

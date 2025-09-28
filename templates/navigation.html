@@ -2,10 +2,11 @@
     <nav class="navbar navbar-expand-sm bg-body-tertiary">
         <div class="container-fluid">
             <a class="navbar-brand" href="/">
-                Хаб: {{current_hub.name}}
+                {{current_hub.name}}
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
-                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
+                aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
@@ -15,19 +16,24 @@
                     </li>
 
                     {% for menu_item in menu | default(value=[]) %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{menu_item.url}}">{{menu_item.name}}</a>
-                        </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{menu_item.url}}">{{menu_item.name}}</a>
+                    </li>
                     {% endfor %}
                 </ul>
             </div>
             <div class="dropdown-center">
-                <button class="btn btn-link nav-link align-items-center text-muted dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <button class="btn btn-link nav-link align-items-center text-muted dropdown-toggle" type="button"
+                    data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="bi bi-person-circle fs-4"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    <li><h6 class="dropdown-header">{{current_user.email}}</h6></li>
-                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <h6 class="dropdown-header">{{current_user.email}}</h6>
+                    </li>
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
                     <li>
                         <form method="POST" action="/auth/logout">
                             <button type="submit" class="dropdown-item icon-link">
