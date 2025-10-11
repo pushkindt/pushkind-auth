@@ -20,9 +20,8 @@ configuration, and reusable UI helpers.
 The codebase follows a clean, layered structure so that business logic can be
 exercised and tested without going through the web framework:
 
-- **Domain (`src/domain`)** – Type-safe models that describe tasks, task events,
-  and users. Builder-style helpers make it easy to construct new payloads while
-  capturing timestamps and sanitising inputs early.
+- **Domain (`src/domain`)** – Type-safe models for hubs, menus, roles, and users,
+  with small helpers (like lowercasing emails) to keep core entities consistent.
 - **Repository (`src/repository`)** – Traits that describe the persistence
   contract and a Diesel-backed implementation (`DieselRepository`) that speaks to
   a SQLite database. Each module translates between Diesel models and domain
