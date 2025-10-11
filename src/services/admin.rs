@@ -1,18 +1,20 @@
 //! Administrative services for managing users, roles, menus, and hubs.
 
+use pushkind_common::domain::auth::AuthenticatedUser;
+use pushkind_common::routes::check_role;
+use pushkind_common::services::errors::{ServiceError, ServiceResult};
+
+use crate::SERVICE_ACCESS_ROLE;
 use crate::domain::hub::NewHub;
 use crate::domain::role::Role;
 use crate::domain::user::{UpdateUser, User};
 use crate::repository::{
     HubWriter, MenuReader, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter,
 };
-use pushkind_common::domain::auth::AuthenticatedUser;
-use pushkind_common::routes::check_role;
-use pushkind_common::services::errors::{ServiceError, ServiceResult};
 
 /// Ensures the authenticated user has the `admin` role.
 fn ensure_admin(user: &AuthenticatedUser) -> ServiceResult<()> {
-    if !check_role("admin", &user.roles) {
+    if !check_role(SERVICE_ACCESS_ROLE, &user.roles) {
         return Err(ServiceError::Unauthorized);
     }
     Ok(())
