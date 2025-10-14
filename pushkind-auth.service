@@ -1,0 +1,38 @@
+[Unit]
+Description=pushkind-auth (Actix-Web)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=www-data7
+Group=www-data
+
+WorkingDirectory=/var/www7/html
+ExecStart=/var/www7/html/pushkind-auth
+
+Restart=on-failure
+RestartSec=2
+
+# Supervisor stopasgroup/killasgroup → control-group
+KillMode=control-group
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+# Logging (journald by default)
+# StandardOutput=append:/var/log/pushkind/auth.log
+# StandardError=inherit
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www7/html
+AmbientCapabilities=
+CapabilityBoundingSet=
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+
