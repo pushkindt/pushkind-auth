@@ -1,0 +1,6 @@
+domain: test.me
+address: 127.0.0.1
+port: 8081
+database_url: app.db
+zmq_emailer_pub: tcp://127.0.0.1:5557
+templates_dir: templates/**/*
