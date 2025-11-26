@@ -43,6 +43,7 @@ jobs:
         run: |
           ssh cicd@users.pushkind.com "sudo /usr/bin/systemctl stop pushkind-auth.service"
           scp ./target/release/pushkind-auth cicd@users.pushkind.com:/var/www7/html/
+          scp ./config.yaml cicd@users.pushkind.com:/var/www7/html/
           scp -r ./assets/ cicd@users.pushkind.com:/var/www7/html/
           scp -r ./templates/ cicd@users.pushkind.com:/var/www7/html/
           scp -r ./migrations/ cicd@users.pushkind.com:/var/www7/html/
