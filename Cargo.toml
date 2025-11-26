@@ -34,7 +34,7 @@ pushkind-common = { git = "https://github.com/pushkindt/pushkind-common.git", br
     "zeromq",
     "emailer",
 ] }
-config = "0.15.19"
+config = { version = "0.15.19", default-features = false, features = ["yaml"] }
 
 
 [dev-dependencies]
