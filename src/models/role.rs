@@ -1,3 +1,5 @@
+//! Diesel models and conversions for roles and user-role mappings.
+
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 

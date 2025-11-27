@@ -12,6 +12,7 @@ use crate::forms::main::SaveUserForm;
 use crate::repository::DieselRepository;
 use crate::services::main as main_service;
 
+/// Displays the main dashboard via `GET /` for the authenticated user.
 #[get("/")]
 pub async fn show_index(
     user: AuthenticatedUser,
@@ -48,6 +49,7 @@ pub async fn show_index(
     render_template(&tera, "main/index.html", &context)
 }
 
+/// Saves profile updates for the current user via `POST /user/save`.
 #[post("/user/save")]
 pub async fn save_user(
     current_user: AuthenticatedUser,

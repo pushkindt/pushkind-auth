@@ -1,3 +1,5 @@
+//! Diesel models and conversions for hubs.
+
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 

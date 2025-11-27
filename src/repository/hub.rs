@@ -1,3 +1,5 @@
+//! Diesel-backed repository operations for hubs.
+
 use diesel::prelude::*;
 use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
 

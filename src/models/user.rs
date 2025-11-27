@@ -1,3 +1,5 @@
+//! Diesel models and conversions for users.
+
 use bcrypt::{DEFAULT_COST, hash};
 use chrono::NaiveDateTime;
 use diesel::prelude::*;

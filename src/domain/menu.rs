@@ -1,3 +1,5 @@
+//! Domain models describing menus attached to a hub.
+
 use serde::{Deserialize, Serialize};
 
 use crate::domain::types::{HubId, MenuId, MenuName, MenuUrl};

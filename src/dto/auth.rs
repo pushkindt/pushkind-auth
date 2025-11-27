@@ -1,3 +1,5 @@
+//! Authentication-related DTOs.
+
 use serde::{Deserialize, Serialize};
 
 /// DTO carrying an issued session token.

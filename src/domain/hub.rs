@@ -1,3 +1,5 @@
+//! Domain models representing hubs and their creation input.
+
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 

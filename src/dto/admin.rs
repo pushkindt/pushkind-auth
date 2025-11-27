@@ -1,3 +1,5 @@
+//! DTOs used by the admin UI for modal population and rendering.
+
 use crate::domain::role::Role;
 use crate::domain::user::User;
 

@@ -1,3 +1,5 @@
+//! Diesel models and conversions for menus.
+
 use diesel::prelude::*;
 
 use crate::domain::menu::{Menu as DomainMenu, NewMenu as DomainNewMenu};

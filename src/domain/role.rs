@@ -1,3 +1,5 @@
+//! Domain models for roles and user-role associations.
+
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 

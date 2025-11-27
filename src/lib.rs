@@ -43,28 +43,31 @@ pub mod routes;
 pub mod schema;
 pub mod services;
 
+/// Role required to access administrative routes.
 pub const SERVICE_ACCESS_ROLE: &str = "admin";
 const AUTH_SERVICE_URL: &str = "/auth/signin";
 
+/// Builds and runs the Actix-Web HTTP server using the provided configuration.
 pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
     let common_config = CommonServerConfig {
         auth_service_url: AUTH_SERVICE_URL.to_string(),
         secret: server_config.secret.clone(),
     };
 
-    let zmq_sender = ZmqSender::start(ZmqSenderOptions::pub_default(
-        &server_config.zmq_emailer_pub,
-    ))
-    .map_err(|e| std::io::Error::other(format!("Failed to start ZMQ sender: {e}")))?;
+    // Start a background ZeroMQ publisher used for outbound email notifications.
+    let zmq_sender = ZmqSender::start(ZmqSenderOptions::pub_default(&server_config.zmq_emailer_pub))
+        .map_err(|e| std::io::Error::other(format!("Failed to start ZMQ sender: {e}")))?;
 
     let zmq_sender = Arc::new(zmq_sender);
 
+    // Establish Diesel connection pool for the SQLite database.
     let pool = establish_connection_pool(&server_config.database_url).map_err(|e| {
         std::io::Error::other(format!("Failed to establish database connection: {e}"))
     })?;
 
     let repo = DieselRepository::new(pool);
 
+    // Keys and stores for identity, sessions, and flash messages.
     let secret_key = Key::from(server_config.secret.as_bytes());
 
     let message_store = CookieMessageStore::builder(secret_key.clone()).build();
