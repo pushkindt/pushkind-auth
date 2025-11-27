@@ -7,20 +7,23 @@ use pushkind_common::repository::build_fts_match_query;
 use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
 
 use crate::domain::role::Role;
+use crate::domain::types::{HubId, RoleId, UserEmail, UserId};
 use crate::domain::user::{NewUser, UpdateUser, User, UserWithRoles};
 use crate::models::role::{NewUserRole as DbNewUserRole, Role as DbRole};
 use crate::models::user::{NewUser as NewDbUser, UpdateUser as DbUpdateUser, User as DbUser};
-use crate::repository::{DieselRepository, UserListQuery, UserReader, UserRepository, UserWriter};
+use crate::repository::{
+    DieselRepository, UserListQuery, UserReader, UserRepository, UserWriter, map_type_error,
+};
 
 impl UserReader for DieselRepository {
-    fn get_user_by_id(&self, id: i32, hub_id: i32) -> RepositoryResult<Option<UserWithRoles>> {
+    fn get_user_by_id(&self, id: UserId, hub_id: HubId) -> RepositoryResult<Option<UserWithRoles>> {
         use crate::schema::{roles, users};
 
         let mut connection = self.conn()?;
 
         let user = users::table
-            .filter(users::id.eq(id))
-            .filter(users::hub_id.eq(hub_id))
+            .filter(users::id.eq(id.get()))
+            .filter(users::hub_id.eq(hub_id.get()))
             .first::<DbUser>(&mut connection)
             .optional()?;
 
@@ -35,27 +38,30 @@ impl UserReader for DieselRepository {
             .select(crate::schema::roles::all_columns)
             .load::<DbRole>(&mut connection)?;
 
-        let mut user: User = user.into();
+        let roles = roles
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<Role>, _>>()
+            .map_err(map_type_error)?;
+
+        let mut user: User = user.try_into().map_err(map_type_error)?;
         user.roles = roles.iter().map(|role| role.id).collect();
 
-        Ok(Some(UserWithRoles {
-            user,
-            roles: roles.into_iter().map(|role| role.into()).collect(),
-        }))
+        Ok(Some(UserWithRoles { user, roles }))
     }
 
     fn get_user_by_email(
         &self,
-        email: &str,
-        hub_id: i32,
+        email: &UserEmail,
+        hub_id: HubId,
     ) -> RepositoryResult<Option<UserWithRoles>> {
         use crate::schema::{roles, users};
 
         let mut connection = self.conn()?;
 
         let user = users::table
-            .filter(users::email.eq(email))
-            .filter(users::hub_id.eq(hub_id))
+            .filter(users::email.eq(email.as_str()))
+            .filter(users::hub_id.eq(hub_id.get()))
             .first::<DbUser>(&mut connection)
             .optional()?;
         let user = match user {
@@ -69,13 +75,16 @@ impl UserReader for DieselRepository {
             .select(crate::schema::roles::all_columns)
             .load::<DbRole>(&mut connection)?;
 
-        let mut user: User = user.into();
+        let roles = roles
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<Role>, _>>()
+            .map_err(map_type_error)?;
+
+        let mut user: User = user.try_into().map_err(map_type_error)?;
         user.roles = roles.iter().map(|role| role.id).collect();
 
-        Ok(Some(UserWithRoles {
-            user,
-            roles: roles.into_iter().map(|role| role.into()).collect(),
-        }))
+        Ok(Some(UserWithRoles { user, roles }))
     }
 
     fn list_users(&self, query: UserListQuery) -> RepositoryResult<(usize, Vec<UserWithRoles>)> {
@@ -88,7 +97,7 @@ impl UserReader for DieselRepository {
 
         let query_builder = || {
             let mut items = users::table
-                .filter(users::hub_id.eq(query.hub_id))
+                .filter(users::hub_id.eq(query.hub_id.get()))
                 .into_boxed::<diesel::sqlite::Sqlite>();
             if let Some(role) = &query.role {
                 items = items.filter(
@@ -130,13 +139,19 @@ impl UserReader for DieselRepository {
         // Final load
         let users = items.order(users::id.asc()).load::<DbUser>(&mut conn)?;
 
-        let user_ids: Vec<i32> = users.iter().map(|user| user.id).collect();
+        let user_ids: Vec<i32> = users.iter().map(|user| user.id).collect::<Vec<_>>();
 
         let roles = roles::table
             .inner_join(user_roles::table)
-            .filter(user_roles::user_id.eq_any(user_ids))
+            .filter(user_roles::user_id.eq_any(user_ids.clone()))
             .select((user_roles::user_id, roles::all_columns))
-            .load::<(i32, DbRole)>(&mut conn)?;
+            .load::<(i32, DbRole)>(&mut conn)?
+            .into_iter()
+            .map(|(user_id, role)| {
+                let role: Role = role.try_into().map_err(map_type_error)?;
+                Ok((user_id, role))
+            })
+            .collect::<RepositoryResult<Vec<(i32, Role)>>>()?;
 
         let user_with_roles = users
             .into_iter()
@@ -144,26 +159,26 @@ impl UserReader for DieselRepository {
                 let user_roles: Vec<Role> = roles
                     .iter()
                     .filter(|(user_id, _)| *user_id == user.id)
-                    .map(|(_, role)| role.clone().into())
+                    .map(|(_, role)| role.clone())
                     .collect();
-                let mut user: User = user.into();
+                let mut user: User = user.try_into().map_err(map_type_error)?;
                 user.roles = user_roles.iter().map(|role| role.id).collect();
 
-                UserWithRoles {
+                Ok(UserWithRoles {
                     user,
                     roles: user_roles,
-                }
+                })
             })
-            .collect();
+            .collect::<RepositoryResult<Vec<_>>>()?;
 
-        Ok((total, user_with_roles)) // Convert DbUser to DomainUser
+        Ok((total, user_with_roles))
     }
 
     fn verify_password(&self, password: &str, stored_hash: &str) -> bool {
         verify(password, stored_hash).unwrap_or(false)
     }
 
-    fn get_roles(&self, user_id: i32) -> RepositoryResult<Vec<Role>> {
+    fn get_roles(&self, user_id: UserId) -> RepositoryResult<Vec<Role>> {
         use crate::schema::roles;
         use crate::schema::user_roles;
 
@@ -171,10 +186,14 @@ impl UserReader for DieselRepository {
 
         let results = roles::table
             .inner_join(user_roles::table)
-            .filter(user_roles::user_id.eq(user_id))
+            .filter(user_roles::user_id.eq(user_id.get()))
             .select(roles::all_columns)
             .load::<DbRole>(&mut connection)?;
-        Ok(results.into_iter().map(|db_role| db_role.into()).collect())
+        results
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<Role>, _>>()
+            .map_err(map_type_error)
     }
 }
 
@@ -190,15 +209,14 @@ impl UserWriter for DieselRepository {
 
         let user = diesel::insert_into(users::table)
             .values(&new_db_user)
-            .get_result::<DbUser>(&mut connection)
-            .map(|db_user| db_user.into())?;
-        Ok(user)
+            .get_result::<DbUser>(&mut connection)?;
+        user.try_into().map_err(map_type_error)
     }
 
     fn update_user(
         &self,
-        user_id: i32,
-        hub_id: i32,
+        user_id: UserId,
+        hub_id: HubId,
         updates: &UpdateUser,
     ) -> RepositoryResult<User> {
         use crate::schema::users;
@@ -226,14 +244,14 @@ impl UserWriter for DieselRepository {
         };
 
         let user = diesel::update(users::table)
-            .filter(users::id.eq(user_id))
+            .filter(users::id.eq(user_id.get()))
             .set(&db_updates)
             .get_result::<DbUser>(&mut connection)
-            .map(|db_user| db_user.into())?;
-        Ok(user)
+            .map_err(RepositoryError::from)?;
+        user.try_into().map_err(map_type_error)
     }
 
-    fn delete_user(&self, user_id: i32) -> RepositoryResult<usize> {
+    fn delete_user(&self, user_id: UserId) -> RepositoryResult<usize> {
         use crate::schema::user_roles;
         use crate::schema::users;
 
@@ -241,11 +259,11 @@ impl UserWriter for DieselRepository {
 
         let result = connection.transaction::<_, diesel::result::Error, _>(|conn| {
             diesel::delete(user_roles::table)
-                .filter(user_roles::user_id.eq(user_id))
+                .filter(user_roles::user_id.eq(user_id.get()))
                 .execute(conn)?;
 
             diesel::delete(users::table)
-                .filter(users::id.eq(user_id))
+                .filter(users::id.eq(user_id.get()))
                 .execute(conn)
         })?;
 
@@ -255,7 +273,11 @@ impl UserWriter for DieselRepository {
         Ok(result)
     }
 
-    fn assign_roles_to_user(&self, user_id: i32, role_ids: &[i32]) -> RepositoryResult<usize> {
+    fn assign_roles_to_user(
+        &self,
+        user_id: UserId,
+        role_ids: &[RoleId],
+    ) -> RepositoryResult<usize> {
         use crate::schema::user_roles;
 
         let mut connection = self.conn()?;
@@ -263,14 +285,14 @@ impl UserWriter for DieselRepository {
         connection
             .transaction::<_, diesel::result::Error, _>(|conn| {
                 diesel::delete(user_roles::table)
-                    .filter(user_roles::user_id.eq(user_id))
+                    .filter(user_roles::user_id.eq(user_id.get()))
                     .execute(conn)?;
 
                 let new_user_roles = role_ids
                     .iter()
                     .map(|role_id| DbNewUserRole {
-                        user_id,
-                        role_id: *role_id,
+                        user_id: user_id.get(),
+                        role_id: role_id.get(),
                     })
                     .collect::<Vec<DbNewUserRole>>();
 
@@ -278,7 +300,7 @@ impl UserWriter for DieselRepository {
                     .values(&new_user_roles)
                     .execute(conn)
             })
-            .map_err(Into::into)
+            .map_err(RepositoryError::from)
     }
 }
 

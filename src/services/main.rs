@@ -2,9 +2,11 @@
 
 use pushkind_common::services::errors::ServiceResult;
 
+use crate::domain::types::{HubId, UserEmail, UserId};
 use crate::domain::user::UpdateUser;
 use crate::dto::main::IndexData;
 use crate::repository::{HubReader, MenuReader, RoleReader, UserListQuery, UserReader, UserWriter};
+use crate::services::map_type_error;
 
 /// Gathers all information necessary to render the main index view for a hub.
 ///
@@ -16,6 +18,8 @@ pub fn get_index_data(
     user_email: &str,
     repo: &(impl HubReader + UserReader + RoleReader + MenuReader),
 ) -> ServiceResult<IndexData> {
+    let hub_id = HubId::new(hub_id).map_err(map_type_error)?;
+    let email = UserEmail::new(user_email).map_err(map_type_error)?;
     let hub = repo
         .get_hub_by_id(hub_id)?
         .ok_or(pushkind_common::services::errors::ServiceError::NotFound)?;
@@ -24,8 +28,8 @@ pub fn get_index_data(
     let hubs = repo.list_hubs()?;
     let menu = repo.list_menu(hub_id)?;
     let user_name = repo
-        .get_user_by_email(user_email, hub_id)?
-        .and_then(|u| u.user.name);
+        .get_user_by_email(&email, hub_id)?
+        .and_then(|u| u.user.name.map(|n| n.into_inner()));
     Ok(IndexData {
         hub,
         users,
@@ -46,6 +50,8 @@ pub fn update_current_user(
     updates: &UpdateUser,
     repo: &impl UserWriter,
 ) -> ServiceResult<()> {
+    let user_id = UserId::new(user_id).map_err(map_type_error)?;
+    let hub_id = HubId::new(hub_id).map_err(map_type_error)?;
     repo.update_user(user_id, hub_id, updates)?;
     Ok(())
 }
@@ -54,6 +60,7 @@ pub fn update_current_user(
 mod tests {
     use super::*;
     use crate::domain::hub::Hub;
+    use crate::domain::types::{HubId, HubName, UserEmail, UserId};
     use crate::domain::user::UserWithRoles;
     use crate::repository::mock::MockRepository;
     use chrono::Utc;
@@ -63,18 +70,18 @@ mod tests {
         let mut repo = MockRepository::new();
         let now = Utc::now().naive_utc();
         let hub = Hub {
-            id: 5,
-            name: "h".into(),
+            id: HubId::new(5).unwrap(),
+            name: HubName::new("h").unwrap(),
             created_at: now,
             updated_at: now,
         };
         let hub_clone = hub.clone();
         let hub_clone2 = hub.clone();
         let user = crate::domain::user::User {
-            id: 9,
-            email: "a@b".into(),
-            name: Some("N".into()),
-            hub_id: 5,
+            id: UserId::new(9).unwrap(),
+            email: UserEmail::new("a@b").unwrap(),
+            name: Some(crate::domain::types::UserName::new("N").unwrap()),
+            hub_id: HubId::new(5).unwrap(),
             password_hash: "".into(),
             created_at: now,
             updated_at: now,
@@ -103,7 +110,7 @@ mod tests {
     #[test]
     fn test_get_index_data() {
         let (repo, _uwr, hub) = sample_repo();
-        let data = get_index_data(hub.id, "a@b", &repo).unwrap();
+        let data = get_index_data(hub.id.get(), "a@b", &repo).unwrap();
         assert_eq!(data.hub.id, hub.id);
         assert_eq!(data.users.len(), 1);
         assert_eq!(data.user_name.as_deref(), Some("N"));
@@ -116,11 +123,11 @@ mod tests {
         repo.expect_update_user()
             .returning(move |_, _, _| Ok(user_clone.clone()));
         let updates = UpdateUser {
-            name: "X".into(),
+            name: crate::domain::types::UserName::new("X").unwrap(),
             password: None,
             roles: None,
         };
-        let res = update_current_user(uwr.user.id, hub.id, &updates, &repo);
+        let res = update_current_user(uwr.user.id.get(), hub.id.get(), &updates, &repo);
         assert!(res.is_ok());
     }
 
@@ -130,7 +137,7 @@ mod tests {
         repo.expect_update_user()
             .returning(|_, _, _| Err(RepositoryError::NotFound));
         let updates = UpdateUser {
-            name: "X".into(),
+            name: crate::domain::types::UserName::new("X").unwrap(),
             password: None,
             roles: None,
         };

@@ -80,10 +80,27 @@ pub async fn login(
         return redirect(&failure_redirect_url);
     }
 
+    let email = match form.email() {
+        Ok(email) => email,
+        Err(e) => {
+            log::error!("Invalid email: {e}");
+            FlashMessage::error("Ошибка валидации формы").send();
+            return redirect(&failure_redirect_url);
+        }
+    };
+    let hub_id = match form.hub_id() {
+        Ok(id) => id,
+        Err(e) => {
+            log::error!("Invalid hub id: {e}");
+            FlashMessage::error("Ошибка валидации формы").send();
+            return redirect(&failure_redirect_url);
+        }
+    };
+
     let jwt = match auth_service::login_and_issue_token(
-        &form.email,
+        &email,
         &form.password,
-        form.hub_id,
+        hub_id,
         repo.get_ref(),
         &common_config.secret,
     ) {
@@ -118,7 +135,14 @@ pub async fn register(
         return redirect("/auth/signup");
     }
 
-    let new_user = form.into();
+    let new_user = match form.into_domain() {
+        Ok(user) => user,
+        Err(e) => {
+            log::error!("Failed to convert form: {e}");
+            FlashMessage::error("Ошибка валидации формы").send();
+            return redirect("/auth/signup");
+        }
+    };
     match auth_service::register_user(&new_user, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Пользователь может войти.".to_string()).send();
@@ -224,12 +248,29 @@ pub async fn recover_password(
         format!("{}://{}", conn_info.scheme(), conn_info.host())
     };
 
+    let hub_id = match form.hub_id() {
+        Ok(id) => id,
+        Err(e) => {
+            log::error!("Invalid hub id: {e}");
+            FlashMessage::error("Ошибка валидации формы").send();
+            return redirect("/auth/signin");
+        }
+    };
+    let email = match form.email() {
+        Ok(email) => email,
+        Err(e) => {
+            log::error!("Invalid email: {e}");
+            FlashMessage::error("Ошибка валидации формы").send();
+            return redirect("/auth/signin");
+        }
+    };
+
     match auth_service::send_recovery_email(
         zmq_sender.get_ref().as_ref(),
         repo.get_ref(),
         &common_config.secret,
-        form.hub_id,
-        &form.email,
+        hub_id,
+        &email,
         &base_url,
     )
     .await

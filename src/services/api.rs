@@ -4,8 +4,10 @@ use pushkind_common::domain::auth::AuthenticatedUser;
 use pushkind_common::pagination::DEFAULT_ITEMS_PER_PAGE;
 use pushkind_common::services::errors::ServiceResult;
 
+use crate::domain::types::{HubId, UserId};
 use crate::dto::api::UserDto;
 use crate::repository::{UserListQuery, UserReader};
+use crate::services::map_type_error;
 
 /// Returns the authenticated user when `id` is `None`, otherwise
 /// attempts to fetch the user by `id` limited to the current hub.
@@ -16,10 +18,12 @@ pub fn get_user_by_optional_id(
     current_user: AuthenticatedUser,
     repo: &impl UserReader,
 ) -> ServiceResult<Option<UserDto>> {
+    let hub_id = HubId::new(current_user.hub_id).map_err(map_type_error)?;
     match id {
         None => Ok(Some(current_user.into())),
         Some(id) => {
-            let found = repo.get_user_by_id(id, current_user.hub_id)?;
+            let user_id = UserId::new(id).map_err(map_type_error)?;
+            let found = repo.get_user_by_id(user_id, hub_id)?;
             Ok(found.map(|u| UserDto::from(AuthenticatedUser::from(u.user))))
         }
     }
@@ -34,6 +38,7 @@ pub fn list_users(
     hub_id: i32,
     repo: &impl UserReader,
 ) -> ServiceResult<Vec<UserDto>> {
+    let hub_id = HubId::new(hub_id).map_err(map_type_error)?;
     let mut list_query = UserListQuery::new(hub_id);
 
     if let Some(role) = role {
@@ -61,6 +66,7 @@ pub fn list_users(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::types::{HubId, UserEmail, UserId};
     use crate::domain::user::{User, UserWithRoles};
     use crate::repository::mock::MockRepository;
     use chrono::Utc;
@@ -69,10 +75,10 @@ mod tests {
         let now = Utc::now().naive_utc();
         UserWithRoles {
             user: User {
-                id,
-                email: email.into(),
-                name: Some(format!("User{id}")),
-                hub_id,
+                id: UserId::new(id).unwrap(),
+                email: UserEmail::new(email).unwrap(),
+                name: Some(crate::domain::types::UserName::new(format!("User{id}")).unwrap()),
+                hub_id: HubId::new(hub_id).unwrap(),
                 password_hash: "hash".into(),
                 created_at: now,
                 updated_at: now,

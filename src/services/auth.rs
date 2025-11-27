@@ -6,18 +6,20 @@ use pushkind_common::models::emailer::zmq::ZMQSendEmailMessage;
 use pushkind_common::services::errors::{ServiceError, ServiceResult};
 use pushkind_common::zmq::ZmqSender;
 
+use crate::domain::types::{HubId, UserEmail};
 use crate::domain::user::NewUser;
 use crate::dto::auth::SessionTokenDto;
 use crate::repository::{HubReader, UserReader, UserWriter};
+use crate::services::map_type_error;
 
 /// Attempts to authenticate a user for the given hub.
 ///
 /// On success returns an [`AuthenticatedUser`] containing the user's claims.
 /// Returns [`ServiceError::Unauthorized`] when credentials are invalid.
 pub fn login_user(
-    email: &str,
+    email: &UserEmail,
     password: &str,
-    hub_id: i32,
+    hub_id: HubId,
     repo: &impl UserReader,
 ) -> ServiceResult<AuthenticatedUser> {
     let user_roles = repo
@@ -57,7 +59,9 @@ pub fn reissue_session_from_token(
     let mut user =
         AuthenticatedUser::from_jwt(token, secret).map_err(|_| ServiceError::Unauthorized)?;
     // Ensure the user still exists and belongs to the hub before issuing a new session
-    match repo.get_user_by_email(&user.email, user.hub_id)? {
+    let email = UserEmail::new(&user.email).map_err(map_type_error)?;
+    let hub_id = HubId::new(user.hub_id).map_err(map_type_error)?;
+    match repo.get_user_by_email(&email, hub_id)? {
         Some(_) => {
             user.set_expiration(expiration_days);
             issue_jwt(&user, secret)
@@ -68,9 +72,9 @@ pub fn reissue_session_from_token(
 
 /// Performs login and issues a session JWT on success.
 pub fn login_and_issue_token(
-    email: &str,
+    email: &UserEmail,
     password: &str,
-    hub_id: i32,
+    hub_id: HubId,
     repo: &impl UserReader,
     secret: &str,
 ) -> ServiceResult<SessionTokenDto> {
@@ -85,8 +89,8 @@ pub async fn send_recovery_email(
     zmq_sender: &ZmqSender,
     repo: &impl UserReader,
     secret: &str,
-    hub_id: i32,
-    email: &str,
+    hub_id: HubId,
+    email: &UserEmail,
     base_url: &str,
 ) -> ServiceResult<()> {
     let mut user: AuthenticatedUser = match repo.get_user_by_email(email, hub_id)? {
@@ -105,9 +109,9 @@ pub async fn send_recovery_email(
         attachment: None,
         attachment_name: None,
         attachment_mime: None,
-        hub_id,
+        hub_id: hub_id.get(),
         recipients: vec![NewEmailRecipient {
-            address: email.to_string(),
+            address: email.as_str().to_string(),
             name: user.name.clone(),
             fields: std::iter::once(("recovery_url".to_string(), recovery_url)).collect(),
         }],
@@ -125,6 +129,7 @@ pub async fn send_recovery_email(
 mod tests {
     use super::*;
     use crate::domain::hub::Hub;
+    use crate::domain::types::{HubId, HubName, UserEmail, UserId};
     use crate::domain::user::{User, UserWithRoles};
     use crate::repository::mock::MockRepository;
     use chrono::Utc;
@@ -134,10 +139,10 @@ mod tests {
         let now = Utc::now().naive_utc();
         UserWithRoles {
             user: User {
-                id,
-                email: email.into(),
-                name: Some("User".into()),
-                hub_id,
+                id: UserId::new(id).unwrap(),
+                email: UserEmail::new(email).unwrap(),
+                name: Some(crate::domain::types::UserName::new("User").unwrap()),
+                hub_id: HubId::new(hub_id).unwrap(),
                 password_hash: "hash".into(),
                 created_at: now,
                 updated_at: now,
@@ -153,7 +158,8 @@ mod tests {
         let user = make_user(9, "a@b", 5);
         repo.expect_login()
             .returning(move |_, _, _| Ok(Some(user.clone())));
-        let claims = login_user("a@b", "pass", 5, &repo).unwrap();
+        let email = UserEmail::new("a@b").unwrap();
+        let claims = login_user(&email, "pass", HubId::new(5).unwrap(), &repo).unwrap();
         assert_eq!(claims.email, "a@b");
     }
 
@@ -161,7 +167,8 @@ mod tests {
     fn test_login_user_invalid_password() {
         let mut repo = MockRepository::new();
         repo.expect_login().returning(|_, _, _| Ok(None));
-        let res = login_user("a@b", "wrong", 2, &repo);
+        let email = UserEmail::new("a@b").unwrap();
+        let res = login_user(&email, "wrong", HubId::new(2).unwrap(), &repo);
         assert!(matches!(res, Err(ServiceError::Unauthorized)));
     }
 
@@ -169,7 +176,8 @@ mod tests {
     fn test_login_user_unknown_user() {
         let mut repo = MockRepository::new();
         repo.expect_login().returning(|_, _, _| Ok(None));
-        let res = login_user("missing@ex", "pass", 1, &repo);
+        let email = UserEmail::new("missing@ex").unwrap();
+        let res = login_user(&email, "pass", HubId::new(1).unwrap(), &repo);
         assert!(matches!(res, Err(ServiceError::Unauthorized)));
     }
 
@@ -179,7 +187,7 @@ mod tests {
         repo.expect_create_user().returning(|new| {
             let now = Utc::now().naive_utc();
             Ok(User {
-                id: 1,
+                id: UserId::new(1).unwrap(),
                 email: new.email.clone(),
                 name: new.name.clone(),
                 hub_id: new.hub_id,
@@ -189,7 +197,12 @@ mod tests {
                 roles: vec![],
             })
         });
-        let new = NewUser::new("x@y".into(), None, 1, "p".into());
+        let new = NewUser::new(
+            UserEmail::new("x@y").unwrap(),
+            None,
+            HubId::new(1).unwrap(),
+            "p".into(),
+        );
         let res = register_user(&new, &repo);
         assert!(res.is_ok());
     }
@@ -199,7 +212,12 @@ mod tests {
         let mut repo = MockRepository::new();
         repo.expect_create_user()
             .returning(|_| Err(RepositoryError::ValidationError("fail".into())));
-        let new = NewUser::new("x@y".into(), None, 1, "p".into());
+        let new = NewUser::new(
+            UserEmail::new("x@y").unwrap(),
+            None,
+            HubId::new(1).unwrap(),
+            "p".into(),
+        );
         let res = register_user(&new, &repo);
         assert!(res.is_err());
     }
@@ -210,14 +228,14 @@ mod tests {
         let now = Utc::now().naive_utc();
         let hubs = vec![
             Hub {
-                id: 1,
-                name: "h1".into(),
+                id: HubId::new(1).unwrap(),
+                name: HubName::new("h1").unwrap(),
                 created_at: now,
                 updated_at: now,
             },
             Hub {
-                id: 2,
-                name: "h2".into(),
+                id: HubId::new(2).unwrap(),
+                name: HubName::new("h2").unwrap(),
                 created_at: now,
                 updated_at: now,
             },

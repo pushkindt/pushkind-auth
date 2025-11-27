@@ -23,7 +23,14 @@ pub async fn add_role(
     repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<AddRoleForm>,
 ) -> impl Responder {
-    let new_role: NewRole = form.into();
+    let new_role: NewRole = match form.try_into() {
+        Ok(role) => role,
+        Err(e) => {
+            log::error!("Invalid role data: {e}");
+            FlashMessage::error("Ошибка валидации формы").send();
+            return redirect("/");
+        }
+    };
     match admin_service::create_role(&current_user, &new_role, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Роль добавлена.").send();
@@ -116,7 +123,14 @@ pub async fn update_user(
     };
 
     let target_id = form.id;
-    let update_user: crate::domain::user::UpdateUser = form.into();
+    let update_user: crate::domain::user::UpdateUser = match form.try_into() {
+        Ok(update) => update,
+        Err(e) => {
+            log::error!("Invalid user data: {e}");
+            FlashMessage::error("Ошибка валидации формы").send();
+            return redirect("/");
+        }
+    };
     let role_ids = update_user.roles.clone().unwrap_or_default();
     match admin_service::assign_roles_and_update_user(
         &current_user,
@@ -148,7 +162,14 @@ pub async fn add_hub(
     repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<AddHubForm>,
 ) -> impl Responder {
-    let new_hub: NewHub = form.into();
+    let new_hub: NewHub = match form.try_into() {
+        Ok(h) => h,
+        Err(e) => {
+            log::error!("Invalid hub data: {e}");
+            FlashMessage::error("Ошибка валидации формы").send();
+            return redirect("/");
+        }
+    };
 
     match admin_service::create_hub(&current_user, &new_hub, repo.get_ref()) {
         Ok(_) => {
@@ -223,7 +244,22 @@ pub async fn add_menu(
     repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<AddMenuForm>,
 ) -> impl Responder {
-    let new_menu = form.to_new_menu(current_user.hub_id);
+    let hub_id = match crate::domain::types::HubId::new(current_user.hub_id) {
+        Ok(id) => id,
+        Err(e) => {
+            log::error!("Invalid hub id: {e}");
+            FlashMessage::error("Ошибка валидации формы").send();
+            return redirect("/");
+        }
+    };
+    let new_menu = match form.to_new_menu(hub_id) {
+        Ok(menu) => menu,
+        Err(e) => {
+            log::error!("Invalid menu data: {e}");
+            FlashMessage::error("Ошибка валидации формы").send();
+            return redirect("/");
+        }
+    };
 
     match admin_service::create_menu(&current_user, &new_menu, repo.get_ref()) {
         Ok(_) => {

@@ -2,6 +2,7 @@ use chrono::NaiveDateTime;
 use diesel::prelude::*;
 
 use crate::domain::role::{NewUserRole as DomainNewUserRole, UserRole as DomainUserRole};
+use crate::domain::types::{RoleId, RoleName, TypeConstraintError, UserId};
 use crate::domain::{role::NewRole as DomainNewRole, role::Role as DomainRole};
 use crate::models::user::User;
 
@@ -41,14 +42,16 @@ pub struct NewUserRole {
     pub role_id: i32,
 }
 
-impl From<Role> for DomainRole {
-    fn from(db: Role) -> Self {
-        Self {
-            id: db.id,
-            name: db.name,
+impl TryFrom<Role> for DomainRole {
+    type Error = TypeConstraintError;
+
+    fn try_from(db: Role) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: RoleId::try_from(db.id)?,
+            name: RoleName::try_from(db.name)?,
             created_at: db.created_at,
             updated_at: db.updated_at,
-        }
+        })
     }
 }
 
@@ -60,20 +63,22 @@ impl<'a> From<&'a DomainNewRole> for NewRole<'a> {
     }
 }
 
-impl From<UserRole> for DomainUserRole {
-    fn from(db: UserRole) -> Self {
-        Self {
-            user_id: db.user_id,
-            role_id: db.role_id,
-        }
+impl TryFrom<UserRole> for DomainUserRole {
+    type Error = TypeConstraintError;
+
+    fn try_from(db: UserRole) -> Result<Self, Self::Error> {
+        Ok(Self {
+            user_id: UserId::try_from(db.user_id)?,
+            role_id: RoleId::try_from(db.role_id)?,
+        })
     }
 }
 
 impl From<&DomainNewUserRole> for NewUserRole {
     fn from(domain: &DomainNewUserRole) -> Self {
         Self {
-            user_id: domain.user_id,
-            role_id: domain.role_id,
+            user_id: domain.user_id.get(),
+            role_id: domain.role_id.get(),
         }
     }
 }

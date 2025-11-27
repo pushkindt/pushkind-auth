@@ -6,11 +6,13 @@ use pushkind_common::services::errors::{ServiceError, ServiceResult};
 
 use crate::SERVICE_ACCESS_ROLE;
 use crate::domain::hub::NewHub;
+use crate::domain::types::{HubId, MenuId, RoleId, UserId};
 use crate::domain::user::UpdateUser;
 use crate::dto::admin::UserModalData;
 use crate::repository::{
     HubWriter, MenuReader, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter,
 };
+use crate::services::map_type_error;
 
 /// Ensures the authenticated user has the `admin` role.
 fn ensure_admin(user: &AuthenticatedUser) -> ServiceResult<()> {
@@ -38,9 +40,9 @@ pub fn user_modal_data(
     repo: &(impl UserReader + RoleReader),
 ) -> ServiceResult<UserModalData> {
     ensure_admin(current_user)?;
-    let user = repo
-        .get_user_by_id(user_id, current_user.hub_id)?
-        .map(|u| u.user);
+    let user_id = UserId::new(user_id).map_err(map_type_error)?;
+    let hub_id = HubId::new(current_user.hub_id).map_err(map_type_error)?;
+    let user = repo.get_user_by_id(user_id, hub_id)?.map(|u| u.user);
     let roles = repo.list_roles()?;
     Ok(UserModalData { user, roles })
 }
@@ -62,7 +64,9 @@ pub fn delete_user_by_id(
         return Err(ServiceError::Unauthorized);
     }
 
-    let user = match repo.get_user_by_id(user_id, current_user.hub_id)? {
+    let user_id = UserId::new(user_id).map_err(map_type_error)?;
+    let hub_id = HubId::new(current_user.hub_id).map_err(map_type_error)?;
+    let user = match repo.get_user_by_id(user_id, hub_id)? {
         Some(u) => u.user,
         None => return Err(ServiceError::NotFound),
     };
@@ -75,12 +79,14 @@ pub fn assign_roles_and_update_user(
     current_user: &AuthenticatedUser,
     user_id: i32,
     updates: &UpdateUser,
-    role_ids: &[i32],
+    role_ids: &[RoleId],
     repo: &(impl UserWriter + UserReader),
 ) -> ServiceResult<()> {
     ensure_admin(current_user)?;
     // Validate user exists in the hub
-    let user = match repo.get_user_by_id(user_id, current_user.hub_id)? {
+    let user_id = UserId::new(user_id).map_err(map_type_error)?;
+    let hub_id = HubId::new(current_user.hub_id).map_err(map_type_error)?;
+    let user = match repo.get_user_by_id(user_id, hub_id)? {
         Some(u) => u.user,
         None => return Err(ServiceError::NotFound),
     };
@@ -111,6 +117,7 @@ pub fn delete_role_by_id(
         // Protect the base admin role from deletion.
         return Err(ServiceError::Unauthorized);
     }
+    let role_id = RoleId::new(role_id).map_err(map_type_error)?;
     repo.delete_role(role_id)?;
     Ok(())
 }
@@ -126,6 +133,7 @@ pub fn delete_hub_by_id(
         // Prevent deleting the hub currently associated with the user.
         return Err(ServiceError::Unauthorized);
     }
+    let hub_id = HubId::new(hub_id).map_err(map_type_error)?;
     repo.delete_hub(hub_id)?;
     Ok(())
 }
@@ -148,7 +156,9 @@ pub fn delete_menu_by_id(
     repo: &(impl MenuReader + MenuWriter),
 ) -> ServiceResult<()> {
     ensure_admin(current_user)?;
-    let menu = match repo.get_menu_by_id(menu_id, current_user.hub_id)? {
+    let menu_id = MenuId::new(menu_id).map_err(map_type_error)?;
+    let hub_id = HubId::new(current_user.hub_id).map_err(map_type_error)?;
+    let menu = match repo.get_menu_by_id(menu_id, hub_id)? {
         Some(m) => m,
         None => return Err(ServiceError::NotFound),
     };
@@ -162,6 +172,7 @@ mod tests {
     use crate::domain::hub::{Hub, NewHub};
     use crate::domain::menu::{Menu, NewMenu};
     use crate::domain::role::{NewRole, Role};
+    use crate::domain::types::{HubId, MenuId, RoleId, RoleName, UserEmail, UserId};
     use crate::domain::user::{User, UserWithRoles};
     use crate::repository::mock::MockRepository;
     use chrono::Utc;
@@ -182,10 +193,10 @@ mod tests {
         let now = Utc::now().naive_utc();
         UserWithRoles {
             user: User {
-                id,
-                email: email.into(),
-                name: Some("User".into()),
-                hub_id,
+                id: UserId::new(id).unwrap(),
+                email: UserEmail::new(email).unwrap(),
+                name: Some(crate::domain::types::UserName::new("User").unwrap()),
+                hub_id: HubId::new(hub_id).unwrap(),
                 password_hash: "hash".into(),
                 created_at: now,
                 updated_at: now,
@@ -200,15 +211,15 @@ mod tests {
         let mut repo = MockRepository::new();
         let user = make_user(7, "u@e", 1);
         let role = Role {
-            id: 1,
-            name: "admin".into(),
+            id: RoleId::new(1).unwrap(),
+            name: RoleName::new("admin").unwrap(),
             created_at: user.user.created_at,
             updated_at: user.user.updated_at,
         };
         repo.expect_get_user_by_id()
             .times(2)
             .returning(move |id, _| {
-                if id == 7 {
+                if id == UserId::new(7).unwrap() {
                     Ok(Some(user.clone()))
                 } else {
                     Ok(None)
@@ -230,13 +241,15 @@ mod tests {
         repo.expect_create_role().returning(|new_role| {
             let now = Utc::now().naive_utc();
             Ok(Role {
-                id: 2,
+                id: RoleId::new(2).unwrap(),
                 name: new_role.name.clone(),
                 created_at: now,
                 updated_at: now,
             })
         });
-        let new_role = NewRole { name: "new".into() };
+        let new_role = NewRole {
+            name: RoleName::new("new").unwrap(),
+        };
         assert!(create_role(&admin_user(), &new_role, &repo).is_ok());
     }
 
@@ -246,14 +259,16 @@ mod tests {
         let now = Utc::now().naive_utc();
         repo.expect_create_hub().returning(move |nh| {
             Ok(Hub {
-                id: 2,
+                id: HubId::new(2).unwrap(),
                 name: nh.name.clone(),
                 created_at: now,
                 updated_at: now,
             })
         });
         repo.expect_delete_hub().returning(|_| Ok(1));
-        let new_hub = NewHub { name: "hub".into() };
+        let new_hub = NewHub {
+            name: crate::domain::types::HubName::new("hub").unwrap(),
+        };
         assert!(create_hub(&admin_user(), &new_hub, &repo).is_ok());
         assert!(delete_hub_by_id(&admin_user(), 2, &repo).is_ok());
     }
@@ -264,15 +279,15 @@ mod tests {
         // The service first fetches the menu by id and hub before deleting.
         repo.expect_get_menu_by_id().returning(|id, hub_id| {
             Ok(Some(Menu {
-                id,
-                name: "m".into(),
-                url: "/".into(),
+                id: MenuId::new(id.get()).unwrap(),
+                name: crate::domain::types::MenuName::new("m").unwrap(),
+                url: crate::domain::types::MenuUrl::new("/").unwrap(),
                 hub_id,
             }))
         });
         repo.expect_create_menu().returning(|nm| {
             Ok(Menu {
-                id: 1,
+                id: MenuId::new(1).unwrap(),
                 name: nm.name.clone(),
                 url: nm.url.clone(),
                 hub_id: nm.hub_id,
@@ -280,9 +295,9 @@ mod tests {
         });
         repo.expect_delete_menu().returning(|_| Ok(1));
         let new_menu = NewMenu {
-            name: "m".into(),
-            url: "/".into(),
-            hub_id: 1,
+            name: crate::domain::types::MenuName::new("m").unwrap(),
+            url: crate::domain::types::MenuUrl::new("/").unwrap(),
+            hub_id: HubId::new(1).unwrap(),
         };
         assert!(create_menu(&admin_user(), &new_menu, &repo).is_ok());
         assert!(delete_menu_by_id(&admin_user(), 1, &repo).is_ok());

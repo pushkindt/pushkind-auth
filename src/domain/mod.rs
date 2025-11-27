@@ -6,4 +6,5 @@
 pub mod hub;
 pub mod menu;
 pub mod role;
+pub mod types;
 pub mod user;

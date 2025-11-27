@@ -10,6 +10,7 @@ use futures_util::future::{LocalBoxFuture, Ready, ok};
 use pushkind_common::domain::auth::AuthenticatedUser;
 use std::rc::Rc;
 
+use crate::domain::types::{HubId, UserId};
 use crate::repository::DieselRepository;
 use crate::repository::UserReader;
 
@@ -69,7 +70,11 @@ where
 
             let repo = repo.ok_or_else(|| ErrorInternalServerError("DB repo not found"))?;
 
-            match repo.get_user_by_id(uid, claims.hub_id) {
+            let user_id = UserId::new(uid).map_err(|_| ErrorUnauthorized("Invalid user"))?;
+            let hub_id =
+                HubId::new(claims.hub_id).map_err(|_| ErrorUnauthorized("Invalid user"))?;
+
+            match repo.get_user_by_id(user_id, hub_id) {
                 Ok(Some(_)) => srv.call(req).await,
                 _ => Err(ErrorUnauthorized("User not found")),
             }
