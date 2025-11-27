@@ -1,3 +1,7 @@
+//! Authentication-related request payloads.
+//!
+//! These types validate login, registration, and password recovery inputs
+//! before they are transformed into domain types.
 use serde::Deserialize;
 use validator::Validate;
 

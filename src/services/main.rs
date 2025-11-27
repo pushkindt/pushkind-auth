@@ -1,25 +1,10 @@
 //! Services powering the main application views, such as loading index data and updating users.
 
-use crate::domain::hub::Hub;
-use crate::domain::menu::Menu;
-use crate::domain::role::Role;
-use crate::domain::user::{UpdateUser, UserWithRoles};
-use crate::repository::{HubReader, MenuReader, RoleReader, UserListQuery, UserReader, UserWriter};
 use pushkind_common::services::errors::ServiceResult;
 
-/// Aggregated information required to render the index page.
-///
-/// The struct bundles data about the current hub, available users, roles,
-/// hubs and menu entries, as well as the name of the current user if
-/// available.
-pub struct IndexData {
-    pub hub: Hub,
-    pub users: Vec<UserWithRoles>,
-    pub roles: Vec<Role>,
-    pub hubs: Vec<Hub>,
-    pub menu: Vec<Menu>,
-    pub user_name: Option<String>,
-}
+use crate::domain::user::UpdateUser;
+use crate::dto::main::IndexData;
+use crate::repository::{HubReader, MenuReader, RoleReader, UserListQuery, UserReader, UserWriter};
 
 /// Gathers all information necessary to render the main index view for a hub.
 ///
@@ -68,6 +53,8 @@ pub fn update_current_user(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::hub::Hub;
+    use crate::domain::user::UserWithRoles;
     use crate::repository::mock::MockRepository;
     use chrono::Utc;
     use pushkind_common::repository::errors::RepositoryError;

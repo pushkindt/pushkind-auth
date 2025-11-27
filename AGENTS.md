@@ -45,6 +45,9 @@ cargo fmt --all -- --check
 - Define error enums with `thiserror` inside the crate that owns the failure and
   return `RepositoryResult<T>` / `ServiceResult<T>` from repository and service
   functions.
+- Services should return DTO-level structs when handing data to routes or other
+  crates; perform domain-to-DTO conversion inside the service layer to keep
+  handlers thin.
 - Service functions should accept trait bounds (e.g., `UserReader + UserWriter`)
   so the `DieselRepository` and `mockall`-powered fakes remain interchangeable.
 - Domain structs must not perform validation or normalization (e.g., no

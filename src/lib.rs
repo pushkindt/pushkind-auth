@@ -34,6 +34,7 @@ use crate::routes::auth::{
 use crate::routes::main::{save_user, show_index};
 
 pub mod domain;
+pub mod dto;
 pub mod forms;
 pub mod middleware;
 pub mod models;
