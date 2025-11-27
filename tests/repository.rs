@@ -15,7 +15,7 @@ mod common;
 
 #[test]
 fn test_hub_repository_crud() {
-    let test_db = common::TestDb::new("test_hub_repository_crud.db");
+    let test_db = common::TestDb::new();
     let repo = DieselRepository::new(test_db.pool());
 
     // Create
@@ -58,7 +58,7 @@ fn test_hub_repository_crud() {
 
 #[test]
 fn test_user_repository_crud() {
-    let test_db = common::TestDb::new("test_user_repository_crud.db");
+    let test_db = common::TestDb::new();
     let hub_repo = DieselRepository::new(test_db.pool());
 
     // Create Hub
@@ -148,7 +148,7 @@ fn test_user_repository_crud() {
 
 #[test]
 fn test_role_repository_crud() {
-    let test_db = common::TestDb::new("test_role_repository_crud.db");
+    let test_db = common::TestDb::new();
     let repo = DieselRepository::new(test_db.pool());
 
     // Create
@@ -178,7 +178,7 @@ fn test_role_repository_crud() {
 
 #[test]
 fn test_email_lowercase_and_login_case_insensitive() {
-    let test_db = common::TestDb::new("test_email_lowercase.db");
+    let test_db = common::TestDb::new();
     let hub_repo = DieselRepository::new(test_db.pool());
 
     // Create hub
@@ -223,7 +223,7 @@ fn test_email_lowercase_and_login_case_insensitive() {
 
 #[test]
 fn test_assign_roles_atomic() {
-    let test_db = common::TestDb::new("test_assign_roles_atomic.db");
+    let test_db = common::TestDb::new();
     let hub_repo = DieselRepository::new(test_db.pool());
     let role_repo = DieselRepository::new(test_db.pool());
     let user_repo = DieselRepository::new(test_db.pool());
