@@ -1,3 +1,9 @@
+//! Diesel-backed [`UserRepository`](crate::repository::UserRepository) implementation.
+//!
+//! Functions in this module translate Diesel models into domain types, wrap
+//! mutations in transactions, and handle shared concerns like password hashing
+//! and full-text search filtering.
+
 use bcrypt::{DEFAULT_COST, hash, verify};
 use chrono::Utc;
 use diesel::dsl::exists;
@@ -95,6 +101,8 @@ impl UserReader for DieselRepository {
 
         let mut conn = self.conn()?;
 
+        // Build a boxed query with optional role and full-text filters so the
+        // same definition can be reused for total counting and pagination.
         let query_builder = || {
             let mut items = users::table
                 .filter(users::hub_id.eq(query.hub_id.get()))
@@ -207,6 +215,8 @@ impl UserWriter for DieselRepository {
             RepositoryError::ValidationError(format!("Failed to saved User to DB: {e}"))
         })?;
 
+        // Persist the validated input and convert the Diesel model into the
+        // domain representation so callers never handle database types.
         let user = diesel::insert_into(users::table)
             .values(&new_db_user)
             .get_result::<DbUser>(&mut connection)?;
@@ -243,6 +253,8 @@ impl UserWriter for DieselRepository {
             updated_at: Utc::now().naive_utc(),
         };
 
+        // Perform the mutation in a single statement so `updated_at` stays in
+        // sync with the modified fields.
         let user = diesel::update(users::table)
             .filter(users::id.eq(user_id.get()))
             .set(&db_updates)
@@ -257,6 +269,9 @@ impl UserWriter for DieselRepository {
 
         let mut connection = self.conn()?;
 
+        // Delete role mappings and the user record inside a single
+        // transaction so referential integrity remains consistent even when
+        // cascading deletes occur.
         let result = connection.transaction::<_, diesel::result::Error, _>(|conn| {
             diesel::delete(user_roles::table)
                 .filter(user_roles::user_id.eq(user_id.get()))
@@ -284,6 +299,9 @@ impl UserWriter for DieselRepository {
 
         connection
             .transaction::<_, diesel::result::Error, _>(|conn| {
+                // Remove existing mappings first; failures during insertion
+                // will roll back this deletion so the previous role set
+                // remains intact.
                 diesel::delete(user_roles::table)
                     .filter(user_roles::user_id.eq(user_id.get()))
                     .execute(conn)?;
