@@ -55,8 +55,10 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
     };
 
     // Start a background ZeroMQ publisher used for outbound email notifications.
-    let zmq_sender = ZmqSender::start(ZmqSenderOptions::pub_default(&server_config.zmq_emailer_pub))
-        .map_err(|e| std::io::Error::other(format!("Failed to start ZMQ sender: {e}")))?;
+    let zmq_sender = ZmqSender::start(ZmqSenderOptions::pub_default(
+        &server_config.zmq_emailer_pub,
+    ))
+    .map_err(|e| std::io::Error::other(format!("Failed to start ZMQ sender: {e}")))?;
 
     let zmq_sender = Arc::new(zmq_sender);
 
