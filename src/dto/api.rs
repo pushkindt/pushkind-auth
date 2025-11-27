@@ -1,3 +1,5 @@
+//! DTOs exposed by the REST API.
+
 use pushkind_common::domain::auth::AuthenticatedUser;
 use serde::{Deserialize, Serialize};
 

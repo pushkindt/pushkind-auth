@@ -1,3 +1,5 @@
+//! Mock repository implementations for isolating services in tests.
+
 use mockall::mock;
 use pushkind_common::repository::errors::RepositoryResult;
 

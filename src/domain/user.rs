@@ -1,3 +1,5 @@
+//! Domain user model and related wrappers for roles and creation/update input.
+
 use chrono::NaiveDateTime;
 use pushkind_common::domain::auth::AuthenticatedUser;
 use serde::{Deserialize, Serialize};

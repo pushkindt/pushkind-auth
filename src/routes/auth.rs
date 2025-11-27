@@ -13,7 +13,6 @@ use pushkind_common::services::errors::ServiceError;
 use pushkind_common::zmq::ZmqSender;
 use serde::Deserialize;
 use tera::{Context, Tera};
-use validator::Validate;
 
 use crate::forms::auth::{LoginForm, RecoverForm, RegisterForm};
 use crate::models::config::ServerConfig;
@@ -31,6 +30,7 @@ struct LoginTokenParams {
     token: String,
 }
 
+/// Reissues a session from a one-time token via `GET /login`.
 #[get("/login")]
 pub async fn login_token(
     request: HttpRequest,
@@ -59,6 +59,7 @@ pub async fn login_token(
     redirect("/")
 }
 
+/// Authenticates a user with credentials via `POST /login`.
 #[post("/login")]
 pub async fn login(
     request: HttpRequest,
@@ -73,12 +74,6 @@ pub async fn login(
         query_params.next.as_deref(),
         &server_config.domain,
     );
-
-    if let Err(e) = form.validate() {
-        log::error!("Failed to validate form: {e}");
-        FlashMessage::error("Ошибка валидации формы").send();
-        return redirect(&failure_redirect_url);
-    }
 
     let jwt =
         match auth_service::login_and_issue_token(&form, repo.get_ref(), &common_config.secret) {
@@ -107,17 +102,12 @@ pub async fn login(
     }
 }
 
+/// Registers a new user account via `POST /register`.
 #[post("/register")]
 pub async fn register(
     repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<RegisterForm>,
 ) -> impl Responder {
-    if let Err(e) = form.validate() {
-        log::error!("Failed to validate form: {e}");
-        FlashMessage::error("Ошибка валидации формы").send();
-        return redirect("/auth/signup");
-    }
-
     match auth_service::register_user(&form, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Пользователь может войти.".to_string()).send();
@@ -140,6 +130,7 @@ pub async fn register(
     }
 }
 
+/// Renders the sign-in page via `GET /signin`.
 #[get("/signin")]
 pub async fn signin_page(
     user: Option<Identity>,
@@ -174,6 +165,7 @@ pub async fn signin_page(
     render_template(&tera, "auth/login.html", &context)
 }
 
+/// Renders the registration page via `GET /signup`.
 #[get("/signup")]
 pub async fn signup_page(
     user: Option<Identity>,
@@ -208,6 +200,7 @@ pub async fn signup_page(
     render_template(&tera, "auth/register.html", &context)
 }
 
+/// Sends a recovery email and issues a passwordless login link.
 #[post("/recover")]
 pub async fn recover_password(
     request: HttpRequest,
@@ -216,12 +209,6 @@ pub async fn recover_password(
     common_config: web::Data<CommonServerConfig>,
     web::Form(form): web::Form<RecoverForm>,
 ) -> impl Responder {
-    if let Err(e) = form.validate() {
-        log::error!("Failed to validate form: {e}");
-        FlashMessage::error("Ошибка валидации формы").send();
-        return redirect("/auth/signin");
-    }
-
     // Build base URL from current request: schema://host
     let base_url = {
         let conn_info = request.connection_info();

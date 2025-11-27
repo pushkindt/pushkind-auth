@@ -1,3 +1,5 @@
+//! DTOs feeding the main index template.
+
 use crate::domain::hub::Hub;
 use crate::domain::menu::Menu;
 use crate::domain::role::Role;

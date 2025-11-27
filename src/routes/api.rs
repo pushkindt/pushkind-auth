@@ -1,3 +1,5 @@
+//! Actix Web route handlers for versioned API endpoints.
+
 use actix_web::{HttpResponse, Responder, get, web};
 use log::error;
 use pushkind_common::domain::auth::AuthenticatedUser;
@@ -11,6 +13,7 @@ struct ApiV1IdParams {
     id: Option<i32>,
 }
 
+/// Returns the current user or the one specified by id via `GET /v1/id`.
 #[get("/v1/id")]
 pub async fn api_v1_id(
     params: web::Query<ApiV1IdParams>,
@@ -34,6 +37,7 @@ struct ApiV1UsersQueryParams {
     page: Option<usize>,
 }
 
+/// Lists users for the current hub with optional filters via `GET /v1/users`.
 #[get("/v1/users")]
 pub async fn api_v1_users(
     params: web::Query<ApiV1UsersQueryParams>,

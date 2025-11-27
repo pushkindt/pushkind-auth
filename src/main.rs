@@ -8,17 +8,20 @@ use pushkind_auth::{models::config::ServerConfig, run};
 
 #[actix_web::main]
 async fn main() {
+    // Load environment variables from `.env` in local development.
     dotenv().ok();
+    // Initialize logger with default level INFO if not provided.
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
+    // Select config profile (defaults to `local`).
     let app_env = env::var("APP_ENV").unwrap_or_else(|_| "local".into());
 
     let settings = Config::builder()
-        // Add in `./config/default.yaml`
+        // Add `./config/default.yaml`
         .add_source(config::File::with_name("config/default"))
         // Add environment-specific overrides
         .add_source(config::File::with_name(&format!("config/{}", app_env)).required(false))
-        // Add in settings from the environment (with a prefix of APP)
+        // Add settings from the environment (with a prefix of APP)
         .add_source(config::Environment::with_prefix("APP"))
         .build();
 

@@ -14,6 +14,7 @@ use crate::forms::main::{AddHubForm, AddMenuForm, AddRoleForm, UpdateUserForm};
 use crate::repository::DieselRepository;
 use crate::services::admin as admin_service;
 
+/// Handles `POST /role/add` to create a new role and flash the outcome.
 #[post("/role/add")]
 pub async fn add_role(
     current_user: AuthenticatedUser,
@@ -42,6 +43,7 @@ pub async fn add_role(
     redirect("/")
 }
 
+/// Builds modal data for a user via `POST /user/modal/{user_id}`.
 #[post("/user/modal/{user_id}")]
 pub async fn user_modal(
     user_id: web::Path<i32>,
@@ -74,6 +76,7 @@ pub async fn user_modal(
     render_template(&tera, "main/modal_body.html", &context)
 }
 
+/// Deletes a user by id for `POST /user/delete/{user_id}`.
 #[post("/user/delete/{user_id}")]
 pub async fn delete_user(
     user_id: web::Path<i32>,
@@ -100,6 +103,7 @@ pub async fn delete_user(
     redirect("/")
 }
 
+/// Updates user data and role assignments from the admin form.
 #[post("/user/update")]
 pub async fn update_user(
     current_user: AuthenticatedUser,
@@ -137,6 +141,7 @@ pub async fn update_user(
     redirect("/")
 }
 
+/// Handles `POST /hub/add` to create a hub for the current tenant.
 #[post("/hub/add")]
 pub async fn add_hub(
     current_user: AuthenticatedUser,
@@ -162,6 +167,7 @@ pub async fn add_hub(
     redirect("/")
 }
 
+/// Deletes a role via `POST /role/delete/{role_id}`.
 #[post("/role/delete/{role_id}")]
 pub async fn delete_role(
     role_id: web::Path<i32>,
@@ -188,6 +194,7 @@ pub async fn delete_role(
     redirect("/")
 }
 
+/// Removes a hub owned by the current tenant.
 #[post("/hub/delete/{hub_id}")]
 pub async fn delete_hub(
     hub_id: web::Path<i32>,
@@ -214,6 +221,7 @@ pub async fn delete_hub(
     redirect("/")
 }
 
+/// Handles `POST /menu/add` to create a menu entry.
 #[post("/menu/add")]
 pub async fn add_menu(
     current_user: AuthenticatedUser,
@@ -239,6 +247,7 @@ pub async fn add_menu(
     redirect("/")
 }
 
+/// Deletes a menu item via `POST /menu/delete/{menu_id}`.
 #[post("/menu/delete/{menu_id}")]
 pub async fn delete_menu(
     menu_id: web::Path<i32>,

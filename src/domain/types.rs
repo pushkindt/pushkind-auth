@@ -12,14 +12,18 @@ use validator::ValidateEmail;
 /// Errors produced when attempting to construct a constrained value object.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum TypeConstraintError {
+    /// Provided identifier is zero or negative.
     #[error("id must be greater than zero")]
     NonPositiveId,
+    /// Provided email failed format validation.
     #[error("invalid email address")]
     InvalidEmail,
+    /// Provided string contained no non-whitespace characters.
     #[error("value cannot be empty")]
     EmptyString,
 }
 
+/// Macro to generate lightweight newtypes for positive identifiers.
 macro_rules! id_newtype {
     ($name:ident) => {
         #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -127,6 +131,7 @@ impl From<UserEmail> for String {
 pub struct NonEmptyString(String);
 
 impl NonEmptyString {
+    /// Trims whitespace and rejects empty inputs.
     pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
         let trimmed = value.into().trim().to_string();
         if trimmed.is_empty() {
@@ -135,10 +140,12 @@ impl NonEmptyString {
         Ok(Self(trimmed))
     }
 
+    /// Borrow the inner string.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    /// Consume the wrapper returning the owned string.
     pub fn into_inner(self) -> String {
         self.0
     }
@@ -177,15 +184,18 @@ impl From<NonEmptyString> for String {
 pub struct HubName(String);
 
 impl HubName {
+    /// Builds a hub name from user input after trimming.
     pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
         let name = NonEmptyString::new(value)?;
         Ok(Self(name.into_inner()))
     }
 
+    /// Borrow the hub name as a `&str`.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    /// Extract the owned hub name.
     pub fn into_inner(self) -> String {
         self.0
     }
@@ -224,15 +234,18 @@ impl From<HubName> for String {
 pub struct RoleName(String);
 
 impl RoleName {
+    /// Constructs a role name after trimming and empty-checking.
     pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
         let name = NonEmptyString::new(value)?;
         Ok(Self(name.into_inner()))
     }
 
+    /// Borrow the role name as a `&str`.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    /// Consume the wrapper returning the owned name.
     pub fn into_inner(self) -> String {
         self.0
     }
@@ -271,15 +284,18 @@ impl From<RoleName> for String {
 pub struct MenuName(String);
 
 impl MenuName {
+    /// Ensures a trimmed menu name is non-empty before wrapping.
     pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
         let name = NonEmptyString::new(value)?;
         Ok(Self(name.into_inner()))
     }
 
+    /// Borrow the menu name.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    /// Extract the owned menu name.
     pub fn into_inner(self) -> String {
         self.0
     }
@@ -318,15 +334,18 @@ impl From<MenuName> for String {
 pub struct MenuUrl(String);
 
 impl MenuUrl {
+    /// Ensures a trimmed menu URL is non-empty before wrapping.
     pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
         let url = NonEmptyString::new(value)?;
         Ok(Self(url.into_inner()))
     }
 
+    /// Borrow the menu URL.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    /// Extract the owned menu URL.
     pub fn into_inner(self) -> String {
         self.0
     }
@@ -365,15 +384,18 @@ impl From<MenuUrl> for String {
 pub struct UserName(String);
 
 impl UserName {
+    /// Constructs a user name that is trimmed and non-empty.
     pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
         let name = NonEmptyString::new(value)?;
         Ok(Self(name.into_inner()))
     }
 
+    /// Borrow the user name.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    /// Extract the owned user name.
     pub fn into_inner(self) -> String {
         self.0
     }
