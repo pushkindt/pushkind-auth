@@ -62,15 +62,13 @@ pub async fn save_user(
         }
     };
 
-    let update_user = form.into();
-    match main_service::update_current_user(
-        user_id,
-        current_user.hub_id,
-        &update_user,
-        repo.get_ref(),
-    ) {
+    match main_service::update_current_user(user_id, current_user.hub_id, &form, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Параметры изменены.".to_string()).send();
+        }
+        Err(pushkind_common::services::errors::ServiceError::Form(e)) => {
+            log::error!("Failed to validate settings: {e}");
+            FlashMessage::error("Ошибка валидации формы").send();
         }
         Err(err) => {
             log::error!("Failed to update settings: {err}");

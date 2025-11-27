@@ -1,10 +1,11 @@
 //! Services powering the main application views, such as loading index data and updating users.
 
 use pushkind_common::services::errors::ServiceResult;
+use std::convert::TryInto;
 
 use crate::domain::types::{HubId, UserEmail, UserId};
-use crate::domain::user::UpdateUser;
 use crate::dto::main::IndexData;
+use crate::forms::main::SaveUserForm;
 use crate::repository::{HubReader, MenuReader, RoleReader, UserListQuery, UserReader, UserWriter};
 use crate::services::map_type_error;
 
@@ -47,12 +48,14 @@ pub fn get_index_data(
 pub fn update_current_user(
     user_id: i32,
     hub_id: i32,
-    updates: &UpdateUser,
+    form: &SaveUserForm,
     repo: &impl UserWriter,
 ) -> ServiceResult<()> {
     let user_id = UserId::new(user_id).map_err(map_type_error)?;
     let hub_id = HubId::new(hub_id).map_err(map_type_error)?;
-    repo.update_user(user_id, hub_id, updates)?;
+    let updates: crate::domain::user::UpdateUser =
+        form.clone().try_into().map_err(map_type_error)?;
+    repo.update_user(user_id, hub_id, &updates)?;
     Ok(())
 }
 
@@ -62,6 +65,7 @@ mod tests {
     use crate::domain::hub::Hub;
     use crate::domain::types::{HubId, HubName, UserEmail, UserId};
     use crate::domain::user::UserWithRoles;
+    use crate::forms::main::SaveUserForm;
     use crate::repository::mock::MockRepository;
     use chrono::Utc;
     use pushkind_common::repository::errors::RepositoryError;
@@ -122,12 +126,11 @@ mod tests {
         let user_clone = uwr.user.clone();
         repo.expect_update_user()
             .returning(move |_, _, _| Ok(user_clone.clone()));
-        let updates = UpdateUser {
-            name: crate::domain::types::UserName::new("X").unwrap(),
+        let form = SaveUserForm {
+            name: "X".into(),
             password: None,
-            roles: None,
         };
-        let res = update_current_user(uwr.user.id.get(), hub.id.get(), &updates, &repo);
+        let res = update_current_user(uwr.user.id.get(), hub.id.get(), &form, &repo);
         assert!(res.is_ok());
     }
 
@@ -136,12 +139,11 @@ mod tests {
         let (mut repo, _uwr, _hub) = sample_repo();
         repo.expect_update_user()
             .returning(|_, _, _| Err(RepositoryError::NotFound));
-        let updates = UpdateUser {
-            name: crate::domain::types::UserName::new("X").unwrap(),
+        let form = SaveUserForm {
+            name: "X".into(),
             password: None,
-            roles: None,
         };
-        let res = update_current_user(1, 1, &updates, &repo);
+        let res = update_current_user(1, 1, &form, &repo);
         assert!(matches!(
             res,
             Err(pushkind_common::services::errors::ServiceError::NotFound)

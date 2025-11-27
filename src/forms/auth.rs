@@ -8,7 +8,7 @@ use validator::Validate;
 use crate::domain::types::{HubId, TypeConstraintError, UserEmail};
 use crate::domain::user::NewUser as DomainNewUser;
 
-#[derive(Deserialize, Validate)]
+#[derive(Deserialize, Validate, Clone)]
 /// Form data submitted when a user logs in.
 pub struct LoginForm {
     #[validate(email)]
@@ -19,7 +19,7 @@ pub struct LoginForm {
     pub hub_id: i32,
 }
 
-#[derive(Deserialize, Validate)]
+#[derive(Deserialize, Validate, Clone)]
 /// Form data used during user registration.
 pub struct RegisterForm {
     #[validate(email)]
@@ -30,7 +30,7 @@ pub struct RegisterForm {
     pub hub_id: i32,
 }
 
-#[derive(Deserialize, Validate)]
+#[derive(Deserialize, Validate, Clone)]
 /// Form data used to recover a forgotten password.
 pub struct RecoverForm {
     #[validate(email)]

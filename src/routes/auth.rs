@@ -80,40 +80,23 @@ pub async fn login(
         return redirect(&failure_redirect_url);
     }
 
-    let email = match form.email() {
-        Ok(email) => email,
-        Err(e) => {
-            log::error!("Invalid email: {e}");
-            FlashMessage::error("Ошибка валидации формы").send();
-            return redirect(&failure_redirect_url);
-        }
-    };
-    let hub_id = match form.hub_id() {
-        Ok(id) => id,
-        Err(e) => {
-            log::error!("Invalid hub id: {e}");
-            FlashMessage::error("Ошибка валидации формы").send();
-            return redirect(&failure_redirect_url);
-        }
-    };
-
-    let jwt = match auth_service::login_and_issue_token(
-        &email,
-        &form.password,
-        hub_id,
-        repo.get_ref(),
-        &common_config.secret,
-    ) {
-        Ok(jwt) => jwt,
-        Err(ServiceError::Unauthorized) => {
-            FlashMessage::error("Неверный логин или пароль.").send();
-            return redirect(&failure_redirect_url);
-        }
-        Err(e) => {
-            log::error!("Login error: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
+    let jwt =
+        match auth_service::login_and_issue_token(&form, repo.get_ref(), &common_config.secret) {
+            Ok(jwt) => jwt,
+            Err(ServiceError::Unauthorized) => {
+                FlashMessage::error("Неверный логин или пароль.").send();
+                return redirect(&failure_redirect_url);
+            }
+            Err(ServiceError::Form(e)) => {
+                log::error!("Invalid login data: {e}");
+                FlashMessage::error("Ошибка валидации формы").send();
+                return redirect(&failure_redirect_url);
+            }
+            Err(e) => {
+                log::error!("Login error: {e}");
+                return HttpResponse::InternalServerError().finish();
+            }
+        };
 
     match Identity::login(&request.extensions(), jwt.token) {
         Ok(_) => redirect(&success_redirect_url),
@@ -135,21 +118,18 @@ pub async fn register(
         return redirect("/auth/signup");
     }
 
-    let new_user = match form.into_domain() {
-        Ok(user) => user,
-        Err(e) => {
-            log::error!("Failed to convert form: {e}");
-            FlashMessage::error("Ошибка валидации формы").send();
-            return redirect("/auth/signup");
-        }
-    };
-    match auth_service::register_user(&new_user, repo.get_ref()) {
+    match auth_service::register_user(&form, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Пользователь может войти.".to_string()).send();
             redirect("/auth/signin")
         }
         Err(ServiceError::Conflict) => {
             FlashMessage::error("Пользователь с таким email уже существует.").send();
+            redirect("/auth/signup")
+        }
+        Err(ServiceError::Form(e)) => {
+            log::error!("Failed to convert form: {e}");
+            FlashMessage::error("Ошибка валидации формы").send();
             redirect("/auth/signup")
         }
         Err(err) => {
@@ -248,29 +228,11 @@ pub async fn recover_password(
         format!("{}://{}", conn_info.scheme(), conn_info.host())
     };
 
-    let hub_id = match form.hub_id() {
-        Ok(id) => id,
-        Err(e) => {
-            log::error!("Invalid hub id: {e}");
-            FlashMessage::error("Ошибка валидации формы").send();
-            return redirect("/auth/signin");
-        }
-    };
-    let email = match form.email() {
-        Ok(email) => email,
-        Err(e) => {
-            log::error!("Invalid email: {e}");
-            FlashMessage::error("Ошибка валидации формы").send();
-            return redirect("/auth/signin");
-        }
-    };
-
     match auth_service::send_recovery_email(
         zmq_sender.get_ref().as_ref(),
         repo.get_ref(),
         &common_config.secret,
-        hub_id,
-        &email,
+        &form,
         &base_url,
     )
     .await
@@ -278,6 +240,11 @@ pub async fn recover_password(
         Ok(_) => HttpResponse::Ok().body("Ссылка для входа выслана на электронную почту."),
         Err(ServiceError::NotFound) => {
             FlashMessage::error("Пользователь не найден").send();
+            redirect("/auth/signin")
+        }
+        Err(ServiceError::Form(e)) => {
+            log::error!("Invalid recovery data: {e}");
+            FlashMessage::error("Ошибка валидации формы").send();
             redirect("/auth/signin")
         }
         Err(err) => {

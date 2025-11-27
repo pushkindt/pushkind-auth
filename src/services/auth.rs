@@ -7,8 +7,8 @@ use pushkind_common::services::errors::{ServiceError, ServiceResult};
 use pushkind_common::zmq::ZmqSender;
 
 use crate::domain::types::{HubId, UserEmail};
-use crate::domain::user::NewUser;
 use crate::dto::auth::SessionTokenDto;
+use crate::forms::auth::{LoginForm, RecoverForm, RegisterForm};
 use crate::repository::{HubReader, UserReader, UserWriter};
 use crate::services::map_type_error;
 
@@ -31,8 +31,9 @@ pub fn login_user(
 /// Persists a new user using the provided repository.
 ///
 /// Returns [`ServiceError`] if the underlying repository fails to create the user.
-pub fn register_user(new_user: &NewUser, repo: &impl UserWriter) -> ServiceResult<()> {
-    repo.create_user(new_user)?;
+pub fn register_user(form: &RegisterForm, repo: &impl UserWriter) -> ServiceResult<()> {
+    let new_user = form.clone().into_domain().map_err(map_type_error)?;
+    repo.create_user(&new_user)?;
     Ok(())
 }
 
@@ -72,13 +73,13 @@ pub fn reissue_session_from_token(
 
 /// Performs login and issues a session JWT on success.
 pub fn login_and_issue_token(
-    email: &UserEmail,
-    password: &str,
-    hub_id: HubId,
+    form: &LoginForm,
     repo: &impl UserReader,
     secret: &str,
 ) -> ServiceResult<SessionTokenDto> {
-    let claims = login_user(email, password, hub_id, repo)?;
+    let email = form.email().map_err(map_type_error)?;
+    let hub_id = form.hub_id().map_err(map_type_error)?;
+    let claims = login_user(&email, &form.password, hub_id, repo)?;
     issue_jwt(&claims, secret)
 }
 
@@ -89,11 +90,12 @@ pub async fn send_recovery_email(
     zmq_sender: &ZmqSender,
     repo: &impl UserReader,
     secret: &str,
-    hub_id: HubId,
-    email: &UserEmail,
+    form: &RecoverForm,
     base_url: &str,
 ) -> ServiceResult<()> {
-    let mut user: AuthenticatedUser = match repo.get_user_by_email(email, hub_id)? {
+    let hub_id = form.hub_id().map_err(map_type_error)?;
+    let email = form.email().map_err(map_type_error)?;
+    let mut user: AuthenticatedUser = match repo.get_user_by_email(&email, hub_id)? {
         Some(user) => user.into(),
         None => return Err(ServiceError::NotFound),
     };
@@ -131,6 +133,7 @@ mod tests {
     use crate::domain::hub::Hub;
     use crate::domain::types::{HubId, HubName, UserEmail, UserId};
     use crate::domain::user::{User, UserWithRoles};
+    use crate::forms::auth::RegisterForm;
     use crate::repository::mock::MockRepository;
     use chrono::Utc;
     use pushkind_common::repository::errors::RepositoryError;
@@ -197,13 +200,12 @@ mod tests {
                 roles: vec![],
             })
         });
-        let new = NewUser::new(
-            UserEmail::new("x@y").unwrap(),
-            None,
-            HubId::new(1).unwrap(),
-            "p".into(),
-        );
-        let res = register_user(&new, &repo);
+        let form = RegisterForm {
+            email: "x@y".into(),
+            password: "p".into(),
+            hub_id: 1,
+        };
+        let res = register_user(&form, &repo);
         assert!(res.is_ok());
     }
 
@@ -212,13 +214,12 @@ mod tests {
         let mut repo = MockRepository::new();
         repo.expect_create_user()
             .returning(|_| Err(RepositoryError::ValidationError("fail".into())));
-        let new = NewUser::new(
-            UserEmail::new("x@y").unwrap(),
-            None,
-            HubId::new(1).unwrap(),
-            "p".into(),
-        );
-        let res = register_user(&new, &repo);
+        let form = RegisterForm {
+            email: "x@y".into(),
+            password: "p".into(),
+            hub_id: 1,
+        };
+        let res = register_user(&form, &repo);
         assert!(res.is_err());
     }
 

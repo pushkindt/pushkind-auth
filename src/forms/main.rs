@@ -12,7 +12,7 @@ use crate::domain::{
     user::UpdateUser as DomainUpdateUser,
 };
 
-#[derive(Deserialize, Validate)]
+#[derive(Deserialize, Validate, Clone)]
 /// Form used on the profile page to update the current user.
 pub struct SaveUserForm {
     #[validate(length(min = 1))]
@@ -21,17 +21,27 @@ pub struct SaveUserForm {
     pub password: Option<String>,
 }
 
-impl From<SaveUserForm> for DomainUpdateUser {
-    fn from(form: SaveUserForm) -> Self {
-        Self {
-            name: crate::domain::types::UserName::new(form.name).expect("validated form"),
-            password: form.password,
-            roles: None,
-        }
+impl TryFrom<SaveUserForm> for DomainUpdateUser {
+    type Error = TypeConstraintError;
+
+    fn try_from(form: SaveUserForm) -> Result<Self, Self::Error> {
+        (&form).try_into()
     }
 }
 
-#[derive(Deserialize, Validate)]
+impl TryFrom<&SaveUserForm> for DomainUpdateUser {
+    type Error = TypeConstraintError;
+
+    fn try_from(form: &SaveUserForm) -> Result<Self, Self::Error> {
+        Ok(Self {
+            name: crate::domain::types::UserName::new(form.name.clone())?,
+            password: form.password.clone(),
+            roles: None,
+        })
+    }
+}
+
+#[derive(Deserialize, Validate, Clone)]
 /// Request payload for creating a new role via the admin interface.
 pub struct AddRoleForm {
     #[validate(length(min = 1))]
@@ -48,7 +58,7 @@ impl TryFrom<AddRoleForm> for DomainNewRole {
     }
 }
 
-#[derive(Deserialize, Validate)]
+#[derive(Deserialize, Validate, Clone)]
 /// Full user editing form used by administrators.
 pub struct UpdateUserForm {
     #[validate(range(min = 1))]
@@ -78,7 +88,7 @@ impl TryFrom<UpdateUserForm> for DomainUpdateUser {
     }
 }
 
-#[derive(Deserialize, Validate)]
+#[derive(Deserialize, Validate, Clone)]
 /// Parameters for adding a new hub.
 pub struct AddHubForm {
     #[validate(length(min = 1))]
@@ -95,7 +105,7 @@ impl TryFrom<AddHubForm> for DomainNewHub {
     }
 }
 
-#[derive(Deserialize, Validate)]
+#[derive(Deserialize, Validate, Clone)]
 /// Payload for adding a menu entry to a hub.
 pub struct AddMenuForm {
     #[validate(length(min = 1))]
@@ -116,6 +126,8 @@ impl AddMenuForm {
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryInto;
+
     use crate::domain::hub::NewHub as DomainNewHub;
     use crate::domain::role::NewRole as DomainNewRole;
     use crate::domain::types::{HubId, HubName, MenuName, MenuUrl, RoleId, RoleName, UserName};
@@ -129,7 +141,7 @@ mod tests {
             password: Some("password".to_string()),
         };
 
-        let update: DomainUpdateUser = form.into();
+        let update: DomainUpdateUser = form.try_into().expect("conversion failed");
 
         assert_eq!(update.name, UserName::new("Alice").unwrap());
         assert_eq!(update.password.as_deref(), Some("password"));
