@@ -47,6 +47,9 @@ cargo fmt --all -- --check
   functions.
 - Service functions should accept trait bounds (e.g., `UserReader + UserWriter`)
   so the `DieselRepository` and `mockall`-powered fakes remain interchangeable.
+- Domain structs must not perform validation or normalization (e.g., no
+  `to_lowercase`); assume inputs are already sanitized and transformed by forms
+  or services before reaching the domain layer.
 - Sanitize and validate user input early using `validator` and `ammonia` helpers
   from the form layer.
 - Prefer dependency injection through function parameters over global state.

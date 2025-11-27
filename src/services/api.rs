@@ -43,10 +43,11 @@ pub fn list_users(
         list_query = list_query.paginate(page, DEFAULT_ITEMS_PER_PAGE);
     }
 
-    let (_total, users_with_roles) = match query {
-        Some(q) if !q.is_empty() => repo.search_users(list_query.search(q))?,
-        _ => repo.list_users(list_query)?,
-    };
+    if let Some(query) = query {
+        list_query = list_query.search(query);
+    }
+
+    let (_total, users_with_roles) = repo.list_users(list_query)?;
 
     let users = users_with_roles
         .into_iter()
@@ -144,7 +145,7 @@ mod tests {
     fn list_users_with_query_filters() {
         let mut repo = MockRepository::new();
         let u1 = make_user(1, "user1@example.com", 10);
-        repo.expect_search_users()
+        repo.expect_list_users()
             .returning(move |_| Ok((1, vec![u1.clone()])));
         let out = list_users(None, Some("user1".into()), None, 10, &repo).unwrap();
         assert_eq!(out.len(), 1);

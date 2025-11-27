@@ -1,7 +1,9 @@
 use bcrypt::{DEFAULT_COST, hash, verify};
 use chrono::Utc;
+use diesel::dsl::exists;
 use diesel::prelude::*;
-use diesel::sql_types::{BigInt, Integer, Text};
+use diesel::sql_types::{Bool, Text};
+use pushkind_common::repository::build_fts_match_query;
 use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
 
 use crate::domain::role::Role;
@@ -78,6 +80,7 @@ impl UserReader for DieselRepository {
 
     fn list_users(&self, query: UserListQuery) -> RepositoryResult<(usize, Vec<UserWithRoles>)> {
         use crate::schema::roles;
+        use crate::schema::user_fts;
         use crate::schema::user_roles;
         use crate::schema::users;
 
@@ -96,6 +99,18 @@ impl UserReader for DieselRepository {
                             .select(user_roles::user_id),
                     ),
                 );
+            }
+            if let Some(term) = query.search.as_ref()
+                && let Some(fts_query) = build_fts_match_query(term)
+            {
+                let fts_filter = exists(
+                    user_fts::table
+                        .filter(user_fts::rowid.eq(users::id))
+                        .filter(
+                            diesel::dsl::sql::<Bool>("user_fts MATCH ").bind::<Text, _>(fts_query),
+                        ),
+                );
+                items = items.filter(fts_filter);
             }
             items
         };
@@ -160,108 +175,6 @@ impl UserReader for DieselRepository {
             .select(roles::all_columns)
             .load::<DbRole>(&mut connection)?;
         Ok(results.into_iter().map(|db_role| db_role.into()).collect())
-    }
-
-    fn search_users(&self, query: UserListQuery) -> RepositoryResult<(usize, Vec<UserWithRoles>)> {
-        use crate::models::user::UserCount;
-        use crate::schema::roles;
-        use crate::schema::user_roles;
-
-        let mut conn = self.conn()?;
-
-        let match_query = match &query.search {
-            None => return Ok((0, vec![])),
-            Some(query) if query.is_empty() => {
-                return Ok((0, vec![]));
-            }
-            Some(query) => {
-                format!("{query}*")
-            }
-        };
-
-        let mut sql = String::from(
-            r#"
-            SELECT users.*
-            FROM users
-            JOIN user_fts ON users.id = user_fts.rowid
-            WHERE user_fts MATCH ?
-            AND users.hub_id = ?
-            "#,
-        );
-
-        if query.role.is_some() {
-            let role_filter = r#"
-                AND EXISTS (
-                    SELECT 1 FROM user_roles ur
-                    JOIN roles r ON ur.role_id = r.id
-                    WHERE ur.user_id = users.id AND r.name = ?
-                )
-            "#;
-            sql.push_str(role_filter);
-        }
-
-        let total_sql = format!("SELECT COUNT(*) as count FROM ({sql})");
-
-        // Now add pagination to SQL (but not count)
-        if query.pagination.is_some() {
-            sql.push_str(" LIMIT ? OFFSET ? ");
-        }
-
-        // Build final data query
-        let mut data_query = diesel::sql_query(&sql)
-            .into_boxed()
-            .bind::<Text, _>(&match_query)
-            .bind::<Integer, _>(query.hub_id);
-
-        let mut total_query = diesel::sql_query(&total_sql)
-            .into_boxed()
-            .bind::<Text, _>(&match_query)
-            .bind::<Integer, _>(query.hub_id);
-
-        if let Some(role) = &query.role {
-            data_query = data_query.bind::<Text, _>(role);
-            total_query = total_query.bind::<Text, _>(role);
-        }
-
-        if let Some(pagination) = &query.pagination {
-            let limit = pagination.per_page as i64;
-            let offset = ((pagination.page.max(1) - 1) * pagination.per_page) as i64;
-            data_query = data_query
-                .bind::<BigInt, _>(limit)
-                .bind::<BigInt, _>(offset);
-        }
-
-        let users = data_query.load::<DbUser>(&mut conn)?;
-
-        let total = total_query.get_result::<UserCount>(&mut conn)?.count as usize;
-
-        let user_ids: Vec<i32> = users.iter().map(|user| user.id).collect();
-
-        let roles = roles::table
-            .inner_join(user_roles::table)
-            .filter(user_roles::user_id.eq_any(user_ids))
-            .select((user_roles::user_id, roles::all_columns))
-            .load::<(i32, DbRole)>(&mut conn)?;
-
-        let user_with_roles = users
-            .into_iter()
-            .map(|user| {
-                let user_roles: Vec<Role> = roles
-                    .iter()
-                    .filter(|(user_id, _)| *user_id == user.id)
-                    .map(|(_, role)| role.clone().into())
-                    .collect();
-                let mut user: User = user.into();
-                user.roles = user_roles.iter().map(|role| role.id).collect();
-
-                UserWithRoles {
-                    user,
-                    roles: user_roles,
-                }
-            })
-            .collect();
-
-        Ok((total, user_with_roles)) // Convert DbUser to DomainUser
     }
 }
 
