@@ -10,7 +10,7 @@ use crate::domain::types::{HubId, UserEmail};
 use crate::dto::auth::SessionTokenDto;
 use crate::forms::auth::{LoginForm, RecoverForm, RegisterForm};
 use crate::repository::{HubReader, UserReader, UserWriter};
-use crate::services::map_type_error;
+use crate::services::{map_type_error, validate_form};
 
 /// Attempts to authenticate a user for the given hub.
 ///
@@ -32,6 +32,7 @@ pub fn login_user(
 ///
 /// Returns [`ServiceError`] if the underlying repository fails to create the user.
 pub fn register_user(form: &RegisterForm, repo: &impl UserWriter) -> ServiceResult<()> {
+    validate_form(form)?;
     let new_user = form.clone().into_domain().map_err(map_type_error)?;
     repo.create_user(&new_user)?;
     Ok(())
@@ -77,6 +78,7 @@ pub fn login_and_issue_token(
     repo: &impl UserReader,
     secret: &str,
 ) -> ServiceResult<SessionTokenDto> {
+    validate_form(form)?;
     let email = form.email().map_err(map_type_error)?;
     let hub_id = form.hub_id().map_err(map_type_error)?;
     let claims = login_user(&email, &form.password, hub_id, repo)?;
@@ -93,6 +95,7 @@ pub async fn send_recovery_email(
     form: &RecoverForm,
     base_url: &str,
 ) -> ServiceResult<()> {
+    validate_form(form)?;
     let hub_id = form.hub_id().map_err(map_type_error)?;
     let email = form.email().map_err(map_type_error)?;
     let mut user: AuthenticatedUser = match repo.get_user_by_email(&email, hub_id)? {
@@ -133,7 +136,7 @@ mod tests {
     use crate::domain::hub::Hub;
     use crate::domain::types::{HubId, HubName, UserEmail, UserId};
     use crate::domain::user::{User, UserWithRoles};
-    use crate::forms::auth::RegisterForm;
+    use crate::forms::auth::{LoginForm, RegisterForm};
     use crate::repository::mock::MockRepository;
     use chrono::Utc;
     use pushkind_common::repository::errors::RepositoryError;
@@ -224,6 +227,20 @@ mod tests {
     }
 
     #[test]
+    fn test_register_user_validation_error() {
+        let repo = MockRepository::new();
+        let form = RegisterForm {
+            email: "invalid-email".into(),
+            password: "p".into(),
+            hub_id: 0,
+        };
+
+        let res = register_user(&form, &repo);
+
+        assert!(matches!(res, Err(ServiceError::Form(_))));
+    }
+
+    #[test]
     fn test_list_hubs_returns_all() {
         let mut repo = MockRepository::new();
         let now = Utc::now().naive_utc();
@@ -279,5 +296,19 @@ mod tests {
         let token = issue_jwt(&user, "secret").unwrap();
         let res = reissue_session_from_token(&token.token, "secret", 7, &repo);
         assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_login_and_issue_token_validation_error() {
+        let repo = MockRepository::new();
+        let form = LoginForm {
+            email: "not-an-email".into(),
+            password: "".into(),
+            hub_id: 0,
+        };
+
+        let res = login_and_issue_token(&form, &repo, "secret");
+
+        assert!(matches!(res, Err(ServiceError::Form(_))));
     }
 }

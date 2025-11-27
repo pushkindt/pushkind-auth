@@ -12,7 +12,7 @@ use crate::forms::main::{AddHubForm, AddMenuForm, AddRoleForm, UpdateUserForm};
 use crate::repository::{
     HubWriter, MenuReader, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter,
 };
-use crate::services::map_type_error;
+use crate::services::{map_type_error, validate_form};
 
 /// Ensures the authenticated user has the `admin` role.
 fn ensure_admin(user: &AuthenticatedUser) -> ServiceResult<()> {
@@ -29,6 +29,7 @@ pub fn create_role(
     repo: &impl RoleWriter,
 ) -> ServiceResult<()> {
     ensure_admin(current_user)?;
+    validate_form(form)?;
     let new_role: crate::domain::role::NewRole = form.clone().try_into().map_err(map_type_error)?;
     repo.create_role(&new_role)?;
     Ok(())
@@ -82,6 +83,7 @@ pub fn assign_roles_and_update_user(
     repo: &(impl UserWriter + UserReader),
 ) -> ServiceResult<()> {
     ensure_admin(current_user)?;
+    validate_form(form)?;
     let user_id = UserId::new(form.id).map_err(map_type_error)?;
     let updates: crate::domain::user::UpdateUser =
         form.clone().try_into().map_err(map_type_error)?;
@@ -104,6 +106,7 @@ pub fn create_hub(
     repo: &impl HubWriter,
 ) -> ServiceResult<()> {
     ensure_admin(current_user)?;
+    validate_form(form)?;
     let new_hub: crate::domain::hub::NewHub = form.clone().try_into().map_err(map_type_error)?;
     repo.create_hub(&new_hub)?;
     Ok(())
@@ -148,6 +151,7 @@ pub fn create_menu(
     repo: &impl MenuWriter,
 ) -> ServiceResult<()> {
     ensure_admin(current_user)?;
+    validate_form(form)?;
     let hub_id = HubId::new(current_user.hub_id).map_err(map_type_error)?;
     let new_menu = form.to_new_menu(hub_id).map_err(map_type_error)?;
     repo.create_menu(&new_menu)?;
@@ -183,6 +187,7 @@ mod tests {
     use crate::repository::mock::MockRepository;
     use chrono::Utc;
     use pushkind_common::domain::auth::AuthenticatedUser;
+    use pushkind_common::services::errors::ServiceError;
 
     fn admin_user() -> AuthenticatedUser {
         AuthenticatedUser {
@@ -255,6 +260,16 @@ mod tests {
         });
         let form = AddRoleForm { name: "new".into() };
         assert!(create_role(&admin_user(), &form, &repo).is_ok());
+    }
+
+    #[test]
+    fn create_role_validation_error() {
+        let repo = MockRepository::new();
+        let form = AddRoleForm { name: "".into() };
+
+        let res = create_role(&admin_user(), &form, &repo);
+
+        assert!(matches!(res, Err(ServiceError::Form(_))));
     }
 
     #[test]

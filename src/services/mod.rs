@@ -7,7 +7,8 @@
 //! - [`main`]: main application view helpers.
 
 use crate::domain::types::TypeConstraintError;
-use pushkind_common::services::errors::ServiceError;
+use pushkind_common::services::errors::{ServiceError, ServiceResult};
+use validator::Validate;
 
 pub mod admin;
 pub mod api;
@@ -16,4 +17,9 @@ pub mod main;
 
 pub(crate) fn map_type_error(err: TypeConstraintError) -> ServiceError {
     ServiceError::Form(err.to_string())
+}
+
+pub(crate) fn validate_form<T: Validate>(form: &T) -> ServiceResult<()> {
+    form.validate()
+        .map_err(|e| ServiceError::Form(e.to_string()))
 }

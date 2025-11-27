@@ -7,7 +7,7 @@ use crate::domain::types::{HubId, UserEmail, UserId};
 use crate::dto::main::IndexData;
 use crate::forms::main::SaveUserForm;
 use crate::repository::{HubReader, MenuReader, RoleReader, UserListQuery, UserReader, UserWriter};
-use crate::services::map_type_error;
+use crate::services::{map_type_error, validate_form};
 
 /// Gathers all information necessary to render the main index view for a hub.
 ///
@@ -51,6 +51,7 @@ pub fn update_current_user(
     form: &SaveUserForm,
     repo: &impl UserWriter,
 ) -> ServiceResult<()> {
+    validate_form(form)?;
     let user_id = UserId::new(user_id).map_err(map_type_error)?;
     let hub_id = HubId::new(hub_id).map_err(map_type_error)?;
     let updates: crate::domain::user::UpdateUser =
@@ -147,6 +148,22 @@ mod tests {
         assert!(matches!(
             res,
             Err(pushkind_common::services::errors::ServiceError::NotFound)
+        ));
+    }
+
+    #[test]
+    fn test_update_current_user_validation_error() {
+        let repo = MockRepository::new();
+        let form = SaveUserForm {
+            name: "".into(),
+            password: None,
+        };
+
+        let res = update_current_user(1, 1, &form, &repo);
+
+        assert!(matches!(
+            res,
+            Err(pushkind_common::services::errors::ServiceError::Form(_))
         ));
     }
 }
