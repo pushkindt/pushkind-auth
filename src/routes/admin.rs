@@ -11,6 +11,7 @@ use tera::{Context, Tera};
 
 use crate::domain::hub::NewHub;
 use crate::domain::role::NewRole;
+use crate::dto::admin::UserModalData;
 use crate::forms::main::{AddHubForm, AddMenuForm, AddRoleForm, UpdateUserForm};
 use crate::repository::DieselRepository;
 // use crate::repository::UserReader; // no longer needed in thin routes
@@ -53,8 +54,9 @@ pub async fn user_modal(
     let user_id = user_id.into_inner();
 
     match admin_service::user_modal_data(&current_user, user_id, repo.get_ref()) {
-        Ok((maybe_user, roles)) => {
-            if let Some(user) = maybe_user {
+        Ok(data) => {
+            let UserModalData { user, roles } = data;
+            if let Some(user) = user {
                 context.insert("user", &user);
             }
             context.insert("roles", &roles);

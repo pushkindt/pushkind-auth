@@ -62,21 +62,30 @@ by swapping in the `mockall`-based fakes from `src/repository/mock.rs`.
 - `diesel-cli` with SQLite support (`cargo install diesel_cli --no-default-features --features sqlite`)
 - SQLite 3 installed on your system
 
-### Environment
+### Configuration
 
-The service reads configuration from environment variables. The most important
-ones are:
+Settings are layered via the [`config`](https://crates.io/crates/config) crate:
 
-| Variable | Description | Default |
+1. `config/default.yaml` (checked in)
+2. `config/{APP_ENV}.yaml` where `APP_ENV` defaults to `local`
+3. Environment variables prefixed with `APP_` (loaded via `.env` thanks to `dotenvy`)
+
+Key settings you may want to override:
+
+| Environment variable | Description | Default |
 | --- | --- | --- |
-| `DATABASE_URL` | Path to the SQLite database file | `app.db` |
-| `SECRET_KEY` | 32-byte secret for signing cookies | generated at runtime |
-| `PORT` | HTTP port | `8080` |
-| `ADDRESS` | Interface to bind | `127.0.0.1` |
-| `DOMAIN` | Cookie domain (without protocol) | `localhost` |
+| `APP_SECRET` | 64-byte secret used to sign cookies and flash messages | _required_ |
+| `APP_DATABASE_URL` | Path to the SQLite database file | `app.db` |
+| `APP_ADDRESS` | Interface to bind | `127.0.0.1` |
+| `APP_PORT` | HTTP port | `8081` when `APP_ENV=local` |
+| `APP_DOMAIN` | Cookie domain (without protocol) | `test.me` when `APP_ENV=local` |
+| `APP_TEMPLATES_DIR` | Glob pattern for templates consumed by Tera | `templates/**/*` |
+| `APP_ZMQ_EMAILER_PUB` | ZeroMQ PUB endpoint for outgoing email events | `tcp://127.0.0.1:5557` |
 
-Create a `.env` file if you want these values loaded automatically via
-[`dotenvy`](https://crates.io/crates/dotenvy).
+Switch to the production profile with `APP_ENV=prod` or provide your own
+`config/{env}.yaml`. For local development, create a `.env` file with
+`APP_SECRET=<64-byte key>` (generate one with `openssl rand -base64 64`) and any
+overrides you need.
 
 ### Database
 

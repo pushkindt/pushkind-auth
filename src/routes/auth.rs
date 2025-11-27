@@ -51,7 +51,7 @@ pub async fn login_token(
             return redirect("/auth/signin");
         }
     };
-    if let Err(e) = Identity::login(&request.extensions(), jwt) {
+    if let Err(e) = Identity::login(&request.extensions(), jwt.token) {
         log::error!("Failed to login: {e}");
         FlashMessage::error("Ошибка при аутентификации пользователя").send();
         return redirect("/auth/signin");
@@ -98,7 +98,7 @@ pub async fn login(
         }
     };
 
-    match Identity::login(&request.extensions(), jwt) {
+    match Identity::login(&request.extensions(), jwt.token) {
         Ok(_) => redirect(&success_redirect_url),
         Err(e) => {
             log::error!("Failed to login: {e}");
