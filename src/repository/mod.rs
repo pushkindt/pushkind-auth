@@ -108,6 +108,13 @@ pub trait UserReader {
 
 pub trait UserWriter {
     fn create_user(&self, new_user: &NewUser) -> RepositoryResult<User>;
+    /// Replaces the full set of roles attached to a user.
+    ///
+    /// Implementations should treat the update as an atomic operation: all
+    /// existing `user_roles` rows are removed before the new set is inserted
+    /// in a single transaction. If any of the provided roles do not exist or a
+    /// database constraint is triggered, the transaction must roll back so the
+    /// user retains their prior role assignments.
     fn assign_roles_to_user(&self, user_id: UserId, role_ids: &[RoleId])
     -> RepositoryResult<usize>;
     fn update_user(
