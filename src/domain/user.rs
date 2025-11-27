@@ -21,6 +21,8 @@ pub struct User {
 }
 
 #[derive(Clone, Serialize)]
+/// Wrapper combining a [`User`] with the fully resolved [`Role`]s attached to
+/// the account.
 pub struct UserWithRoles {
     pub user: User,
     pub roles: Vec<Role>,

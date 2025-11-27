@@ -6,8 +6,8 @@ use pushkind_common::services::errors::{ServiceError, ServiceResult};
 
 use crate::SERVICE_ACCESS_ROLE;
 use crate::domain::hub::NewHub;
-use crate::domain::role::Role;
-use crate::domain::user::{UpdateUser, User};
+use crate::domain::user::UpdateUser;
+use crate::dto::admin::UserModalData;
 use crate::repository::{
     HubWriter, MenuReader, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter,
 };
@@ -36,13 +36,13 @@ pub fn user_modal_data(
     current_user: &AuthenticatedUser,
     user_id: i32,
     repo: &(impl UserReader + RoleReader),
-) -> ServiceResult<(Option<User>, Vec<Role>)> {
+) -> ServiceResult<UserModalData> {
     ensure_admin(current_user)?;
     let user = repo
         .get_user_by_id(user_id, current_user.hub_id)?
         .map(|u| u.user);
     let roles = repo.list_roles()?;
-    Ok((user, roles))
+    Ok(UserModalData { user, roles })
 }
 
 /// Deletes a user by ID, preventing self-deletion and non-admin access.
@@ -217,11 +217,11 @@ mod tests {
         repo.expect_list_roles()
             .returning(move || Ok(vec![role.clone()]));
         let current_user = admin_user();
-        let (found, roles) = user_modal_data(&current_user, 7, &repo).unwrap();
-        assert!(found.is_some());
-        assert_eq!(roles.len(), 1);
-        let (missing, _) = user_modal_data(&current_user, 99, &repo).unwrap();
-        assert!(missing.is_none());
+        let found = user_modal_data(&current_user, 7, &repo).unwrap();
+        assert!(found.user.is_some());
+        assert_eq!(found.roles.len(), 1);
+        let missing = user_modal_data(&current_user, 99, &repo).unwrap();
+        assert!(missing.user.is_none());
     }
 
     #[test]

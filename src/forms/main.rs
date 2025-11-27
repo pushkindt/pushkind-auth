@@ -1,3 +1,7 @@
+//! Forms backing the main application views and administrative pages.
+//!
+//! These payloads validate profile updates, role assignments, and hub or menu
+//! creation before handing data off to the service layer.
 use serde::Deserialize;
 use validator::Validate;
 

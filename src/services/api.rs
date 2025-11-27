@@ -4,6 +4,7 @@ use pushkind_common::domain::auth::AuthenticatedUser;
 use pushkind_common::pagination::DEFAULT_ITEMS_PER_PAGE;
 use pushkind_common::services::errors::ServiceResult;
 
+use crate::dto::api::UserDto;
 use crate::repository::{UserListQuery, UserReader};
 
 /// Returns the authenticated user when `id` is `None`, otherwise
@@ -14,12 +15,12 @@ pub fn get_user_by_optional_id(
     id: Option<i32>,
     current_user: AuthenticatedUser,
     repo: &impl UserReader,
-) -> ServiceResult<Option<AuthenticatedUser>> {
+) -> ServiceResult<Option<UserDto>> {
     match id {
-        None => Ok(Some(current_user)),
+        None => Ok(Some(current_user.into())),
         Some(id) => {
             let found = repo.get_user_by_id(id, current_user.hub_id)?;
-            Ok(found.map(|u| AuthenticatedUser::from(u.user)))
+            Ok(found.map(|u| UserDto::from(AuthenticatedUser::from(u.user))))
         }
     }
 }
@@ -32,7 +33,7 @@ pub fn list_users(
     page: Option<usize>,
     hub_id: i32,
     repo: &impl UserReader,
-) -> ServiceResult<Vec<AuthenticatedUser>> {
+) -> ServiceResult<Vec<UserDto>> {
     let mut list_query = UserListQuery::new(hub_id);
 
     if let Some(role) = role {
@@ -50,7 +51,7 @@ pub fn list_users(
 
     let users = users_with_roles
         .into_iter()
-        .map(|u| AuthenticatedUser::from(u.user))
+        .map(|u| UserDto::from(AuthenticatedUser::from(u.user)))
         .collect();
 
     Ok(users)

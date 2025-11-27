@@ -7,6 +7,7 @@ use pushkind_common::services::errors::{ServiceError, ServiceResult};
 use pushkind_common::zmq::ZmqSender;
 
 use crate::domain::user::NewUser;
+use crate::dto::auth::SessionTokenDto;
 use crate::repository::{HubReader, UserReader, UserWriter};
 
 /// Attempts to authenticate a user for the given hub.
@@ -39,8 +40,10 @@ pub fn list_hubs(repo: &impl HubReader) -> ServiceResult<Vec<crate::domain::hub:
 }
 
 /// Encodes the provided claims into a JWT using the given secret.
-pub fn issue_jwt(user: &AuthenticatedUser, secret: &str) -> ServiceResult<String> {
-    user.to_jwt(secret).map_err(|_| ServiceError::Internal)
+pub fn issue_jwt(user: &AuthenticatedUser, secret: &str) -> ServiceResult<SessionTokenDto> {
+    user.to_jwt(secret)
+        .map(SessionTokenDto::from)
+        .map_err(|_| ServiceError::Internal)
 }
 
 /// Verifies an incoming token and reissues a new session token
@@ -50,7 +53,7 @@ pub fn reissue_session_from_token(
     secret: &str,
     expiration_days: i64,
     repo: &impl UserReader,
-) -> ServiceResult<String> {
+) -> ServiceResult<SessionTokenDto> {
     let mut user =
         AuthenticatedUser::from_jwt(token, secret).map_err(|_| ServiceError::Unauthorized)?;
     // Ensure the user still exists and belongs to the hub before issuing a new session
@@ -70,7 +73,7 @@ pub fn login_and_issue_token(
     hub_id: i32,
     repo: &impl UserReader,
     secret: &str,
-) -> ServiceResult<String> {
+) -> ServiceResult<SessionTokenDto> {
     let claims = login_user(email, password, hub_id, repo)?;
     issue_jwt(&claims, secret)
 }
@@ -94,7 +97,7 @@ pub async fn send_recovery_email(
     // 1-day token for recovery
     user.set_expiration(1);
     let jwt = issue_jwt(&user, secret)?;
-    let recovery_url = format!("{}/auth/login?token={}", base_url, jwt);
+    let recovery_url = format!("{}/auth/login?token={}", base_url, jwt.token);
 
     let new_email = NewEmail {
         message: "Для входа в систему перейдите по ссылке: {recovery_url}\nЕсли вы не запрашивали восстановление, проигнорируйте это письмо.".to_string(),
@@ -241,7 +244,7 @@ mod tests {
         let mut user: AuthenticatedUser = make_user(1, "a@b", 2).into();
         user.set_expiration(1);
         let token = issue_jwt(&user, "secret").unwrap();
-        let res = reissue_session_from_token(&token, "secret", 7, &repo);
+        let res = reissue_session_from_token(&token.token, "secret", 7, &repo);
         assert!(matches!(res, Err(ServiceError::Unauthorized)));
     }
 
@@ -255,7 +258,7 @@ mod tests {
         let mut user: AuthenticatedUser = uwr.into();
         user.set_expiration(1);
         let token = issue_jwt(&user, "secret").unwrap();
-        let res = reissue_session_from_token(&token, "secret", 7, &repo);
+        let res = reissue_session_from_token(&token.token, "secret", 7, &repo);
         assert!(res.is_ok());
     }
 }
