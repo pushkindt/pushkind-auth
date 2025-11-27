@@ -104,7 +104,6 @@ pub trait UserReader {
         Ok(None)
     }
     fn get_roles(&self, user_id: i32) -> RepositoryResult<Vec<Role>>;
-    fn search_users(&self, query: UserListQuery) -> RepositoryResult<(usize, Vec<UserWithRoles>)>;
 }
 
 pub trait UserWriter {

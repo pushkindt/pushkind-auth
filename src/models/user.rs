@@ -99,7 +99,7 @@ mod tests {
     #[test]
     fn test_new_user_try_from() {
         let domain = DomainNewUser::new(
-            "John@Example.com".to_string(),
+            "john@example.com".to_string(),
             Some("John Doe".to_string()),
             5,
             "super_secret".to_string(),

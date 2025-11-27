@@ -37,7 +37,7 @@ pub struct RecoverForm {
 
 impl From<RegisterForm> for DomainNewUser {
     fn from(form: RegisterForm) -> Self {
-        DomainNewUser::new(form.email, None, form.hub_id, form.password)
+        DomainNewUser::new(form.email.to_lowercase(), None, form.hub_id, form.password)
     }
 }
 
@@ -61,6 +61,19 @@ mod tests {
         assert_eq!(user.password, "secret");
         assert_eq!(user.hub_id, 7);
         assert_eq!(user.name, None);
+    }
+
+    #[test]
+    fn test_register_form_normalizes_email_case() {
+        let form = RegisterForm {
+            email: "Test@Example.COM".to_string(),
+            password: "secret".to_string(),
+            hub_id: 3,
+        };
+
+        let user: DomainNewUser = form.into();
+
+        assert_eq!(user.email, "test@example.com");
     }
 
     #[test]

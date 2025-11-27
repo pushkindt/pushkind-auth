@@ -178,14 +178,15 @@ fn test_email_lowercase_and_login_case_insensitive() {
     let user_repo = DieselRepository::new(test_db.pool());
 
     // Register user with mixed case email
+    let normalized_email = "mixed@example.com".to_string();
     let new_user = NewUser::new(
-        "Mixed@Example.COM".to_string(),
+        normalized_email.clone(),
         Some("Case".to_string()),
         hub.id,
         "pwd".to_string(),
     );
     let user = user_repo.create_user(&new_user).unwrap();
-    assert_eq!(user.email, "mixed@example.com");
+    assert_eq!(user.email, normalized_email);
 
     // Login should be case-insensitive
     let login = user_repo
@@ -193,9 +194,9 @@ fn test_email_lowercase_and_login_case_insensitive() {
         .expect("login query failed");
     assert!(login.is_some());
 
-    // Creating another user with same email (different case) should fail
+    // Creating another user with the same normalized email should fail
     let dup_user = NewUser::new(
-        "MIXED@example.com".to_string(),
+        normalized_email,
         Some("Dup".to_string()),
         hub.id,
         "pwd".to_string(),

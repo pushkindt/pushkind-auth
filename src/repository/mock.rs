@@ -17,7 +17,6 @@ mock! {
         fn get_user_by_id(&self, id: i32, hub_id: i32) -> RepositoryResult<Option<UserWithRoles>>;
         fn get_user_by_email(&self, email: &str, hub_id: i32) -> RepositoryResult<Option<UserWithRoles>>;
         fn list_users(&self, query: UserListQuery) -> RepositoryResult<(usize, Vec<UserWithRoles>)>;
-        fn search_users(&self, query: UserListQuery) -> RepositoryResult<(usize, Vec<UserWithRoles>)>;
         fn login(&self, email: &str, password: &str, hub_id: i32) -> RepositoryResult<Option<UserWithRoles>>;
         fn get_roles(&self, user_id: i32) -> RepositoryResult<Vec<Role>>;
         fn verify_password(&self, password: &str, stored_hash: &str) -> bool;

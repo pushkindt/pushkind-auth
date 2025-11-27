@@ -20,8 +20,9 @@ configuration, and reusable UI helpers.
 The codebase follows a clean, layered structure so that business logic can be
 exercised and tested without going through the web framework:
 
-- **Domain (`src/domain`)** – Type-safe models for hubs, menus, roles, and users,
-  with small helpers (like lowercasing emails) to keep core entities consistent.
+- **Domain (`src/domain`)** – Type-safe models for hubs, menus, roles, and users.
+  Domain types never validate or normalize; they assume inputs are already
+  cleaned and transformed by forms/services.
 - **Repository (`src/repository`)** – Traits that describe the persistence
   contract and a Diesel-backed implementation (`DieselRepository`) that speaks to
   a SQLite database. Each module translates between Diesel models and domain
@@ -138,6 +139,8 @@ isolate services from the database when writing new tests.
 
 - **Domain-driven**: keep business rules in the domain and service layers and
   translate to/from external representations at the boundaries.
+- **Boundary sanitation**: perform validation and normalization (like email
+  lowercasing) in forms/services so domain structs stay pure data.
 - **Explicit errors**: use `thiserror` to define granular error types and convert
   them into `ServiceError`/`RepositoryError` variants instead of relying on
   `anyhow`.
