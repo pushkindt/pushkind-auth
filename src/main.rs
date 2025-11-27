@@ -1,4 +1,5 @@
 //! Application entry point building the Actix-Web server.
+use std::env;
 
 use config::Config;
 use dotenvy::dotenv;
@@ -10,11 +11,14 @@ async fn main() {
     dotenv().ok();
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
+    let app_env = env::var("APP_ENV").unwrap_or_else(|_| "local".into());
+
     let settings = Config::builder()
-        // Add in `./config.yaml`
-        .add_source(config::File::with_name("config"))
+        // Add in `./config/default.yaml`
+        .add_source(config::File::with_name("config/default"))
+        // Add environment-specific overrides
+        .add_source(config::File::with_name(&format!("config/{}", app_env)).required(false))
         // Add in settings from the environment (with a prefix of APP)
-        // Eg.. `APP_DEBUG=1 ./target/app` would set the `debug` key
         .add_source(config::Environment::with_prefix("APP"))
         .build();
 
