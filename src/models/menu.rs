@@ -1,6 +1,7 @@
 use diesel::prelude::*;
 
 use crate::domain::menu::{Menu as DomainMenu, NewMenu as DomainNewMenu};
+use crate::domain::types::{HubId, MenuId, MenuName, MenuUrl, TypeConstraintError};
 use crate::models::hub::Hub;
 
 #[derive(Debug, Clone, Identifiable, Associations, Queryable)]
@@ -26,10 +27,10 @@ pub struct NewMenu<'a> {
 impl From<DomainMenu> for Menu {
     fn from(menu: DomainMenu) -> Self {
         Menu {
-            id: menu.id,
-            name: menu.name,
-            url: menu.url,
-            hub_id: menu.hub_id,
+            id: menu.id.get(),
+            name: menu.name.into_inner(),
+            url: menu.url.into_inner(),
+            hub_id: menu.hub_id.get(),
         }
     }
 }
@@ -39,18 +40,20 @@ impl<'a> From<&'a DomainNewMenu> for NewMenu<'a> {
         Self {
             name: menu.name.as_str(),
             url: menu.url.as_str(),
-            hub_id: menu.hub_id,
+            hub_id: menu.hub_id.get(),
         }
     }
 }
 
-impl From<Menu> for DomainMenu {
-    fn from(menu: Menu) -> Self {
-        DomainMenu {
-            id: menu.id,
-            name: menu.name,
-            url: menu.url,
-            hub_id: menu.hub_id,
-        }
+impl TryFrom<Menu> for DomainMenu {
+    type Error = TypeConstraintError;
+
+    fn try_from(menu: Menu) -> Result<Self, Self::Error> {
+        Ok(DomainMenu {
+            id: MenuId::try_from(menu.id)?,
+            name: MenuName::try_from(menu.name)?,
+            url: MenuUrl::try_from(menu.url)?,
+            hub_id: HubId::try_from(menu.hub_id)?,
+        })
     }
 }

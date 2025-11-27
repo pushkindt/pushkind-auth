@@ -2,21 +2,25 @@ use diesel::prelude::*;
 use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
 
 use crate::domain::hub::{Hub, NewHub};
+use crate::domain::types::HubId;
 use crate::models::hub::{Hub as DbHub, NewHub as NewDbHub};
-use crate::repository::{DieselRepository, HubReader, HubWriter};
+use crate::repository::{DieselRepository, HubReader, HubWriter, map_type_error};
 
 impl HubReader for DieselRepository {
-    fn get_hub_by_id(&self, id: i32) -> RepositoryResult<Option<Hub>> {
+    fn get_hub_by_id(&self, id: HubId) -> RepositoryResult<Option<Hub>> {
         use crate::schema::hubs;
 
         let mut connection = self.conn()?;
 
         let result = hubs::table
-            .filter(hubs::id.eq(id))
+            .filter(hubs::id.eq(id.get()))
             .first::<DbHub>(&mut connection)
             .optional()?;
 
-        Ok(result.map(|db_hub| db_hub.into())) // Convert DbHub to DomainHub
+        result
+            .map(TryInto::try_into)
+            .transpose()
+            .map_err(map_type_error)
     }
 
     fn get_hub_by_name(&self, name: &str) -> RepositoryResult<Option<Hub>> {
@@ -29,7 +33,10 @@ impl HubReader for DieselRepository {
             .first::<DbHub>(&mut connection)
             .optional()?;
 
-        Ok(result.map(|db_hub| db_hub.into())) // Convert DbHub to DomainHub
+        result
+            .map(TryInto::try_into)
+            .transpose()
+            .map_err(map_type_error)
     }
 
     fn list_hubs(&self) -> RepositoryResult<Vec<Hub>> {
@@ -39,7 +46,11 @@ impl HubReader for DieselRepository {
 
         let results = hubs::table.load::<DbHub>(&mut connection)?;
 
-        Ok(results.into_iter().map(|db_hub| db_hub.into()).collect()) // Convert DbHub to DomainHub
+        results
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(map_type_error)
     }
 }
 
@@ -53,11 +64,12 @@ impl HubWriter for DieselRepository {
         let hub = diesel::insert_into(hubs::table)
             .values(&new_db_hub)
             .get_result::<DbHub>(&mut connection)
-            .map(|db_hub| db_hub.into())?; // Convert DbHub to DomainHub
+            .map_err(Into::into)
+            .and_then(|db_hub| TryInto::try_into(db_hub).map_err(map_type_error))?; // Convert DbHub to DomainHub
         Ok(hub)
     }
 
-    fn delete_hub(&self, hub_id: i32) -> RepositoryResult<usize> {
+    fn delete_hub(&self, hub_id: HubId) -> RepositoryResult<usize> {
         use crate::schema::hubs;
         use crate::schema::menu;
         use crate::schema::user_roles;
@@ -67,10 +79,10 @@ impl HubWriter for DieselRepository {
 
         let result = connection.transaction::<_, diesel::result::Error, _>(|conn| {
             // delete menus for hub
-            diesel::delete(menu::table.filter(menu::hub_id.eq(hub_id))).execute(conn)?;
+            diesel::delete(menu::table.filter(menu::hub_id.eq(hub_id.get()))).execute(conn)?;
 
             let hub_users = users::table
-                .filter(users::hub_id.eq(hub_id))
+                .filter(users::hub_id.eq(hub_id.get()))
                 .select(users::id)
                 .load::<i32>(conn)?;
 
@@ -79,10 +91,10 @@ impl HubWriter for DieselRepository {
                 .execute(conn)?;
 
             //delete users for hub
-            diesel::delete(users::table.filter(users::hub_id.eq(hub_id))).execute(conn)?;
+            diesel::delete(users::table.filter(users::hub_id.eq(hub_id.get()))).execute(conn)?;
 
             //delete hub
-            diesel::delete(hubs::table.filter(hubs::id.eq(hub_id))).execute(conn)
+            diesel::delete(hubs::table.filter(hubs::id.eq(hub_id.get()))).execute(conn)
         })?;
 
         if result == 0 {

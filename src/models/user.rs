@@ -2,6 +2,7 @@ use bcrypt::{DEFAULT_COST, hash};
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 
+use crate::domain::types::{HubId, TypeConstraintError, UserEmail, UserId, UserName};
 use crate::domain::user::{NewUser as DomainNewUser, User as DomainUser};
 use crate::models::hub::Hub;
 
@@ -45,18 +46,20 @@ pub struct UpdateUser<'a> {
     pub updated_at: NaiveDateTime,
 }
 
-impl From<User> for DomainUser {
-    fn from(db: User) -> Self {
-        Self {
-            id: db.id,
-            email: db.email,
-            name: db.name,
-            hub_id: db.hub_id,
+impl TryFrom<User> for DomainUser {
+    type Error = TypeConstraintError;
+
+    fn try_from(db: User) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: UserId::try_from(db.id)?,
+            email: UserEmail::try_from(db.email)?,
+            name: db.name.map(UserName::try_from).transpose()?,
+            hub_id: HubId::try_from(db.hub_id)?,
             password_hash: db.password_hash,
             created_at: db.created_at,
             updated_at: db.updated_at,
             roles: vec![],
-        }
+        })
     }
 }
 
@@ -67,9 +70,9 @@ impl<'a> TryFrom<&'a DomainNewUser> for NewUser {
         let password_hash = hash(nu.password.clone(), DEFAULT_COST)?;
 
         Ok(NewUser {
-            email: nu.email.clone(),
-            name: nu.name.clone(),
-            hub_id: nu.hub_id,
+            email: nu.email.as_str().to_string(),
+            name: nu.name.clone().map(UserName::into_inner),
+            hub_id: nu.hub_id.get(),
             password_hash,
         })
     }
@@ -82,9 +85,9 @@ impl TryFrom<DomainNewUser> for NewUser {
         let password_hash = hash(nu.password, DEFAULT_COST)?;
 
         Ok(NewUser {
-            email: nu.email,
-            name: nu.name,
-            hub_id: nu.hub_id,
+            email: nu.email.into_inner(),
+            name: nu.name.map(UserName::into_inner),
+            hub_id: nu.hub_id.get(),
             password_hash,
         })
     }
@@ -92,6 +95,7 @@ impl TryFrom<DomainNewUser> for NewUser {
 
 #[cfg(test)]
 mod tests {
+    use crate::domain::types::{HubId, UserEmail, UserName};
     use crate::domain::user::NewUser as DomainNewUser;
     use crate::models::user::NewUser;
     use bcrypt::verify;
@@ -99,9 +103,9 @@ mod tests {
     #[test]
     fn test_new_user_try_from() {
         let domain = DomainNewUser::new(
-            "john@example.com".to_string(),
-            Some("John Doe".to_string()),
-            5,
+            UserEmail::new("john@example.com").unwrap(),
+            Some(UserName::new("John Doe").unwrap()),
+            HubId::new(5).unwrap(),
             "super_secret".to_string(),
         );
 

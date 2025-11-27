@@ -1,6 +1,7 @@
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 
+use crate::domain::types::{HubId, HubName, TypeConstraintError};
 use crate::domain::{hub::Hub as DomainHub, hub::NewHub as DomainNewHub};
 
 #[derive(Debug, Clone, Identifiable, Queryable)]
@@ -20,14 +21,16 @@ pub struct NewHub<'a> {
     pub name: &'a str,
 }
 
-impl From<Hub> for DomainHub {
-    fn from(db: Hub) -> Self {
-        Self {
-            id: db.id,
-            name: db.name,
+impl TryFrom<Hub> for DomainHub {
+    type Error = TypeConstraintError;
+
+    fn try_from(db: Hub) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: HubId::try_from(db.id)?,
+            name: HubName::try_from(db.name)?,
             created_at: db.created_at,
             updated_at: db.updated_at,
-        }
+        })
     }
 }
 

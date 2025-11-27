@@ -1,6 +1,7 @@
 use pushkind_auth::domain::hub::NewHub;
 use pushkind_auth::domain::menu::NewMenu;
 use pushkind_auth::domain::role::NewRole;
+use pushkind_auth::domain::types::{RoleId, UserEmail};
 use pushkind_auth::domain::user::NewUser;
 use pushkind_auth::domain::user::UpdateUser;
 use pushkind_auth::repository::DieselRepository;
@@ -19,10 +20,13 @@ fn test_hub_repository_crud() {
 
     // Create
     let new_hub = NewHub {
-        name: "TestHub".to_string(),
+        name: pushkind_auth::domain::types::HubName::new("TestHub").unwrap(),
     };
     let hub = repo.create_hub(&new_hub).unwrap();
-    assert_eq!(hub.name, "TestHub");
+    assert_eq!(
+        hub.name,
+        pushkind_auth::domain::types::HubName::new("TestHub").unwrap()
+    );
 
     // Get by id
     let found = repo.get_hub_by_id(hub.id).unwrap();
@@ -39,8 +43,8 @@ fn test_hub_repository_crud() {
     // create a menu for the hub and ensure it's deleted along with the hub
     let menu_repo = DieselRepository::new(test_db.pool());
     let new_menu = NewMenu {
-        name: "TestMenu".to_string(),
-        url: "/test".to_string(),
+        name: pushkind_auth::domain::types::MenuName::new("TestMenu").unwrap(),
+        url: pushkind_auth::domain::types::MenuUrl::new("/test").unwrap(),
         hub_id: hub.id,
     };
     menu_repo.create_menu(&new_menu).unwrap();
@@ -59,14 +63,14 @@ fn test_user_repository_crud() {
 
     // Create Hub
     let new_hub = NewHub {
-        name: "TestHub".to_string(),
+        name: pushkind_auth::domain::types::HubName::new("TestHub").unwrap(),
     };
     let hub = hub_repo.create_hub(&new_hub).unwrap();
 
     let role_repo = DieselRepository::new(test_db.pool());
 
     let new_role = NewRole {
-        name: "TestRole".to_string(),
+        name: pushkind_auth::domain::types::RoleName::new("TestRole").unwrap(),
     };
 
     let role = role_repo.create_role(&new_role).unwrap();
@@ -75,14 +79,17 @@ fn test_user_repository_crud() {
 
     // Create User
     let new_user = NewUser::new(
-        "test@test.test".to_string(),
-        Some("TestUser".to_string()),
+        UserEmail::new("test@test.test").unwrap(),
+        Some(pushkind_auth::domain::types::UserName::new("TestUser").unwrap()),
         hub.id,
         "test".to_string(),
     );
     let user = user_repo.create_user(&new_user).unwrap();
-    assert_eq!(user.name, Some("TestUser".to_string()));
-    assert_eq!(user.email, "test@test.test");
+    assert_eq!(
+        user.name,
+        Some(pushkind_auth::domain::types::UserName::new("TestUser").unwrap())
+    );
+    assert_eq!(user.email, UserEmail::new("test@test.test").unwrap());
     let created_at = user.created_at;
     let original_updated_at = user.updated_at;
 
@@ -91,7 +98,7 @@ fn test_user_repository_crud() {
 
     // Get by email
     let found = user_repo
-        .get_user_by_email("test@test.test", hub.id)
+        .get_user_by_email(&UserEmail::new("test@test.test").unwrap(), hub.id)
         .unwrap();
     assert!(found.is_some());
 
@@ -104,7 +111,7 @@ fn test_user_repository_crud() {
 
     assert!(
         user_repo
-            .login("test@test.test", "test", hub.id)
+            .login(&UserEmail::new("test@test.test").unwrap(), "test", hub.id)
             .is_ok_and(|u| u.is_some())
     );
 
@@ -117,13 +124,16 @@ fn test_user_repository_crud() {
             user.id,
             hub.id,
             &UpdateUser {
-                name: "new name".to_string(),
+                name: pushkind_auth::domain::types::UserName::new("new name").unwrap(),
                 password: Some("new password".to_string()),
                 roles: None,
             },
         )
         .unwrap();
-    assert_eq!(user.name, Some("new name".to_string()));
+    assert_eq!(
+        user.name,
+        Some(pushkind_auth::domain::types::UserName::new("new name").unwrap())
+    );
     assert!(user_repo.verify_password("new password", &user.password_hash));
     assert!(user.updated_at > original_updated_at);
     assert_eq!(user.created_at, created_at);
@@ -143,10 +153,13 @@ fn test_role_repository_crud() {
 
     // Create
     let new_role = NewRole {
-        name: "TestRole".to_string(),
+        name: pushkind_auth::domain::types::RoleName::new("TestRole").unwrap(),
     };
     let role = repo.create_role(&new_role).unwrap();
-    assert_eq!(role.name, "TestRole");
+    assert_eq!(
+        role.name,
+        pushkind_auth::domain::types::RoleName::new("TestRole").unwrap()
+    );
 
     // Get by id
     let found = repo.get_role_by_id(role.id).unwrap();
@@ -171,7 +184,7 @@ fn test_email_lowercase_and_login_case_insensitive() {
     // Create hub
     let hub = hub_repo
         .create_hub(&NewHub {
-            name: "CaseHub".to_string(),
+            name: pushkind_auth::domain::types::HubName::new("CaseHub").unwrap(),
         })
         .unwrap();
 
@@ -180,24 +193,27 @@ fn test_email_lowercase_and_login_case_insensitive() {
     // Register user with mixed case email
     let normalized_email = "mixed@example.com".to_string();
     let new_user = NewUser::new(
-        normalized_email.clone(),
-        Some("Case".to_string()),
+        UserEmail::new(normalized_email.clone()).unwrap(),
+        Some(pushkind_auth::domain::types::UserName::new("Case").unwrap()),
         hub.id,
         "pwd".to_string(),
     );
     let user = user_repo.create_user(&new_user).unwrap();
-    assert_eq!(user.email, normalized_email);
+    assert_eq!(
+        user.email,
+        UserEmail::new(normalized_email.clone()).unwrap()
+    );
 
     // Login should be case-insensitive
     let login = user_repo
-        .login("MIXED@EXAMPLE.COM", "pwd", hub.id)
+        .login(&UserEmail::new("MIXED@EXAMPLE.COM").unwrap(), "pwd", hub.id)
         .expect("login query failed");
     assert!(login.is_some());
 
     // Creating another user with the same normalized email should fail
     let dup_user = NewUser::new(
-        normalized_email,
-        Some("Dup".to_string()),
+        UserEmail::new(normalized_email).unwrap(),
+        Some(pushkind_auth::domain::types::UserName::new("Dup").unwrap()),
         hub.id,
         "pwd".to_string(),
     );
@@ -214,19 +230,19 @@ fn test_assign_roles_atomic() {
 
     let hub = hub_repo
         .create_hub(&NewHub {
-            name: "AtomicHub".to_string(),
+            name: pushkind_auth::domain::types::HubName::new("AtomicHub").unwrap(),
         })
         .unwrap();
     let role = role_repo
         .create_role(&NewRole {
-            name: "AtomicRole".to_string(),
+            name: pushkind_auth::domain::types::RoleName::new("AtomicRole").unwrap(),
         })
         .unwrap();
 
     let user = user_repo
         .create_user(&NewUser::new(
-            "atomic@example.com".to_string(),
-            Some("Atomic".to_string()),
+            UserEmail::new("atomic@example.com").unwrap(),
+            Some(pushkind_auth::domain::types::UserName::new("Atomic").unwrap()),
             hub.id,
             "pwd".to_string(),
         ))
@@ -236,7 +252,7 @@ fn test_assign_roles_atomic() {
     user_repo.assign_roles_to_user(user.id, &[role.id]).unwrap();
 
     // Attempt to assign a nonexistent role to trigger an error
-    let res = user_repo.assign_roles_to_user(user.id, &[9999]);
+    let res = user_repo.assign_roles_to_user(user.id, &[RoleId::new(9999).unwrap()]);
     assert!(res.is_err());
 
     // Original role assignment should remain intact

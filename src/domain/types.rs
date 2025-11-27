@@ -1,0 +1,408 @@
+//! Strongly-typed value objects used by domain entities.
+//!
+//! These wrappers enforce basic invariants (e.g., positive identifiers,
+//! normalized/validated email) so that once a value reaches the domain layer it
+//! can be treated as trusted.
+
+use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
+use thiserror::Error;
+use validator::ValidateEmail;
+
+/// Errors produced when attempting to construct a constrained value object.
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum TypeConstraintError {
+    #[error("id must be greater than zero")]
+    NonPositiveId,
+    #[error("invalid email address")]
+    InvalidEmail,
+    #[error("value cannot be empty")]
+    EmptyString,
+}
+
+macro_rules! id_newtype {
+    ($name:ident) => {
+        #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+        pub struct $name(i32);
+
+        impl $name {
+            /// Creates a new identifier ensuring it is greater than zero.
+            pub fn new(value: i32) -> Result<Self, TypeConstraintError> {
+                if value > 0 {
+                    Ok(Self(value))
+                } else {
+                    Err(TypeConstraintError::NonPositiveId)
+                }
+            }
+
+            /// Returns the raw `i32` backing this identifier.
+            pub const fn get(self) -> i32 {
+                self.0
+            }
+        }
+
+        impl Display for $name {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl TryFrom<i32> for $name {
+            type Error = TypeConstraintError;
+
+            fn try_from(value: i32) -> Result<Self, Self::Error> {
+                Self::new(value)
+            }
+        }
+
+        impl From<$name> for i32 {
+            fn from(value: $name) -> Self {
+                value.0
+            }
+        }
+    };
+}
+
+id_newtype!(UserId);
+id_newtype!(HubId);
+id_newtype!(RoleId);
+id_newtype!(MenuId);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+/// Lower-cased and validated email address.
+pub struct UserEmail(String);
+
+impl UserEmail {
+    /// Validates and normalizes an email string.
+    pub fn new<S: Into<String>>(email: S) -> Result<Self, TypeConstraintError> {
+        let normalized = email.into().trim().to_lowercase();
+        if normalized.validate_email() {
+            Ok(Self(normalized))
+        } else {
+            Err(TypeConstraintError::InvalidEmail)
+        }
+    }
+
+    /// Borrow the email as a `&str`.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Convert into the owned inner `String`.
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl Display for UserEmail {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl TryFrom<String> for UserEmail {
+    type Error = TypeConstraintError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<&str> for UserEmail {
+    type Error = TypeConstraintError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<UserEmail> for String {
+    fn from(value: UserEmail) -> Self {
+        value.0
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+/// Wrapper for non-empty, trimmed strings.
+pub struct NonEmptyString(String);
+
+impl NonEmptyString {
+    pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
+        let trimmed = value.into().trim().to_string();
+        if trimmed.is_empty() {
+            return Err(TypeConstraintError::EmptyString);
+        }
+        Ok(Self(trimmed))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl Display for NonEmptyString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl TryFrom<String> for NonEmptyString {
+    type Error = TypeConstraintError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<&str> for NonEmptyString {
+    type Error = TypeConstraintError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<NonEmptyString> for String {
+    fn from(value: NonEmptyString) -> Self {
+        value.0
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+/// Dedicated wrapper for hub names ensuring they are non-empty and trimmed.
+pub struct HubName(String);
+
+impl HubName {
+    pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
+        let name = NonEmptyString::new(value)?;
+        Ok(Self(name.into_inner()))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl Display for HubName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl TryFrom<String> for HubName {
+    type Error = TypeConstraintError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<&str> for HubName {
+    type Error = TypeConstraintError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<HubName> for String {
+    fn from(value: HubName) -> Self {
+        value.0
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+/// Non-empty role name wrapper.
+pub struct RoleName(String);
+
+impl RoleName {
+    pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
+        let name = NonEmptyString::new(value)?;
+        Ok(Self(name.into_inner()))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl Display for RoleName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl TryFrom<String> for RoleName {
+    type Error = TypeConstraintError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<&str> for RoleName {
+    type Error = TypeConstraintError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<RoleName> for String {
+    fn from(value: RoleName) -> Self {
+        value.0
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+/// Non-empty, trimmed menu name.
+pub struct MenuName(String);
+
+impl MenuName {
+    pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
+        let name = NonEmptyString::new(value)?;
+        Ok(Self(name.into_inner()))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl Display for MenuName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl TryFrom<String> for MenuName {
+    type Error = TypeConstraintError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<&str> for MenuName {
+    type Error = TypeConstraintError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<MenuName> for String {
+    fn from(value: MenuName) -> Self {
+        value.0
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+/// Non-empty, trimmed menu URL.
+pub struct MenuUrl(String);
+
+impl MenuUrl {
+    pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
+        let url = NonEmptyString::new(value)?;
+        Ok(Self(url.into_inner()))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl Display for MenuUrl {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl TryFrom<String> for MenuUrl {
+    type Error = TypeConstraintError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<&str> for MenuUrl {
+    type Error = TypeConstraintError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<MenuUrl> for String {
+    fn from(value: MenuUrl) -> Self {
+        value.0
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+/// Optional user name wrapper enforcing non-empty values.
+pub struct UserName(String);
+
+impl UserName {
+    pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
+        let name = NonEmptyString::new(value)?;
+        Ok(Self(name.into_inner()))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl Display for UserName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl TryFrom<String> for UserName {
+    type Error = TypeConstraintError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<&str> for UserName {
+    type Error = TypeConstraintError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<UserName> for String {
+    fn from(value: UserName) -> Self {
+        value.0
+    }
+}
