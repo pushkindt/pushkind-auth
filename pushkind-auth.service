@@ -8,6 +8,7 @@ User=www-data7
 Group=www-data
 
 WorkingDirectory=/var/www7/html
+Environment=APP_ENV=prod
 ExecStart=/var/www7/html/pushkind-auth
 
 Restart=on-failure
@@ -35,4 +36,3 @@ LimitNOFILE=65535
 
 [Install]
 WantedBy=multi-user.target
-
