@@ -57,9 +57,15 @@ cargo fmt --all -- --check
 - Domain structs must not perform validation or normalization (e.g., no
   `to_lowercase`); assume inputs are already sanitized and transformed by forms
   or services before reaching the domain layer.
-- Sanitize and validate user input early using `validator` and `ammonia` helpers
-  from the form layer.
+- Sanitize and validate user input early using `validator` helpers from the
+  form layer.
+- Perform trimming, case normalisation, and other input clean-up before
+  constructing domain types; domain builders assume callers supply sanitised
+  values.
 - Prefer dependency injection through function parameters over global state.
+- For Diesel update models, avoid nested optionals; prefer single-layer `Option<T>`
+  fields and rely on `#[diesel(treat_none_as_null = true)]` when nullable columns
+  need to be cleared.
 - Document all public APIs and any breaking changes.
 
 ## Database Guidelines
@@ -79,7 +85,7 @@ cargo fmt --all -- --check
   service, and returning an HTTP response.
 - Use the `RedirectSuccess` helper when services need to trigger a redirect with
   flash messaging.
-- Render templates with Tera contexts that only expose sanitized data. Use the
+- Render templates with Tera contexts that only expose validated data. Use the
   existing component templates under `templates/` for shared UI.
 - Respect the authorization checks via `pushkind_common::routes::check_role` and
   the `SERVICE_ACCESS_ROLE` constant.
