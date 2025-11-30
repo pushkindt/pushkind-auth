@@ -13,7 +13,7 @@ configuration, and reusable UI helpers.
 - **Role-based administration** – Administrators with `SERVICE_ACCESS_ROLE` can create hubs, manage roles, and assign permissions to users via guarded endpoints with flash feedback.
 - **Configurable navigation menus** – Hub-specific menu links can be added or removed to surface curated destinations in the shared Tera layout.
 - **Password recovery links** – ZeroMQ-backed email delivery sends short-lived recovery tokens that drop users back into the login flow safely.
-- **JSON user directory** – `/api/v1` endpoints expose the hub’s user list with pagination, search, and role filters for downstream integrations.
+- **JSON user directory** – `/api/v1` endpoints expose the hub's user list with pagination, search, and role filters for downstream integrations.
 
 ## Architecture at a Glance
 
@@ -25,6 +25,8 @@ exercised and tested without going through the web framework:
   cleaned and transformed by forms/services. Domain structs use strongly typed
   fields (e.g., `UserEmail`, `HubId`, `MenuName`, `RoleName`, `UserName`) so the
   type system enforces the invariants of each value.
+- **Models (`src/models`)** – Diesel-specific database models that mirror the
+  schema and implement conversions to domain types.
 - **Repository (`src/repository`)** – Traits that describe the persistence
   contract and a Diesel-backed implementation (`DieselRepository`) that speaks to
   a SQLite database. Each module translates between Diesel models and domain
@@ -33,12 +35,14 @@ exercised and tested without going through the web framework:
   logic, repository traits, and Pushkind authentication helpers. Services return
   `ServiceResult<T>` and map infrastructure errors into well-defined service
   errors.
+- **DTOs (`src/dto`)** – Data transfer objects that wrap domain types with
+  serialization-friendly shapes tailored to API responses and template contexts.
 - **Forms (`src/forms`)** – `serde`/`validator` powered structs that handle
-  request payload validation, CSV parsing, and transformation into domain types.
+  request payload validation and transformation into domain types.
 - **Routes (`src/routes`)** – Actix Web handlers that wire HTTP requests into the
   service layer and render Tera templates or redirect with flash messages.
 - **Templates (`templates/`)** – Server-rendered UI built with Tera and
-  Bootstrap 5, backed by sanitized HTML rendered via `ammonia` when necessary.
+  Bootstrap 5.
 
 Because the repository traits live in `src/repository/mod.rs`, service functions
 accept generic parameters that implement those traits. This makes unit tests easy
@@ -46,16 +50,15 @@ by swapping in the `mockall`-based fakes from `src/repository/mock.rs`.
 
 ## Technology Stack
 
-- Rust 2024 edition
+- Rust 2024 edition
 - [Actix Web](https://actix.rs/) with identity, session, and flash message
   middleware
 - [Diesel](https://diesel.rs/) ORM with SQLite and connection pooling via r2d2
-- [Tera](https://tera.netlify.app/) templates styled with Bootstrap 5.3
+- [Tera](https://tera.netlify.app/) templates styled with Bootstrap 5.3
 - [`pushkind-common`](https://github.com/pushkindt/pushkind-common) shared crate
   for authentication guards, configuration, database helpers, and reusable
   patterns
-- Supporting crates: `chrono`, `validator`, `serde`, `ammonia`, `csv`, and
-  `thiserror`
+- Supporting crates: `chrono`, `validator`, `serde`, and `thiserror`
 
 ## Getting Started
 
@@ -63,15 +66,15 @@ by swapping in the `mockall`-based fakes from `src/repository/mock.rs`.
 
 - Rust toolchain (install via [rustup](https://www.rust-lang.org/tools/install))
 - `diesel-cli` with SQLite support (`cargo install diesel_cli --no-default-features --features sqlite`)
-- SQLite 3 installed on your system
+- SQLite 3 installed on your system
 
 ### Configuration
 
-Settings are layered via the [`config`](https://crates.io/crates/config) crate:
+Settings are layered via the [`config`](https://crates.io/crates/config) crate in the following order (later entries override earlier ones):
 
 1. `config/default.yaml` (checked in)
 2. `config/{APP_ENV}.yaml` where `APP_ENV` defaults to `local`
-3. Environment variables prefixed with `APP_` (loaded via `.env` thanks to `dotenvy`)
+3. Environment variables prefixed with `APP_` (loaded automatically from a `.env` file via `dotenvy`)
 
 Key settings you may want to override:
 
@@ -86,9 +89,10 @@ Key settings you may want to override:
 | `APP_ZMQ_EMAILER_PUB` | ZeroMQ PUB endpoint for outgoing email events | `tcp://127.0.0.1:5557` |
 
 Switch to the production profile with `APP_ENV=prod` or provide your own
-`config/{env}.yaml`. For local development, create a `.env` file with
-`APP_SECRET=<64-byte key>` (generate one with `openssl rand -base64 64`) and any
-overrides you need.
+`config/{env}.yaml`. Environment variables always win over YAML values, so a
+local `.env` file containing `APP_SECRET=<64-byte key>` (generate with
+`openssl rand -base64 64`) and any overrides will take effect without changing
+the checked-in config files.
 
 ### Database
 
@@ -100,7 +104,7 @@ cargo install diesel_cli --no-default-features --features sqlite # only once
 diesel migration run
 ```
 
-A SQLite file will be created at the location given by `DATABASE_URL`.
+A SQLite file will be created at the location given by `APP_DATABASE_URL`.
 
 ## Running the Application
 
@@ -110,7 +114,8 @@ Start the HTTP server with:
 cargo run
 ```
 
-The server listens on `http://127.0.0.1:8080` by default and serves static
+The server listens on `http://127.0.0.1:8081` by default (from
+`config/local.yaml`) and serves static
 assets from `./assets` in addition to the Tera-powered HTML pages. Authentication
 and authorization are enforced via the Pushkind auth service and the
 `SERVICE_ACCESS_ROLE` constant.
@@ -133,7 +138,7 @@ execute the test suite in one step.
 ## Testing
 
 Unit tests exercise the service and form layers directly, while integration
-tests live under `tests/`. Repository tests rely on Diesel’s query builders and
+tests live under `tests/`. Repository tests rely on Diesel's query builders and
 should avoid raw SQL strings whenever possible. Use the mock repository module to
 isolate services from the database when writing new tests.
 
@@ -148,9 +153,8 @@ isolate services from the database when writing new tests.
   `anyhow`.
 - **No panics in production paths**: avoid `unwrap`/`expect` in request handlers,
   services, and repositories—propagate errors instead.
-- **Security aware**: sanitize any user-supplied HTML using `ammonia`, validate
-  inputs with `validator`, and always enforce role checks with
-  `pushkind_common::routes::check_role`.
+- **Security aware**: validate inputs with `validator` and always enforce role
+  checks with `pushkind_common::routes::check_role`.
 - **Testable**: accept traits rather than concrete types in services and prefer
   dependency injection so the mock repositories can be used in tests.
 
