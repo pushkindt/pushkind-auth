@@ -10,7 +10,7 @@ use crate::domain::types::{HubId, UserEmail};
 use crate::dto::auth::SessionTokenDto;
 use crate::forms::auth::{LoginForm, RecoverForm, RegisterForm};
 use crate::repository::{HubReader, UserReader, UserWriter};
-use crate::services::{map_type_error, validate_form};
+use crate::services::validate_form;
 
 /// Attempts to authenticate a user for the given hub.
 ///
@@ -33,7 +33,7 @@ pub fn login_user(
 /// Returns [`ServiceError`] if the underlying repository fails to create the user.
 pub fn register_user(form: &RegisterForm, repo: &impl UserWriter) -> ServiceResult<()> {
     validate_form(form)?;
-    let new_user = form.clone().into_domain().map_err(map_type_error)?;
+    let new_user = form.clone().into_domain()?;
     repo.create_user(&new_user)?;
     Ok(())
 }
@@ -61,8 +61,8 @@ pub fn reissue_session_from_token(
     let mut user =
         AuthenticatedUser::from_jwt(token, secret).map_err(|_| ServiceError::Unauthorized)?;
     // Ensure the user still exists and belongs to the hub before issuing a new session
-    let email = UserEmail::new(&user.email).map_err(map_type_error)?;
-    let hub_id = HubId::new(user.hub_id).map_err(map_type_error)?;
+    let email = UserEmail::new(&user.email)?;
+    let hub_id = HubId::new(user.hub_id)?;
     match repo.get_user_by_email(&email, hub_id)? {
         Some(_) => {
             user.set_expiration(expiration_days);
@@ -79,8 +79,8 @@ pub fn login_and_issue_token(
     secret: &str,
 ) -> ServiceResult<SessionTokenDto> {
     validate_form(form)?;
-    let email = form.email().map_err(map_type_error)?;
-    let hub_id = form.hub_id().map_err(map_type_error)?;
+    let email = form.email()?;
+    let hub_id = form.hub_id()?;
     let claims = login_user(&email, &form.password, hub_id, repo)?;
     issue_jwt(&claims, secret)
 }
@@ -96,8 +96,8 @@ pub async fn send_recovery_email(
     base_url: &str,
 ) -> ServiceResult<()> {
     validate_form(form)?;
-    let hub_id = form.hub_id().map_err(map_type_error)?;
-    let email = form.email().map_err(map_type_error)?;
+    let hub_id = form.hub_id()?;
+    let email = form.email()?;
     let mut user: AuthenticatedUser = match repo.get_user_by_email(&email, hub_id)? {
         Some(user) => user.into(),
         None => return Err(ServiceError::NotFound),

@@ -6,7 +6,7 @@ use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
 use crate::domain::role::{NewRole, Role};
 use crate::domain::types::RoleId;
 use crate::models::role::{NewRole as NewDbRole, Role as DbRole};
-use crate::repository::{DieselRepository, RoleReader, RoleWriter, map_type_error};
+use crate::repository::{DieselRepository, RoleReader, RoleWriter};
 
 impl RoleReader for DieselRepository {
     fn get_role_by_id(&self, id: RoleId) -> RepositoryResult<Option<Role>> {
@@ -19,10 +19,8 @@ impl RoleReader for DieselRepository {
             .first::<DbRole>(&mut connection)
             .optional()?;
 
-        result
-            .map(TryInto::try_into)
-            .transpose()
-            .map_err(map_type_error)
+        let role = result.map(TryInto::try_into).transpose()?;
+        Ok(role)
     }
 
     fn get_role_by_name(&self, name: &str) -> RepositoryResult<Option<Role>> {
@@ -35,10 +33,8 @@ impl RoleReader for DieselRepository {
             .first::<DbRole>(&mut connection)
             .optional()?;
 
-        result
-            .map(TryInto::try_into)
-            .transpose()
-            .map_err(map_type_error)
+        let role = result.map(TryInto::try_into).transpose()?;
+        Ok(role)
     }
 
     fn list_roles(&self) -> RepositoryResult<Vec<Role>> {
@@ -48,11 +44,11 @@ impl RoleReader for DieselRepository {
 
         let results = roles::table.load::<DbRole>(&mut connection)?;
 
-        results
+        let roles = results
             .into_iter()
             .map(TryInto::try_into)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(map_type_error)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(roles)
     }
 }
 
@@ -63,11 +59,10 @@ impl RoleWriter for DieselRepository {
         let mut connection = self.conn()?;
 
         let new_db_role = NewDbRole::from(new_role); // Convert to DbNewRole
-        let role = diesel::insert_into(roles::table)
+        let db_role = diesel::insert_into(roles::table)
             .values(&new_db_role)
-            .get_result::<DbRole>(&mut connection)
-            .map_err(Into::into)
-            .and_then(|db_role| TryInto::try_into(db_role).map_err(map_type_error))?; // Convert DbRole to DomainRole
+            .get_result::<DbRole>(&mut connection)?;
+        let role = db_role.try_into()?; // Convert DbRole to DomainRole
         Ok(role)
     }
 

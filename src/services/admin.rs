@@ -12,7 +12,7 @@ use crate::forms::main::{AddHubForm, AddMenuForm, AddRoleForm, UpdateUserForm};
 use crate::repository::{
     HubWriter, MenuReader, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter,
 };
-use crate::services::{map_type_error, validate_form};
+use crate::services::validate_form;
 
 /// Ensures the authenticated user has the `admin` role.
 fn ensure_admin(user: &AuthenticatedUser) -> ServiceResult<()> {
@@ -30,7 +30,7 @@ pub fn create_role(
 ) -> ServiceResult<()> {
     ensure_admin(current_user)?;
     validate_form(form)?;
-    let new_role: crate::domain::role::NewRole = form.clone().try_into().map_err(map_type_error)?;
+    let new_role: crate::domain::role::NewRole = form.clone().try_into()?;
     repo.create_role(&new_role)?;
     Ok(())
 }
@@ -42,8 +42,8 @@ pub fn user_modal_data(
     repo: &(impl UserReader + RoleReader),
 ) -> ServiceResult<UserModalData> {
     ensure_admin(current_user)?;
-    let user_id = UserId::new(user_id).map_err(map_type_error)?;
-    let hub_id = HubId::new(current_user.hub_id).map_err(map_type_error)?;
+    let user_id = UserId::new(user_id)?;
+    let hub_id = HubId::new(current_user.hub_id)?;
     let user = repo.get_user_by_id(user_id, hub_id)?.map(|u| u.user);
     let roles = repo.list_roles()?;
     Ok(UserModalData { user, roles })
@@ -66,8 +66,8 @@ pub fn delete_user_by_id(
         return Err(ServiceError::Unauthorized);
     }
 
-    let user_id = UserId::new(user_id).map_err(map_type_error)?;
-    let hub_id = HubId::new(current_user.hub_id).map_err(map_type_error)?;
+    let user_id = UserId::new(user_id)?;
+    let hub_id = HubId::new(current_user.hub_id)?;
     let user = match repo.get_user_by_id(user_id, hub_id)? {
         Some(u) => u.user,
         None => return Err(ServiceError::NotFound),
@@ -84,12 +84,11 @@ pub fn assign_roles_and_update_user(
 ) -> ServiceResult<()> {
     ensure_admin(current_user)?;
     validate_form(form)?;
-    let user_id = UserId::new(form.id).map_err(map_type_error)?;
-    let updates: crate::domain::user::UpdateUser =
-        form.clone().try_into().map_err(map_type_error)?;
+    let user_id = UserId::new(form.id)?;
+    let updates: crate::domain::user::UpdateUser = form.clone().try_into()?;
     let role_ids = updates.roles.clone().unwrap_or_default();
     // Validate user exists in the hub
-    let hub_id = HubId::new(current_user.hub_id).map_err(map_type_error)?;
+    let hub_id = HubId::new(current_user.hub_id)?;
     let user = match repo.get_user_by_id(user_id, hub_id)? {
         Some(u) => u.user,
         None => return Err(ServiceError::NotFound),
@@ -107,7 +106,7 @@ pub fn create_hub(
 ) -> ServiceResult<()> {
     ensure_admin(current_user)?;
     validate_form(form)?;
-    let new_hub: crate::domain::hub::NewHub = form.clone().try_into().map_err(map_type_error)?;
+    let new_hub: crate::domain::hub::NewHub = form.clone().try_into()?;
     repo.create_hub(&new_hub)?;
     Ok(())
 }
@@ -123,7 +122,7 @@ pub fn delete_role_by_id(
         // Protect the base admin role from deletion.
         return Err(ServiceError::Unauthorized);
     }
-    let role_id = RoleId::new(role_id).map_err(map_type_error)?;
+    let role_id = RoleId::new(role_id)?;
     repo.delete_role(role_id)?;
     Ok(())
 }
@@ -139,7 +138,7 @@ pub fn delete_hub_by_id(
         // Prevent deleting the hub currently associated with the user.
         return Err(ServiceError::Unauthorized);
     }
-    let hub_id = HubId::new(hub_id).map_err(map_type_error)?;
+    let hub_id = HubId::new(hub_id)?;
     repo.delete_hub(hub_id)?;
     Ok(())
 }
@@ -152,8 +151,8 @@ pub fn create_menu(
 ) -> ServiceResult<()> {
     ensure_admin(current_user)?;
     validate_form(form)?;
-    let hub_id = HubId::new(current_user.hub_id).map_err(map_type_error)?;
-    let new_menu = form.to_new_menu(hub_id).map_err(map_type_error)?;
+    let hub_id = HubId::new(current_user.hub_id)?;
+    let new_menu = form.to_new_menu(hub_id)?;
     repo.create_menu(&new_menu)?;
     Ok(())
 }
@@ -165,8 +164,8 @@ pub fn delete_menu_by_id(
     repo: &(impl MenuReader + MenuWriter),
 ) -> ServiceResult<()> {
     ensure_admin(current_user)?;
-    let menu_id = MenuId::new(menu_id).map_err(map_type_error)?;
-    let hub_id = HubId::new(current_user.hub_id).map_err(map_type_error)?;
+    let menu_id = MenuId::new(menu_id)?;
+    let hub_id = HubId::new(current_user.hub_id)?;
     let menu = match repo.get_menu_by_id(menu_id, hub_id)? {
         Some(m) => m,
         None => return Err(ServiceError::NotFound),

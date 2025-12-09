@@ -6,7 +6,7 @@ use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
 use crate::domain::hub::{Hub, NewHub};
 use crate::domain::types::HubId;
 use crate::models::hub::{Hub as DbHub, NewHub as NewDbHub};
-use crate::repository::{DieselRepository, HubReader, HubWriter, map_type_error};
+use crate::repository::{DieselRepository, HubReader, HubWriter};
 
 impl HubReader for DieselRepository {
     fn get_hub_by_id(&self, id: HubId) -> RepositoryResult<Option<Hub>> {
@@ -19,10 +19,8 @@ impl HubReader for DieselRepository {
             .first::<DbHub>(&mut connection)
             .optional()?;
 
-        result
-            .map(TryInto::try_into)
-            .transpose()
-            .map_err(map_type_error)
+        let hub = result.map(TryInto::try_into).transpose()?;
+        Ok(hub)
     }
 
     fn get_hub_by_name(&self, name: &str) -> RepositoryResult<Option<Hub>> {
@@ -35,10 +33,8 @@ impl HubReader for DieselRepository {
             .first::<DbHub>(&mut connection)
             .optional()?;
 
-        result
-            .map(TryInto::try_into)
-            .transpose()
-            .map_err(map_type_error)
+        let hub = result.map(TryInto::try_into).transpose()?;
+        Ok(hub)
     }
 
     fn list_hubs(&self) -> RepositoryResult<Vec<Hub>> {
@@ -48,11 +44,11 @@ impl HubReader for DieselRepository {
 
         let results = hubs::table.load::<DbHub>(&mut connection)?;
 
-        results
+        let hubs = results
             .into_iter()
             .map(TryInto::try_into)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(map_type_error)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(hubs)
     }
 }
 
@@ -63,11 +59,10 @@ impl HubWriter for DieselRepository {
         let mut connection = self.conn()?;
 
         let new_db_hub = NewDbHub::from(new_hub); // Convert to DbNewHub
-        let hub = diesel::insert_into(hubs::table)
+        let db_hub = diesel::insert_into(hubs::table)
             .values(&new_db_hub)
-            .get_result::<DbHub>(&mut connection)
-            .map_err(Into::into)
-            .and_then(|db_hub| TryInto::try_into(db_hub).map_err(map_type_error))?; // Convert DbHub to DomainHub
+            .get_result::<DbHub>(&mut connection)?;
+        let hub = db_hub.try_into()?; // Convert DbHub to DomainHub
         Ok(hub)
     }
 

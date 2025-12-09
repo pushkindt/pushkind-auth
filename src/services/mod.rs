@@ -15,8 +15,10 @@ pub mod api;
 pub mod auth;
 pub mod main;
 
-pub(crate) fn map_type_error(err: TypeConstraintError) -> ServiceError {
-    ServiceError::Form(err.to_string())
+impl From<TypeConstraintError> for ServiceError {
+    fn from(err: TypeConstraintError) -> Self {
+        ServiceError::Form(err.to_string())
+    }
 }
 
 pub(crate) fn validate_form<T: Validate>(form: &T) -> ServiceResult<()> {
