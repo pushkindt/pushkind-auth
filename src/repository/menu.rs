@@ -6,7 +6,7 @@ use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
 use crate::domain::menu::{Menu, NewMenu};
 use crate::domain::types::{HubId, MenuId};
 use crate::models::menu::{Menu as DbMenu, NewMenu as NewDbMenu};
-use crate::repository::{DieselRepository, MenuReader, MenuRepository, MenuWriter, map_type_error};
+use crate::repository::{DieselRepository, MenuReader, MenuRepository, MenuWriter};
 
 impl MenuWriter for DieselRepository {
     fn create_menu(&self, new_menu: &NewMenu) -> RepositoryResult<Menu> {
@@ -15,11 +15,10 @@ impl MenuWriter for DieselRepository {
         let mut connection = self.conn()?;
 
         let new_db_menu = NewDbMenu::from(new_menu); // Convert to DbNewMenu
-        let menu = diesel::insert_into(menu::table)
+        let db_menu = diesel::insert_into(menu::table)
             .values(&new_db_menu)
-            .get_result::<DbMenu>(&mut connection)
-            .map_err(Into::into)
-            .and_then(|db_menu| TryInto::try_into(db_menu).map_err(map_type_error))?; // Convert DbMenu to DomainMenu
+            .get_result::<DbMenu>(&mut connection)?;
+        let menu = db_menu.try_into()?; // Convert DbMenu to DomainMenu
         Ok(menu)
     }
 
@@ -50,10 +49,8 @@ impl MenuReader for DieselRepository {
             .filter(menu::hub_id.eq(hub_id.get()))
             .first::<DbMenu>(&mut connection)
             .optional()?;
-        result
-            .map(TryInto::try_into)
-            .transpose()
-            .map_err(map_type_error)
+        let menu = result.map(TryInto::try_into).transpose()?;
+        Ok(menu)
     }
 
     fn list_menu(&self, hub_id: HubId) -> RepositoryResult<Vec<Menu>> {
@@ -65,11 +62,11 @@ impl MenuReader for DieselRepository {
             .filter(menu::hub_id.eq(hub_id.get()))
             .load::<DbMenu>(&mut connection)?;
 
-        results
+        let menus = results
             .into_iter()
             .map(TryInto::try_into)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(map_type_error)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(menus)
     }
 }
 

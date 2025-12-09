@@ -17,9 +17,7 @@ use crate::domain::types::{HubId, RoleId, UserEmail, UserId};
 use crate::domain::user::{NewUser, UpdateUser, User, UserWithRoles};
 use crate::models::role::{NewUserRole as DbNewUserRole, Role as DbRole};
 use crate::models::user::{NewUser as NewDbUser, UpdateUser as DbUpdateUser, User as DbUser};
-use crate::repository::{
-    DieselRepository, UserListQuery, UserReader, UserRepository, UserWriter, map_type_error,
-};
+use crate::repository::{DieselRepository, UserListQuery, UserReader, UserRepository, UserWriter};
 
 impl UserReader for DieselRepository {
     fn get_user_by_id(&self, id: UserId, hub_id: HubId) -> RepositoryResult<Option<UserWithRoles>> {
@@ -48,10 +46,9 @@ impl UserReader for DieselRepository {
             let roles = roles
                 .into_iter()
                 .map(TryInto::try_into)
-                .collect::<Result<Vec<Role>, _>>()
-                .map_err(map_type_error)?;
+                .collect::<Result<Vec<Role>, _>>()?;
 
-            let mut user: User = user.try_into().map_err(map_type_error)?;
+            let mut user: User = user.try_into()?;
             user.roles = roles.iter().map(|role| role.id).collect();
 
             Ok(Some(UserWithRoles { user, roles }))
@@ -87,10 +84,9 @@ impl UserReader for DieselRepository {
             let roles = roles
                 .into_iter()
                 .map(TryInto::try_into)
-                .collect::<Result<Vec<Role>, _>>()
-                .map_err(map_type_error)?;
+                .collect::<Result<Vec<Role>, _>>()?;
 
-            let mut user: User = user.try_into().map_err(map_type_error)?;
+            let mut user: User = user.try_into()?;
             user.roles = roles.iter().map(|role| role.id).collect();
 
             Ok(Some(UserWithRoles { user, roles }))
@@ -162,7 +158,7 @@ impl UserReader for DieselRepository {
                 .load::<(i32, DbRole)>(conn)?
                 .into_iter()
                 .map(|(user_id, role)| {
-                    let role: Role = role.try_into().map_err(map_type_error)?;
+                    let role: Role = role.try_into()?;
                     Ok((user_id, role))
                 })
                 .collect::<RepositoryResult<Vec<(i32, Role)>>>()?;
@@ -175,7 +171,7 @@ impl UserReader for DieselRepository {
                         .filter(|(user_id, _)| *user_id == user.id)
                         .map(|(_, role)| role.clone())
                         .collect();
-                    let mut user: User = user.try_into().map_err(map_type_error)?;
+                    let mut user: User = user.try_into()?;
                     user.roles = user_roles.iter().map(|role| role.id).collect();
 
                     Ok(UserWithRoles {
@@ -204,11 +200,11 @@ impl UserReader for DieselRepository {
             .filter(user_roles::user_id.eq(user_id.get()))
             .select(roles::all_columns)
             .load::<DbRole>(&mut connection)?;
-        results
+        let roles = results
             .into_iter()
             .map(TryInto::try_into)
-            .collect::<Result<Vec<Role>, _>>()
-            .map_err(map_type_error)
+            .collect::<Result<Vec<Role>, _>>()?;
+        Ok(roles)
     }
 }
 
@@ -227,7 +223,8 @@ impl UserWriter for DieselRepository {
         let user = diesel::insert_into(users::table)
             .values(&new_db_user)
             .get_result::<DbUser>(&mut connection)?;
-        user.try_into().map_err(map_type_error)
+        let user = user.try_into()?;
+        Ok(user)
     }
 
     fn update_user(
@@ -272,7 +269,8 @@ impl UserWriter for DieselRepository {
                 .set(&db_updates)
                 .get_result::<DbUser>(conn)?;
 
-            user.try_into().map_err(map_type_error)
+            let user = user.try_into()?;
+            Ok(user)
         })
     }
 
