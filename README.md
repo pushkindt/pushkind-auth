@@ -154,7 +154,7 @@ isolate services from the database when writing new tests.
 - **No panics in production paths**: avoid `unwrap`/`expect` in request handlers,
   services, and repositories—propagate errors instead.
 - **Security aware**: validate inputs with `validator` and always enforce role
-  checks with `pushkind_common::routes::check_role`.
+  checks with `pushkind_common::routes::ensure_role`.
 - **Testable**: accept traits rather than concrete types in services and prefer
   dependency injection so the mock repositories can be used in tests.
 
