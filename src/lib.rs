@@ -57,7 +57,7 @@ use crate::routes::main::{save_user, show_index};
 pub mod domain;
 #[cfg(feature = "server")]
 pub mod dto;
-#[cfg(feature = "server")]
+#[cfg(feature = "data")]
 pub mod error_conversions;
 #[cfg(feature = "server")]
 pub mod forms;
