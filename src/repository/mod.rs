@@ -6,12 +6,12 @@
 
 use pushkind_common::db::{DbConnection, DbPool};
 use pushkind_common::pagination::Pagination;
-use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
+use pushkind_common::repository::errors::RepositoryResult;
 
 use crate::domain::hub::{Hub, NewHub};
 use crate::domain::menu::{Menu, NewMenu};
 use crate::domain::role::{NewRole, Role};
-use crate::domain::types::{HubId, MenuId, RoleId, TypeConstraintError, UserEmail, UserId};
+use crate::domain::types::{HubId, MenuId, RoleId, UserEmail, UserId};
 use crate::domain::user::UserWithRoles;
 use crate::domain::user::{NewUser, UpdateUser, User};
 
@@ -171,9 +171,3 @@ pub trait MenuWriter {
 
 /// Backwards compatibility alias combining [`MenuReader`] and [`MenuWriter`].
 pub trait MenuRepository: MenuReader + MenuWriter {}
-
-impl From<TypeConstraintError> for RepositoryError {
-    fn from(err: TypeConstraintError) -> Self {
-        RepositoryError::ValidationError(err.to_string())
-    }
-}

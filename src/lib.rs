@@ -4,50 +4,84 @@
 //! handlers that make up the application. It is used by `main.rs` to build
 //! the Actix-Web application and can also be reused for integration tests.
 
+#[cfg(feature = "server")]
 use std::sync::Arc;
 
+#[cfg(feature = "server")]
 use actix_cors::Cors;
+#[cfg(feature = "server")]
 use actix_identity::IdentityMiddleware;
+#[cfg(feature = "server")]
 use actix_session::{SessionMiddleware, config::PersistentSession, storage::CookieSessionStore};
+#[cfg(feature = "server")]
 use actix_web::cookie::{Key, time::Duration};
+#[cfg(feature = "server")]
 use actix_web::{App, HttpServer, web};
+#[cfg(feature = "server")]
 use actix_web_flash_messages::{FlashMessagesFramework, storage::CookieMessageStore};
 
+#[cfg(feature = "server")]
 use pushkind_common::db::establish_connection_pool;
+#[cfg(feature = "server")]
 use pushkind_common::middleware::RedirectUnauthorized;
+#[cfg(feature = "server")]
 use pushkind_common::models::config::CommonServerConfig;
+#[cfg(feature = "server")]
 use pushkind_common::routes::logout;
+#[cfg(feature = "server")]
 use pushkind_common::zmq::{ZmqSender, ZmqSenderOptions};
+#[cfg(feature = "server")]
 use tera::Tera;
 
+#[cfg(feature = "server")]
 use crate::middleware::RequireUserExists;
+#[cfg(feature = "server")]
 use crate::models::config::ServerConfig;
+#[cfg(feature = "server")]
 use crate::repository::DieselRepository;
+#[cfg(feature = "server")]
 use crate::routes::admin::{
     add_hub, add_menu, add_role, delete_hub, delete_menu, delete_role, delete_user, update_user,
     user_modal,
 };
+#[cfg(feature = "server")]
 use crate::routes::api::{api_v1_id, api_v1_users};
+#[cfg(feature = "server")]
 use crate::routes::auth::{
     login, login_token, recover_password, register, signin_page, signup_page,
 };
+#[cfg(feature = "server")]
 use crate::routes::main::{save_user, show_index};
 
+#[cfg(feature = "data")]
 pub mod domain;
+#[cfg(feature = "server")]
 pub mod dto;
+#[cfg(feature = "server")]
+pub mod error_conversions;
+#[cfg(feature = "server")]
 pub mod forms;
+#[cfg(feature = "server")]
 pub mod middleware;
+#[cfg(feature = "data")]
 pub mod models;
+#[cfg(feature = "server")]
 pub mod repository;
+#[cfg(feature = "server")]
 pub mod routes;
+#[cfg(feature = "data")]
 pub mod schema;
+#[cfg(feature = "server")]
 pub mod services;
 
 /// Role required to access administrative routes.
+#[cfg(feature = "server")]
 pub const SERVICE_ACCESS_ROLE: &str = "admin";
+#[cfg(feature = "server")]
 const AUTH_SERVICE_URL: &str = "/auth/signin";
 
 /// Builds and runs the Actix-Web HTTP server using the provided configuration.
+#[cfg(feature = "server")]
 pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
     let common_config = CommonServerConfig {
         auth_service_url: AUTH_SERVICE_URL.to_string(),

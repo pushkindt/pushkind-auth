@@ -1,10 +1,13 @@
 //! Authentication services for logging in users, registering new accounts, and listing hubs.
 
 use pushkind_common::domain::auth::AuthenticatedUser;
-use pushkind_common::domain::emailer::email::{NewEmail, NewEmailRecipient};
-use pushkind_common::models::emailer::zmq::ZMQSendEmailMessage;
 use pushkind_common::services::errors::{ServiceError, ServiceResult};
-use pushkind_common::zmq::ZmqSender;
+use pushkind_common::zmq::{ZmqSender, ZmqSenderExt};
+use pushkind_emailer::domain::email::{NewEmail, NewEmailRecipient};
+use pushkind_emailer::domain::types::{
+    EmailBody, EmailSubject, HubId as EmailHubId, RecipientEmail, RecipientName,
+};
+use pushkind_emailer::models::zmq::ZMQSendEmailMessage;
 
 use crate::domain::types::{HubId, UserEmail};
 use crate::dto::auth::SessionTokenDto;
@@ -109,15 +112,17 @@ pub async fn send_recovery_email(
     let recovery_url = format!("{}/auth/login?token={}", base_url, jwt.token);
 
     let new_email = NewEmail {
-        message: "Для входа в систему перейдите по ссылке: {recovery_url}\nЕсли вы не запрашивали восстановление, проигнорируйте это письмо.".to_string(),
-        subject: Some("Восстановление пароля".to_string()),
+        message: EmailBody::new(
+            "Для входа в систему перейдите по ссылке: {recovery_url}\nЕсли вы не запрашивали восстановление, проигнорируйте это письмо.",
+        )?,
+        subject: Some(EmailSubject::new("Восстановление пароля")?),
         attachment: None,
         attachment_name: None,
         attachment_mime: None,
-        hub_id: hub_id.get(),
+        hub_id: EmailHubId::new(hub_id.get())?,
         recipients: vec![NewEmailRecipient {
-            address: email.as_str().to_string(),
-            name: user.name.clone(),
+            address: RecipientEmail::new(email.as_str())?,
+            name: RecipientName::new(&user.name)?,
             fields: std::iter::once(("recovery_url".to_string(), recovery_url)).collect(),
         }],
     };

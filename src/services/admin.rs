@@ -1,7 +1,7 @@
 //! Administrative services for managing users, roles, menus, and hubs.
 
 use pushkind_common::domain::auth::AuthenticatedUser;
-use pushkind_common::routes::check_role;
+use pushkind_common::routes::ensure_role;
 use pushkind_common::services::errors::{ServiceError, ServiceResult};
 use std::convert::TryInto;
 
@@ -14,21 +14,13 @@ use crate::repository::{
 };
 use crate::services::validate_form;
 
-/// Ensures the authenticated user has the `admin` role.
-fn ensure_admin(user: &AuthenticatedUser) -> ServiceResult<()> {
-    if !check_role(SERVICE_ACCESS_ROLE, &user.roles) {
-        return Err(ServiceError::Unauthorized);
-    }
-    Ok(())
-}
-
 /// Creates a new role when the current user is an admin.
 pub fn create_role(
     current_user: &AuthenticatedUser,
     form: &AddRoleForm,
     repo: &impl RoleWriter,
 ) -> ServiceResult<()> {
-    ensure_admin(current_user)?;
+    ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
     validate_form(form)?;
     let new_role: crate::domain::role::NewRole = form.clone().try_into()?;
     repo.create_role(&new_role)?;
@@ -41,7 +33,7 @@ pub fn user_modal_data(
     user_id: i32,
     repo: &(impl UserReader + RoleReader),
 ) -> ServiceResult<UserModalData> {
-    ensure_admin(current_user)?;
+    ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
     let user_id = UserId::new(user_id)?;
     let hub_id = HubId::new(current_user.hub_id)?;
     let user = repo.get_user_by_id(user_id, hub_id)?.map(|u| u.user);
@@ -55,7 +47,7 @@ pub fn delete_user_by_id(
     user_id: i32,
     repo: &(impl UserReader + UserWriter),
 ) -> ServiceResult<()> {
-    ensure_admin(current_user)?;
+    ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
 
     let current_user_id: i32 = current_user
         .sub
@@ -82,7 +74,7 @@ pub fn assign_roles_and_update_user(
     form: &UpdateUserForm,
     repo: &(impl UserWriter + UserReader),
 ) -> ServiceResult<()> {
-    ensure_admin(current_user)?;
+    ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
     validate_form(form)?;
     let user_id = UserId::new(form.id)?;
     let updates: crate::domain::user::UpdateUser = form.clone().try_into()?;
@@ -104,7 +96,7 @@ pub fn create_hub(
     form: &AddHubForm,
     repo: &impl HubWriter,
 ) -> ServiceResult<()> {
-    ensure_admin(current_user)?;
+    ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
     validate_form(form)?;
     let new_hub: crate::domain::hub::NewHub = form.clone().try_into()?;
     repo.create_hub(&new_hub)?;
@@ -117,7 +109,7 @@ pub fn delete_role_by_id(
     role_id: i32,
     repo: &impl RoleWriter,
 ) -> ServiceResult<()> {
-    ensure_admin(current_user)?;
+    ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
     if role_id == 1 {
         // Protect the base admin role from deletion.
         return Err(ServiceError::Unauthorized);
@@ -133,7 +125,7 @@ pub fn delete_hub_by_id(
     hub_id: i32,
     repo: &impl HubWriter,
 ) -> ServiceResult<()> {
-    ensure_admin(current_user)?;
+    ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
     if current_user.hub_id == hub_id {
         // Prevent deleting the hub currently associated with the user.
         return Err(ServiceError::Unauthorized);
@@ -149,7 +141,7 @@ pub fn create_menu(
     form: &AddMenuForm,
     repo: &impl MenuWriter,
 ) -> ServiceResult<()> {
-    ensure_admin(current_user)?;
+    ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
     validate_form(form)?;
     let hub_id = HubId::new(current_user.hub_id)?;
     let new_menu = form.to_new_menu(hub_id)?;
@@ -163,7 +155,7 @@ pub fn delete_menu_by_id(
     menu_id: i32,
     repo: &(impl MenuReader + MenuWriter),
 ) -> ServiceResult<()> {
-    ensure_admin(current_user)?;
+    ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
     let menu_id = MenuId::new(menu_id)?;
     let hub_id = HubId::new(current_user.hub_id)?;
     let menu = match repo.get_menu_by_id(menu_id, hub_id)? {
