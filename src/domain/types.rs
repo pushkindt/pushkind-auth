@@ -3,11 +3,12 @@
 //! These wrappers enforce basic invariants (e.g., positive identifiers,
 //! normalized/validated email) so that once a value reaches the domain layer it
 //! can be treated as trusted.
+use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use thiserror::Error;
-use validator::ValidateEmail;
+use validator::{ValidateEmail, ValidateUrl};
 
 /// Errors produced when attempting to construct a constrained value object.
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -18,6 +19,9 @@ pub enum TypeConstraintError {
     /// Provided email failed format validation.
     #[error("invalid email address")]
     InvalidEmail,
+    /// Provided url failed format validation.
+    #[error("invalid url address")]
+    InvalidUrl,
     /// Provided string contained no non-whitespace characters.
     #[error("value cannot be empty")]
     EmptyString,
@@ -179,35 +183,105 @@ impl From<NonEmptyString> for String {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-/// Dedicated wrapper for hub names ensuring they are non-empty and trimmed.
-pub struct HubName(String);
+macro_rules! non_empty_string_newtype {
+    ($name:ident, $doc:expr) => {
+        #[doc = $doc]
+        #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        pub struct $name(String);
 
-impl HubName {
-    /// Builds a hub name from user input after trimming.
+        impl $name {
+            /// Constructs a trimmed, non-empty value.
+            pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
+                let inner = NonEmptyString::new(value)?;
+                Ok(Self(inner.into_inner()))
+            }
+
+            /// Borrow the value as a string slice.
+            pub fn as_str(&self) -> &str {
+                &self.0
+            }
+
+            /// Consume the wrapper and return the owned string.
+            pub fn into_inner(self) -> String {
+                self.0
+            }
+        }
+
+        impl Deref for $name {
+            type Target = str;
+
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+
+        impl Display for $name {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl TryFrom<String> for $name {
+            type Error = TypeConstraintError;
+
+            fn try_from(value: String) -> Result<Self, Self::Error> {
+                Self::new(value)
+            }
+        }
+
+        impl TryFrom<&str> for $name {
+            type Error = TypeConstraintError;
+
+            fn try_from(value: &str) -> Result<Self, Self::Error> {
+                Self::new(value)
+            }
+        }
+
+        impl From<$name> for String {
+            fn from(value: $name) -> Self {
+                value.0
+            }
+        }
+    };
+}
+
+non_empty_string_newtype!(HubName, "Hub name wrapper enforcing non-empty values.");
+
+non_empty_string_newtype!(
+    RoleName,
+    "User role name wrapper enforcing non-empty values."
+);
+
+non_empty_string_newtype!(MenuName, "Menu name wrapper enforcing non-empty values.");
+
+non_empty_string_newtype!(UserName, "User name wrapper enforcing non-empty values.");
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// User password wrapper enforcing non-empty values.
+///
+/// Intentionally does not implement [`Display`] or [`Deref`] to reduce the risk
+/// of accidental logging/formatting or implicit string coercions.
+pub struct UserPassword(String);
+
+impl UserPassword {
+    /// Constructs a trimmed, non-empty password.
     pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
-        let name = NonEmptyString::new(value)?;
-        Ok(Self(name.into_inner()))
+        let inner = NonEmptyString::new(value)?;
+        Ok(Self(inner.into_inner()))
     }
 
-    /// Borrow the hub name as a `&str`.
+    /// Borrow the password as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
-    /// Extract the owned hub name.
+    /// Consume the wrapper and return the owned string.
     pub fn into_inner(self) -> String {
         self.0
     }
 }
 
-impl Display for HubName {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl TryFrom<String> for HubName {
+impl TryFrom<String> for UserPassword {
     type Error = TypeConstraintError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -215,7 +289,7 @@ impl TryFrom<String> for HubName {
     }
 }
 
-impl TryFrom<&str> for HubName {
+impl TryFrom<&str> for UserPassword {
     type Error = TypeConstraintError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -223,108 +297,8 @@ impl TryFrom<&str> for HubName {
     }
 }
 
-impl From<HubName> for String {
-    fn from(value: HubName) -> Self {
-        value.0
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-/// Non-empty role name wrapper.
-pub struct RoleName(String);
-
-impl RoleName {
-    /// Constructs a role name after trimming and empty-checking.
-    pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
-        let name = NonEmptyString::new(value)?;
-        Ok(Self(name.into_inner()))
-    }
-
-    /// Borrow the role name as a `&str`.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    /// Consume the wrapper returning the owned name.
-    pub fn into_inner(self) -> String {
-        self.0
-    }
-}
-
-impl Display for RoleName {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl TryFrom<String> for RoleName {
-    type Error = TypeConstraintError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::new(value)
-    }
-}
-
-impl TryFrom<&str> for RoleName {
-    type Error = TypeConstraintError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::new(value)
-    }
-}
-
-impl From<RoleName> for String {
-    fn from(value: RoleName) -> Self {
-        value.0
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-/// Non-empty, trimmed menu name.
-pub struct MenuName(String);
-
-impl MenuName {
-    /// Ensures a trimmed menu name is non-empty before wrapping.
-    pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
-        let name = NonEmptyString::new(value)?;
-        Ok(Self(name.into_inner()))
-    }
-
-    /// Borrow the menu name.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    /// Extract the owned menu name.
-    pub fn into_inner(self) -> String {
-        self.0
-    }
-}
-
-impl Display for MenuName {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl TryFrom<String> for MenuName {
-    type Error = TypeConstraintError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::new(value)
-    }
-}
-
-impl TryFrom<&str> for MenuName {
-    type Error = TypeConstraintError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::new(value)
-    }
-}
-
-impl From<MenuName> for String {
-    fn from(value: MenuName) -> Self {
+impl From<UserPassword> for String {
+    fn from(value: UserPassword) -> Self {
         value.0
     }
 }
@@ -337,7 +311,12 @@ impl MenuUrl {
     /// Ensures a trimmed menu URL is non-empty before wrapping.
     pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
         let url = NonEmptyString::new(value)?;
-        Ok(Self(url.into_inner()))
+
+        if !url.as_str().validate_url() {
+            Err(TypeConstraintError::InvalidUrl)
+        } else {
+            Ok(Self(url.into_inner()))
+        }
     }
 
     /// Borrow the menu URL.
@@ -375,56 +354,6 @@ impl TryFrom<&str> for MenuUrl {
 
 impl From<MenuUrl> for String {
     fn from(value: MenuUrl) -> Self {
-        value.0
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-/// Optional user name wrapper enforcing non-empty values.
-pub struct UserName(String);
-
-impl UserName {
-    /// Constructs a user name that is trimmed and non-empty.
-    pub fn new<S: Into<String>>(value: S) -> Result<Self, TypeConstraintError> {
-        let name = NonEmptyString::new(value)?;
-        Ok(Self(name.into_inner()))
-    }
-
-    /// Borrow the user name.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    /// Extract the owned user name.
-    pub fn into_inner(self) -> String {
-        self.0
-    }
-}
-
-impl Display for UserName {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl TryFrom<String> for UserName {
-    type Error = TypeConstraintError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::new(value)
-    }
-}
-
-impl TryFrom<&str> for UserName {
-    type Error = TypeConstraintError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::new(value)
-    }
-}
-
-impl From<UserName> for String {
-    fn from(value: UserName) -> Self {
         value.0
     }
 }

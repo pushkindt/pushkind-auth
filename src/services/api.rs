@@ -5,6 +5,7 @@ use pushkind_common::pagination::DEFAULT_ITEMS_PER_PAGE;
 use pushkind_common::services::errors::ServiceResult;
 
 use crate::domain::types::{HubId, UserId};
+use crate::dto::api::ApiV1UsersQueryParams;
 use crate::dto::api::UserDto;
 use crate::repository::{UserListQuery, UserReader};
 
@@ -31,24 +32,22 @@ pub fn get_user_by_optional_id(
 /// Lists users for a hub with optional role filter, search query,
 /// and pagination. Returns only the users (total is ignored upstream).
 pub fn list_users(
-    role: Option<String>,
-    query: Option<String>,
-    page: Option<usize>,
+    query: ApiV1UsersQueryParams,
     hub_id: i32,
     repo: &impl UserReader,
 ) -> ServiceResult<Vec<UserDto>> {
     let hub_id = HubId::new(hub_id)?;
     let mut list_query = UserListQuery::new(hub_id);
 
-    if let Some(role) = role {
+    if let Some(role) = &query.role {
         list_query = list_query.role(role);
     }
 
-    if let Some(page) = page {
+    if let Some(page) = query.page {
         list_query = list_query.paginate(page, DEFAULT_ITEMS_PER_PAGE);
     }
 
-    if let Some(query) = query {
+    if let Some(query) = &query.query {
         list_query = list_query.search(query);
     }
 
@@ -143,7 +142,12 @@ mod tests {
         let u2 = make_user(2, "user2@example.com", 10);
         repo.expect_list_users()
             .returning(move |_| Ok((2, vec![u1.clone(), u2.clone()])));
-        let out = list_users(None, None, None, 10, &repo).unwrap();
+        let params = ApiV1UsersQueryParams {
+            role: None,
+            query: None,
+            page: None,
+        };
+        let out = list_users(params, 10, &repo).unwrap();
         assert_eq!(out.len(), 2);
     }
 
@@ -153,7 +157,12 @@ mod tests {
         let u1 = make_user(1, "user1@example.com", 10);
         repo.expect_list_users()
             .returning(move |_| Ok((1, vec![u1.clone()])));
-        let out = list_users(None, Some("user1".into()), None, 10, &repo).unwrap();
+        let params = ApiV1UsersQueryParams {
+            role: None,
+            query: Some("user1".into()),
+            page: None,
+        };
+        let out = list_users(params, 10, &repo).unwrap();
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].email, "user1@example.com");
     }
@@ -164,7 +173,12 @@ mod tests {
         let u2 = make_user(2, "user2@example.com", 10);
         repo.expect_list_users()
             .returning(move |_| Ok((1, vec![u2.clone()])));
-        let out = list_users(Some("member".into()), None, Some(1), 10, &repo).unwrap();
+        let params = ApiV1UsersQueryParams {
+            role: Some("member".into()),
+            query: None,
+            page: Some(1),
+        };
+        let out = list_users(params, 10, &repo).unwrap();
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].email, "user2@example.com");
     }

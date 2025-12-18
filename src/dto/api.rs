@@ -3,6 +3,13 @@
 use pushkind_common::domain::auth::AuthenticatedUser;
 use serde::{Deserialize, Serialize};
 
+#[derive(Deserialize)]
+pub struct ApiV1UsersQueryParams {
+    pub role: Option<String>,
+    pub query: Option<String>,
+    pub page: Option<usize>,
+}
+
 /// DTO returned by API endpoints representing a user with roles and hub context.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct UserDto {

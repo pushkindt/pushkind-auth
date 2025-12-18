@@ -44,8 +44,9 @@ cargo fmt --all -- --check
   `src/models`, and conversions implemented via `From`/`Into`.
 - Domain structs should expose strongly typed fields (e.g., `UserEmail`,
   `HubId`, `MenuName`, `RoleName`, `UserName`) that encode validation
-  constraints. Construct these types at the boundaries (forms/services) so
-  domain data is always trusted and cannot represent invalid input.
+  constraints and mormalization. Construct these types at the boundaries
+  (forms/services) so domain data is always trusted and cannot represent invalid
+  input.
 - Define error enums with `thiserror` inside the crate that owns the failure and
   return `RepositoryResult<T>` / `ServiceResult<T>` from repository and service
   functions.
@@ -54,14 +55,8 @@ cargo fmt --all -- --check
   handlers thin.
 - Service functions should accept trait bounds (e.g., `UserReader + UserWriter`)
   so the `DieselRepository` and `mockall`-powered fakes remain interchangeable.
-- Domain structs must not perform validation or normalization (e.g., no
-  `to_lowercase`); assume inputs are already sanitized and transformed by forms
-  or services before reaching the domain layer.
 - Sanitize and validate user input early using `validator` helpers from the
   form layer.
-- Perform trimming, case normalisation, and other input clean-up before
-  constructing domain types; domain builders assume callers supply sanitised
-  values.
 - Prefer dependency injection through function parameters over global state.
 - For Diesel update models, avoid nested optionals; prefer single-layer `Option<T>`
   fields and rely on `#[diesel(treat_none_as_null = true)]` when nullable columns

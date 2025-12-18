@@ -5,9 +5,8 @@ use std::convert::TryInto;
 
 use crate::domain::types::{HubId, UserEmail, UserId};
 use crate::dto::main::IndexData;
-use crate::forms::main::SaveUserForm;
+use crate::forms::main::{SaveUserForm, SaveUserPayload};
 use crate::repository::{HubReader, MenuReader, RoleReader, UserListQuery, UserReader, UserWriter};
-use crate::services::validate_form;
 
 /// Gathers all information necessary to render the main index view for a hub.
 ///
@@ -48,13 +47,14 @@ pub fn get_index_data(
 pub fn update_current_user(
     user_id: i32,
     hub_id: i32,
-    form: &SaveUserForm,
+    form: SaveUserForm,
     repo: &impl UserWriter,
 ) -> ServiceResult<()> {
-    validate_form(form)?;
+    let payload: SaveUserPayload = form.try_into()?;
+
     let user_id = UserId::new(user_id)?;
     let hub_id = HubId::new(hub_id)?;
-    let updates: crate::domain::user::UpdateUser = form.clone().try_into()?;
+    let updates: crate::domain::user::UpdateUser = payload.into();
     repo.update_user(user_id, hub_id, &updates)?;
     Ok(())
 }
@@ -130,7 +130,7 @@ mod tests {
             name: "X".into(),
             password: None,
         };
-        let res = update_current_user(uwr.user.id.get(), hub.id.get(), &form, &repo);
+        let res = update_current_user(uwr.user.id.get(), hub.id.get(), form, &repo);
         assert!(res.is_ok());
     }
 
@@ -143,7 +143,7 @@ mod tests {
             name: "X".into(),
             password: None,
         };
-        let res = update_current_user(1, 1, &form, &repo);
+        let res = update_current_user(1, 1, form, &repo);
         assert!(matches!(
             res,
             Err(pushkind_common::services::errors::ServiceError::NotFound)
@@ -158,7 +158,7 @@ mod tests {
             password: None,
         };
 
-        let res = update_current_user(1, 1, &form, &repo);
+        let res = update_current_user(1, 1, form, &repo);
 
         assert!(matches!(
             res,

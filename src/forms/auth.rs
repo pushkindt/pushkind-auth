@@ -5,8 +5,9 @@
 use serde::Deserialize;
 use validator::Validate;
 
-use crate::domain::types::{HubId, TypeConstraintError, UserEmail};
+use crate::domain::types::{HubId, UserEmail, UserPassword};
 use crate::domain::user::NewUser as DomainNewUser;
+use crate::forms::FormError;
 
 #[derive(Deserialize, Validate, Clone)]
 /// Form data submitted when a user logs in.
@@ -17,6 +18,13 @@ pub struct LoginForm {
     pub password: String,
     #[validate(range(min = 1))]
     pub hub_id: i32,
+}
+
+// Payload after validation and conversion to domain types.
+pub struct LoginPayload {
+    pub email: UserEmail,
+    pub password: UserPassword,
+    pub hub_id: HubId,
 }
 
 #[derive(Deserialize, Validate, Clone)]
@@ -30,6 +38,13 @@ pub struct RegisterForm {
     pub hub_id: i32,
 }
 
+// Payload after validation and conversion to domain types.
+pub struct RegisterPayload {
+    pub email: UserEmail,
+    pub password: UserPassword,
+    pub hub_id: HubId,
+}
+
 #[derive(Deserialize, Validate, Clone)]
 /// Form data used to recover a forgotten password.
 pub struct RecoverForm {
@@ -39,50 +54,66 @@ pub struct RecoverForm {
     pub hub_id: i32,
 }
 
-impl RegisterForm {
-    pub fn into_domain(self) -> Result<DomainNewUser, TypeConstraintError> {
-        Ok(DomainNewUser::new(
-            UserEmail::new(self.email)?,
-            None,
-            HubId::new(self.hub_id)?,
-            self.password,
-        ))
+// Payload after validation and conversion to domain types.
+pub struct RecoverPayload {
+    pub email: UserEmail,
+    pub hub_id: HubId,
+}
+
+impl TryFrom<LoginForm> for LoginPayload {
+    type Error = FormError;
+
+    fn try_from(form: LoginForm) -> Result<Self, Self::Error> {
+        form.validate().map_err(FormError::Validation)?;
+        Ok(Self {
+            email: UserEmail::new(form.email).map_err(|_| FormError::InvalidEmail)?,
+            password: UserPassword::new(form.password).map_err(|_| FormError::InvalidPassword)?,
+            hub_id: HubId::new(form.hub_id).map_err(|_| FormError::InvalidHubId)?,
+        })
     }
 }
 
-impl TryFrom<RegisterForm> for DomainNewUser {
-    type Error = TypeConstraintError;
+impl TryFrom<RegisterForm> for RegisterPayload {
+    type Error = FormError;
 
     fn try_from(form: RegisterForm) -> Result<Self, Self::Error> {
-        form.into_domain()
+        form.validate().map_err(FormError::Validation)?;
+        Ok(Self {
+            email: UserEmail::new(form.email).map_err(|_| FormError::InvalidEmail)?,
+            password: UserPassword::new(form.password).map_err(|_| FormError::InvalidPassword)?,
+            hub_id: HubId::new(form.hub_id).map_err(|_| FormError::InvalidHubId)?,
+        })
     }
 }
 
-impl LoginForm {
-    pub fn email(&self) -> Result<UserEmail, TypeConstraintError> {
-        UserEmail::new(&self.email)
-    }
+impl TryFrom<RecoverForm> for RecoverPayload {
+    type Error = FormError;
 
-    pub fn hub_id(&self) -> Result<HubId, TypeConstraintError> {
-        HubId::new(self.hub_id)
+    fn try_from(form: RecoverForm) -> Result<Self, Self::Error> {
+        form.validate().map_err(FormError::Validation)?;
+        Ok(Self {
+            email: UserEmail::new(form.email).map_err(|_| FormError::InvalidEmail)?,
+            hub_id: HubId::new(form.hub_id).map_err(|_| FormError::InvalidHubId)?,
+        })
     }
 }
 
-impl RecoverForm {
-    pub fn email(&self) -> Result<UserEmail, TypeConstraintError> {
-        UserEmail::new(&self.email)
-    }
-
-    pub fn hub_id(&self) -> Result<HubId, TypeConstraintError> {
-        HubId::new(self.hub_id)
+impl From<RegisterPayload> for DomainNewUser {
+    fn from(payload: RegisterPayload) -> Self {
+        Self {
+            email: payload.email,
+            name: None,
+            hub_id: payload.hub_id,
+            password: payload.password,
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::domain::types::{HubId, UserEmail};
+    use crate::domain::types::{HubId, UserEmail, UserPassword};
     use crate::domain::user::NewUser as DomainNewUser;
-    use crate::forms::auth::RegisterForm;
+    use crate::forms::auth::{RegisterForm, RegisterPayload};
     use validator::Validate;
 
     #[test]
@@ -93,10 +124,12 @@ mod tests {
             hub_id: 7,
         };
 
-        let user: DomainNewUser = form.into_domain().expect("conversion failed");
+        let payload: RegisterPayload = form.try_into().expect("conversion failed");
+
+        let user: DomainNewUser = payload.into();
 
         assert_eq!(user.email, UserEmail::new("test@example.com").unwrap());
-        assert_eq!(user.password, "secret");
+        assert_eq!(user.password, UserPassword::new("secret").unwrap());
         assert_eq!(user.hub_id, HubId::new(7).unwrap());
         assert_eq!(user.name, None);
     }
@@ -109,7 +142,9 @@ mod tests {
             hub_id: 3,
         };
 
-        let user: DomainNewUser = form.into_domain().expect("conversion failed");
+        let payload: RegisterPayload = form.try_into().expect("conversion failed");
+
+        let user: DomainNewUser = payload.into();
 
         assert_eq!(user.email.as_str(), "test@example.com");
     }

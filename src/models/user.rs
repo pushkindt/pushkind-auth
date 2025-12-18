@@ -69,7 +69,7 @@ impl<'a> TryFrom<&'a DomainNewUser> for NewUser {
     type Error = bcrypt::BcryptError;
 
     fn try_from(nu: &'a DomainNewUser) -> Result<Self, Self::Error> {
-        let password_hash = hash(nu.password.clone(), DEFAULT_COST)?;
+        let password_hash = hash(nu.password.as_str(), DEFAULT_COST)?;
 
         Ok(NewUser {
             email: nu.email.as_str().to_string(),
@@ -84,7 +84,7 @@ impl TryFrom<DomainNewUser> for NewUser {
     type Error = bcrypt::BcryptError;
 
     fn try_from(nu: DomainNewUser) -> Result<Self, Self::Error> {
-        let password_hash = hash(nu.password, DEFAULT_COST)?;
+        let password_hash = hash(nu.password.as_str(), DEFAULT_COST)?;
 
         Ok(NewUser {
             email: nu.email.into_inner(),
@@ -97,7 +97,7 @@ impl TryFrom<DomainNewUser> for NewUser {
 
 #[cfg(test)]
 mod tests {
-    use crate::domain::types::{HubId, UserEmail, UserName};
+    use crate::domain::types::{HubId, UserEmail, UserName, UserPassword};
     use crate::domain::user::NewUser as DomainNewUser;
     use crate::models::user::NewUser;
     use bcrypt::verify;
@@ -108,7 +108,7 @@ mod tests {
             UserEmail::new("john@example.com").unwrap(),
             Some(UserName::new("John Doe").unwrap()),
             HubId::new(5).unwrap(),
-            "super_secret".to_string(),
+            UserPassword::new("super_secret").unwrap(),
         );
 
         let db_user = NewUser::try_from(domain).expect("conversion failed");

@@ -11,7 +11,7 @@ use pushkind_common::repository::errors::RepositoryResult;
 use crate::domain::hub::{Hub, NewHub};
 use crate::domain::menu::{Menu, NewMenu};
 use crate::domain::role::{NewRole, Role};
-use crate::domain::types::{HubId, MenuId, RoleId, UserEmail, UserId};
+use crate::domain::types::{HubId, MenuId, RoleId, UserEmail, UserId, UserPassword};
 use crate::domain::user::UserWithRoles;
 use crate::domain::user::{NewUser, UpdateUser, User};
 
@@ -92,12 +92,12 @@ pub trait UserReader {
     fn login(
         &self,
         email: &UserEmail,
-        password: &str,
+        password: &UserPassword,
         hub_id: HubId,
     ) -> RepositoryResult<Option<UserWithRoles>> {
         let user = self.get_user_by_email(email, hub_id)?;
         if let Some(ur) = user
-            && self.verify_password(password, &ur.user.password_hash)
+            && self.verify_password(password.as_str(), &ur.user.password_hash)
         {
             return Ok(Some(ur));
         }
@@ -115,8 +115,6 @@ pub trait UserWriter {
     /// in a single transaction. If any of the provided roles do not exist or a
     /// database constraint is triggered, the transaction must roll back so the
     /// user retains their prior role assignments.
-    fn assign_roles_to_user(&self, user_id: UserId, role_ids: &[RoleId])
-    -> RepositoryResult<usize>;
     fn update_user(
         &self,
         user_id: UserId,

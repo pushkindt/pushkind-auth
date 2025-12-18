@@ -8,21 +8,23 @@ use std::convert::TryInto;
 use crate::SERVICE_ACCESS_ROLE;
 use crate::domain::types::{HubId, MenuId, RoleId, UserId};
 use crate::dto::admin::UserModalData;
-use crate::forms::main::{AddHubForm, AddMenuForm, AddRoleForm, UpdateUserForm};
+use crate::forms::main::{
+    AddHubForm, AddHubPayload, AddMenuForm, AddMenuPayload, AddRoleForm, AddRolePayload,
+    UpdateUserForm, UpdateUserPayload,
+};
 use crate::repository::{
     HubWriter, MenuReader, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter,
 };
-use crate::services::validate_form;
 
 /// Creates a new role when the current user is an admin.
 pub fn create_role(
     current_user: &AuthenticatedUser,
-    form: &AddRoleForm,
+    form: AddRoleForm,
     repo: &impl RoleWriter,
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
-    validate_form(form)?;
-    let new_role: crate::domain::role::NewRole = form.clone().try_into()?;
+    let payload: AddRolePayload = form.try_into()?;
+    let new_role = payload.into();
     repo.create_role(&new_role)?;
     Ok(())
 }
@@ -71,21 +73,23 @@ pub fn delete_user_by_id(
 /// Assigns roles and updates a user if they belong to the current hub.
 pub fn assign_roles_and_update_user(
     current_user: &AuthenticatedUser,
-    form: &UpdateUserForm,
+    user_id: i32,
+    form: UpdateUserForm,
     repo: &(impl UserWriter + UserReader),
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
-    validate_form(form)?;
-    let user_id = UserId::new(form.id)?;
-    let updates: crate::domain::user::UpdateUser = form.clone().try_into()?;
-    let role_ids = updates.roles.clone().unwrap_or_default();
+    let payload: UpdateUserPayload = form.try_into()?;
+
+    let user_id = UserId::new(user_id)?;
+    let updates = payload.into();
+
     // Validate user exists in the hub
     let hub_id = HubId::new(current_user.hub_id)?;
     let user = match repo.get_user_by_id(user_id, hub_id)? {
         Some(u) => u.user,
         None => return Err(ServiceError::NotFound),
     };
-    repo.assign_roles_to_user(user_id, &role_ids)?;
+
     repo.update_user(user.id, user.hub_id, &updates)?;
     Ok(())
 }
@@ -93,12 +97,12 @@ pub fn assign_roles_and_update_user(
 /// Creates a new hub when invoked by an admin.
 pub fn create_hub(
     current_user: &AuthenticatedUser,
-    form: &AddHubForm,
+    form: AddHubForm,
     repo: &impl HubWriter,
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
-    validate_form(form)?;
-    let new_hub: crate::domain::hub::NewHub = form.clone().try_into()?;
+    let payload: AddHubPayload = form.try_into()?;
+    let new_hub = payload.into();
     repo.create_hub(&new_hub)?;
     Ok(())
 }
@@ -138,13 +142,13 @@ pub fn delete_hub_by_id(
 /// Creates a new menu entry for the given hub.
 pub fn create_menu(
     current_user: &AuthenticatedUser,
-    form: &AddMenuForm,
+    form: AddMenuForm,
     repo: &impl MenuWriter,
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
-    validate_form(form)?;
+    let payload: AddMenuPayload = form.try_into()?;
     let hub_id = HubId::new(current_user.hub_id)?;
-    let new_menu = form.to_new_menu(hub_id)?;
+    let new_menu = payload.into_new_menu(hub_id);
     repo.create_menu(&new_menu)?;
     Ok(())
 }
@@ -250,7 +254,7 @@ mod tests {
             })
         });
         let form = AddRoleForm { name: "new".into() };
-        assert!(create_role(&admin_user(), &form, &repo).is_ok());
+        assert!(create_role(&admin_user(), form, &repo).is_ok());
     }
 
     #[test]
@@ -258,7 +262,7 @@ mod tests {
         let repo = MockRepository::new();
         let form = AddRoleForm { name: "".into() };
 
-        let res = create_role(&admin_user(), &form, &repo);
+        let res = create_role(&admin_user(), form, &repo);
 
         assert!(matches!(res, Err(ServiceError::Form(_))));
     }
@@ -277,7 +281,7 @@ mod tests {
         });
         repo.expect_delete_hub().returning(|_| Ok(1));
         let form = AddHubForm { name: "hub".into() };
-        assert!(create_hub(&admin_user(), &form, &repo).is_ok());
+        assert!(create_hub(&admin_user(), form, &repo).is_ok());
         assert!(delete_hub_by_id(&admin_user(), 2, &repo).is_ok());
     }
 
@@ -289,7 +293,7 @@ mod tests {
             Ok(Some(Menu {
                 id: MenuId::new(id.get()).unwrap(),
                 name: crate::domain::types::MenuName::new("m").unwrap(),
-                url: crate::domain::types::MenuUrl::new("/").unwrap(),
+                url: crate::domain::types::MenuUrl::new("https://app.test.me/").unwrap(),
                 hub_id,
             }))
         });
@@ -304,9 +308,9 @@ mod tests {
         repo.expect_delete_menu().returning(|_| Ok(1));
         let form = AddMenuForm {
             name: "m".into(),
-            url: "/".into(),
+            url: "https://app.test.me/".into(),
         };
-        assert!(create_menu(&admin_user(), &form, &repo).is_ok());
+        assert!(create_menu(&admin_user(), form, &repo).is_ok());
         assert!(delete_menu_by_id(&admin_user(), 1, &repo).is_ok());
     }
 }

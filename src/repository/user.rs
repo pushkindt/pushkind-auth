@@ -13,7 +13,7 @@ use pushkind_common::repository::build_fts_match_query;
 use pushkind_common::repository::errors::{RepositoryError, RepositoryResult};
 
 use crate::domain::role::Role;
-use crate::domain::types::{HubId, RoleId, UserEmail, UserId};
+use crate::domain::types::{HubId, UserEmail, UserId};
 use crate::domain::user::{NewUser, UpdateUser, User, UserWithRoles};
 use crate::models::role::{NewUserRole as DbNewUserRole, Role as DbRole};
 use crate::models::user::{NewUser as NewDbUser, UpdateUser as DbUpdateUser, User as DbUser};
@@ -153,7 +153,7 @@ impl UserReader for DieselRepository {
 
             let roles = roles::table
                 .inner_join(user_roles::table)
-                .filter(user_roles::user_id.eq_any(user_ids.clone()))
+                .filter(user_roles::user_id.eq_any(user_ids))
                 .select((user_roles::user_id, roles::all_columns))
                 .load::<(i32, DbRole)>(conn)?
                 .into_iter()
@@ -233,7 +233,7 @@ impl UserWriter for DieselRepository {
         hub_id: HubId,
         updates: &UpdateUser,
     ) -> RepositoryResult<User> {
-        use crate::schema::users;
+        use crate::schema::{user_roles, users};
 
         let mut connection = self.conn()?;
 
@@ -246,8 +246,8 @@ impl UserWriter for DieselRepository {
                 .ok_or(RepositoryError::NotFound)?;
 
             let password_hash = match updates.password.as_ref() {
-                Some(password) if !password.is_empty() => {
-                    hash(password, DEFAULT_COST).map_err(|e| {
+                Some(password) if !password.as_str().is_empty() => {
+                    hash(password.as_str(), DEFAULT_COST).map_err(|e| {
                         RepositoryError::ValidationError(format!(
                             "Failed to update user password: {e}"
                         ))
@@ -268,6 +268,27 @@ impl UserWriter for DieselRepository {
                 .filter(users::id.eq(user_id.get()))
                 .set(&db_updates)
                 .get_result::<DbUser>(conn)?;
+
+            if let Some(role_ids) = &updates.roles {
+                // Remove existing mappings first; failures during insertion
+                // will roll back this deletion so the previous role set
+                // remains intact.
+                diesel::delete(user_roles::table)
+                    .filter(user_roles::user_id.eq(user_id.get()))
+                    .execute(conn)?;
+
+                let new_user_roles = role_ids
+                    .iter()
+                    .map(|role_id| DbNewUserRole {
+                        user_id: user_id.get(),
+                        role_id: role_id.get(),
+                    })
+                    .collect::<Vec<DbNewUserRole>>();
+
+                diesel::insert_into(user_roles::table)
+                    .values(&new_user_roles)
+                    .execute(conn)?;
+            }
 
             let user = user.try_into()?;
             Ok(user)
@@ -297,39 +318,6 @@ impl UserWriter for DieselRepository {
             return Err(RepositoryError::NotFound);
         }
         Ok(result)
-    }
-
-    fn assign_roles_to_user(
-        &self,
-        user_id: UserId,
-        role_ids: &[RoleId],
-    ) -> RepositoryResult<usize> {
-        use crate::schema::user_roles;
-
-        let mut connection = self.conn()?;
-
-        connection
-            .transaction::<_, diesel::result::Error, _>(|conn| {
-                // Remove existing mappings first; failures during insertion
-                // will roll back this deletion so the previous role set
-                // remains intact.
-                diesel::delete(user_roles::table)
-                    .filter(user_roles::user_id.eq(user_id.get()))
-                    .execute(conn)?;
-
-                let new_user_roles = role_ids
-                    .iter()
-                    .map(|role_id| DbNewUserRole {
-                        user_id: user_id.get(),
-                        role_id: role_id.get(),
-                    })
-                    .collect::<Vec<DbNewUserRole>>();
-
-                diesel::insert_into(user_roles::table)
-                    .values(&new_user_roles)
-                    .execute(conn)
-            })
-            .map_err(RepositoryError::from)
     }
 }
 

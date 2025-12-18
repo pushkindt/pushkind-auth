@@ -21,7 +21,7 @@ pub async fn add_role(
     repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<AddRoleForm>,
 ) -> impl Responder {
-    match admin_service::create_role(&current_user, &form, repo.get_ref()) {
+    match admin_service::create_role(&current_user, form, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Роль добавлена.").send();
         }
@@ -104,8 +104,9 @@ pub async fn delete_user(
 }
 
 /// Updates user data and role assignments from the admin form.
-#[post("/user/update")]
+#[post("/user/update/{user_id}")]
 pub async fn update_user(
+    user_id: web::Path<i32>,
     current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
     form: web::Bytes,
@@ -118,8 +119,14 @@ pub async fn update_user(
             return redirect("/");
         }
     };
+    let target_id = user_id.into_inner();
 
-    match admin_service::assign_roles_and_update_user(&current_user, &form, repo.get_ref()) {
+    match admin_service::assign_roles_and_update_user(
+        &current_user,
+        target_id,
+        form,
+        repo.get_ref(),
+    ) {
         Ok(_) => {
             FlashMessage::success("Пользователь изменён.").send();
         }
@@ -148,7 +155,7 @@ pub async fn add_hub(
     repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<AddHubForm>,
 ) -> impl Responder {
-    match admin_service::create_hub(&current_user, &form, repo.get_ref()) {
+    match admin_service::create_hub(&current_user, form, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Хаб добавлен.").send();
         }
@@ -228,7 +235,7 @@ pub async fn add_menu(
     repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<AddMenuForm>,
 ) -> impl Responder {
-    match admin_service::create_menu(&current_user, &form, repo.get_ref()) {
+    match admin_service::create_menu(&current_user, form, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Меню добавлено.").send();
         }
