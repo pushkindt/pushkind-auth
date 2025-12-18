@@ -75,23 +75,23 @@ pub async fn login(
         &server_config.domain,
     );
 
-    let jwt =
-        match auth_service::login_and_issue_token(&form, repo.get_ref(), &common_config.secret) {
-            Ok(jwt) => jwt,
-            Err(ServiceError::Unauthorized) => {
-                FlashMessage::error("Неверный логин или пароль.").send();
-                return redirect(&failure_redirect_url);
-            }
-            Err(ServiceError::Form(e)) => {
-                log::error!("Invalid login data: {e}");
-                FlashMessage::error("Ошибка валидации формы").send();
-                return redirect(&failure_redirect_url);
-            }
-            Err(e) => {
-                log::error!("Login error: {e}");
-                return HttpResponse::InternalServerError().finish();
-            }
-        };
+    let jwt = match auth_service::login_and_issue_token(form, repo.get_ref(), &common_config.secret)
+    {
+        Ok(jwt) => jwt,
+        Err(ServiceError::Unauthorized) => {
+            FlashMessage::error("Неверный логин или пароль.").send();
+            return redirect(&failure_redirect_url);
+        }
+        Err(ServiceError::Form(e)) => {
+            log::error!("Invalid login data: {e}");
+            FlashMessage::error("Ошибка валидации формы").send();
+            return redirect(&failure_redirect_url);
+        }
+        Err(e) => {
+            log::error!("Login error: {e}");
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
 
     match Identity::login(&request.extensions(), jwt.token) {
         Ok(_) => redirect(&success_redirect_url),
@@ -108,7 +108,7 @@ pub async fn register(
     repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<RegisterForm>,
 ) -> impl Responder {
-    match auth_service::register_user(&form, repo.get_ref()) {
+    match auth_service::register_user(form, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Пользователь может войти.".to_string()).send();
             redirect("/auth/signin")
@@ -219,7 +219,7 @@ pub async fn recover_password(
         zmq_sender.get_ref().as_ref(),
         repo.get_ref(),
         &common_config.secret,
-        &form,
+        form,
         &base_url,
     )
     .await

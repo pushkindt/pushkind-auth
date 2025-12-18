@@ -5,6 +5,7 @@ use log::error;
 use pushkind_common::domain::auth::AuthenticatedUser;
 use serde::Deserialize;
 
+use crate::dto::api::ApiV1UsersQueryParams;
 use crate::repository::DieselRepository;
 use crate::services::api as api_service;
 
@@ -30,13 +31,6 @@ pub async fn api_v1_id(
     }
 }
 
-#[derive(Deserialize)]
-struct ApiV1UsersQueryParams {
-    role: Option<String>,
-    query: Option<String>,
-    page: Option<usize>,
-}
-
 /// Lists users for the current hub with optional filters via `GET /v1/users`.
 #[get("/v1/users")]
 pub async fn api_v1_users(
@@ -44,13 +38,7 @@ pub async fn api_v1_users(
     user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
-    let users = api_service::list_users(
-        params.role.clone(),
-        params.query.clone(),
-        params.page,
-        user.hub_id,
-        repo.get_ref(),
-    );
+    let users = api_service::list_users(params.into_inner(), user.hub_id, repo.get_ref());
 
     match users {
         Ok(users) => HttpResponse::Ok().json(users),

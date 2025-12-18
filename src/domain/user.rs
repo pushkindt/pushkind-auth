@@ -5,7 +5,7 @@ use pushkind_common::domain::auth::AuthenticatedUser;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::role::Role;
-use crate::domain::types::{HubId, RoleId, UserEmail, UserId, UserName};
+use crate::domain::types::{HubId, RoleId, UserEmail, UserId, UserName, UserPassword};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 /// Representation of a user in the system.
@@ -37,13 +37,18 @@ pub struct NewUser {
     pub email: UserEmail,
     pub name: Option<UserName>,
     pub hub_id: HubId,
-    pub password: String,
+    pub password: UserPassword,
 }
 
 impl NewUser {
     /// Creates a new [`NewUser`] from already validated and normalized input.
     #[must_use]
-    pub fn new(email: UserEmail, name: Option<UserName>, hub_id: HubId, password: String) -> Self {
+    pub fn new(
+        email: UserEmail,
+        name: Option<UserName>,
+        hub_id: HubId,
+        password: UserPassword,
+    ) -> Self {
         Self {
             email,
             name,
@@ -57,7 +62,7 @@ impl NewUser {
 /// Optional fields that can be updated for a user.
 pub struct UpdateUser {
     pub name: UserName,
-    pub password: Option<String>,
+    pub password: Option<UserPassword>,
     pub roles: Option<Vec<RoleId>>,
 }
 

@@ -6,7 +6,7 @@ use pushkind_common::repository::errors::RepositoryResult;
 use crate::domain::hub::{Hub, NewHub};
 use crate::domain::menu::{Menu, NewMenu};
 use crate::domain::role::{NewRole, Role};
-use crate::domain::types::{HubId, MenuId, RoleId, UserEmail, UserId};
+use crate::domain::types::{HubId, MenuId, RoleId, UserEmail, UserId, UserPassword};
 use crate::domain::user::{NewUser, UpdateUser, User, UserWithRoles};
 use crate::repository::{
     HubReader, HubWriter, MenuReader, MenuWriter, RoleReader, RoleWriter, UserListQuery,
@@ -20,14 +20,13 @@ mock! {
         fn get_user_by_id(&self, id: UserId, hub_id: HubId) -> RepositoryResult<Option<UserWithRoles>>;
         fn get_user_by_email(&self, email: &UserEmail, hub_id: HubId) -> RepositoryResult<Option<UserWithRoles>>;
         fn list_users(&self, query: UserListQuery) -> RepositoryResult<(usize, Vec<UserWithRoles>)>;
-        fn login(&self, email: &UserEmail, password: &str, hub_id: HubId) -> RepositoryResult<Option<UserWithRoles>>;
+        fn login(&self, email: &UserEmail, password: &UserPassword, hub_id: HubId) -> RepositoryResult<Option<UserWithRoles>>;
         fn get_roles(&self, user_id: UserId) -> RepositoryResult<Vec<Role>>;
         fn verify_password(&self, password: &str, stored_hash: &str) -> bool;
     }
 
     impl UserWriter for Repository {
         fn create_user(&self, new_user: &NewUser) -> RepositoryResult<User>;
-        fn assign_roles_to_user(&self, user_id: UserId, role_ids: &[RoleId]) -> RepositoryResult<usize>;
         fn update_user(&self, user_id: UserId, hub_id: HubId, updates: &UpdateUser) -> RepositoryResult<User>;
         fn delete_user(&self, user_id: UserId) -> RepositoryResult<usize>;
     }

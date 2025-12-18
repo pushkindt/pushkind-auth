@@ -11,32 +11,18 @@ use pushkind_emailer::models::zmq::ZMQSendEmailMessage;
 
 use crate::domain::types::{HubId, UserEmail};
 use crate::dto::auth::SessionTokenDto;
-use crate::forms::auth::{LoginForm, RecoverForm, RegisterForm};
+use crate::forms::auth::{
+    LoginForm, LoginPayload, RecoverForm, RecoverPayload, RegisterForm, RegisterPayload,
+};
 use crate::repository::{HubReader, UserReader, UserWriter};
-use crate::services::validate_form;
-
-/// Attempts to authenticate a user for the given hub.
-///
-/// On success returns an [`AuthenticatedUser`] containing the user's claims.
-/// Returns [`ServiceError::Unauthorized`] when credentials are invalid.
-pub fn login_user(
-    email: &UserEmail,
-    password: &str,
-    hub_id: HubId,
-    repo: &impl UserReader,
-) -> ServiceResult<AuthenticatedUser> {
-    let user_roles = repo
-        .login(email, password, hub_id)?
-        .ok_or(ServiceError::Unauthorized)?;
-    Ok(AuthenticatedUser::from(user_roles))
-}
 
 /// Persists a new user using the provided repository.
 ///
 /// Returns [`ServiceError`] if the underlying repository fails to create the user.
-pub fn register_user(form: &RegisterForm, repo: &impl UserWriter) -> ServiceResult<()> {
-    validate_form(form)?;
-    let new_user = form.clone().into_domain()?;
+pub fn register_user(form: RegisterForm, repo: &impl UserWriter) -> ServiceResult<()> {
+    let payload: RegisterPayload = form.try_into()?;
+
+    let new_user = payload.into();
     repo.create_user(&new_user)?;
     Ok(())
 }
@@ -77,14 +63,16 @@ pub fn reissue_session_from_token(
 
 /// Performs login and issues a session JWT on success.
 pub fn login_and_issue_token(
-    form: &LoginForm,
+    form: LoginForm,
     repo: &impl UserReader,
     secret: &str,
 ) -> ServiceResult<SessionTokenDto> {
-    validate_form(form)?;
-    let email = form.email()?;
-    let hub_id = form.hub_id()?;
-    let claims = login_user(&email, &form.password, hub_id, repo)?;
+    let payload: LoginPayload = form.try_into()?;
+
+    let user_roles = repo
+        .login(&payload.email, &payload.password, payload.hub_id)?
+        .ok_or(ServiceError::Unauthorized)?;
+    let claims = AuthenticatedUser::from(user_roles);
     issue_jwt(&claims, secret)
 }
 
@@ -95,16 +83,16 @@ pub async fn send_recovery_email(
     zmq_sender: &ZmqSender,
     repo: &impl UserReader,
     secret: &str,
-    form: &RecoverForm,
+    form: RecoverForm,
     base_url: &str,
 ) -> ServiceResult<()> {
-    validate_form(form)?;
-    let hub_id = form.hub_id()?;
-    let email = form.email()?;
-    let mut user: AuthenticatedUser = match repo.get_user_by_email(&email, hub_id)? {
-        Some(user) => user.into(),
-        None => return Err(ServiceError::NotFound),
-    };
+    let payload: RecoverPayload = RecoverForm::try_into(form)?;
+
+    let mut user: AuthenticatedUser =
+        match repo.get_user_by_email(&payload.email, payload.hub_id)? {
+            Some(user) => user.into(),
+            None => return Err(ServiceError::NotFound),
+        };
 
     // 1-day token for recovery
     user.set_expiration(1);
@@ -119,9 +107,9 @@ pub async fn send_recovery_email(
         attachment: None,
         attachment_name: None,
         attachment_mime: None,
-        hub_id: EmailHubId::new(hub_id.get())?,
+        hub_id: EmailHubId::new(payload.hub_id.get())?,
         recipients: vec![NewEmailRecipient {
-            address: RecipientEmail::new(email.as_str())?,
+            address: RecipientEmail::new(payload.email.as_str())?,
             name: RecipientName::new(&user.name)?,
             fields: std::iter::once(("recovery_url".to_string(), recovery_url)).collect(),
         }],
@@ -139,12 +127,17 @@ pub async fn send_recovery_email(
 mod tests {
     use super::*;
     use crate::domain::hub::Hub;
-    use crate::domain::types::{HubId, HubName, UserEmail, UserId};
+    use crate::domain::types::{HubId, HubName, UserEmail, UserId, UserName};
     use crate::domain::user::{User, UserWithRoles};
     use crate::forms::auth::{LoginForm, RegisterForm};
     use crate::repository::mock::MockRepository;
+    use bcrypt::{DEFAULT_COST, hash};
     use chrono::Utc;
     use pushkind_common::repository::errors::RepositoryError;
+
+    fn make_secret() -> String {
+        "my_secret_key".to_string()
+    }
 
     fn make_user(id: i32, email: &str, hub_id: i32) -> UserWithRoles {
         let now = Utc::now().naive_utc();
@@ -152,9 +145,9 @@ mod tests {
             user: User {
                 id: UserId::new(id).unwrap(),
                 email: UserEmail::new(email).unwrap(),
-                name: Some(crate::domain::types::UserName::new("User").unwrap()),
+                name: Some(UserName::new("User").unwrap()),
                 hub_id: HubId::new(hub_id).unwrap(),
-                password_hash: "hash".into(),
+                password_hash: hash("pass", DEFAULT_COST).unwrap(),
                 created_at: now,
                 updated_at: now,
                 roles: vec![],
@@ -169,17 +162,33 @@ mod tests {
         let user = make_user(9, "a@b", 5);
         repo.expect_login()
             .returning(move |_, _, _| Ok(Some(user.clone())));
-        let email = UserEmail::new("a@b").unwrap();
-        let claims = login_user(&email, "pass", HubId::new(5).unwrap(), &repo).unwrap();
-        assert_eq!(claims.email, "a@b");
+
+        let form = LoginForm {
+            email: "a@b".into(),
+            password: "pass".into(),
+            hub_id: 5,
+        };
+
+        let secret = make_secret();
+
+        let claims = login_and_issue_token(form, &repo, &secret).unwrap();
+        assert!(!claims.token.is_empty());
     }
 
     #[test]
     fn test_login_user_invalid_password() {
         let mut repo = MockRepository::new();
         repo.expect_login().returning(|_, _, _| Ok(None));
-        let email = UserEmail::new("a@b").unwrap();
-        let res = login_user(&email, "wrong", HubId::new(2).unwrap(), &repo);
+
+        let form = LoginForm {
+            email: "a@b".into(),
+            password: "wrong".into(),
+            hub_id: 5,
+        };
+
+        let secret = make_secret();
+
+        let res = login_and_issue_token(form, &repo, &secret);
         assert!(matches!(res, Err(ServiceError::Unauthorized)));
     }
 
@@ -187,8 +196,16 @@ mod tests {
     fn test_login_user_unknown_user() {
         let mut repo = MockRepository::new();
         repo.expect_login().returning(|_, _, _| Ok(None));
-        let email = UserEmail::new("missing@ex").unwrap();
-        let res = login_user(&email, "pass", HubId::new(1).unwrap(), &repo);
+
+        let form = LoginForm {
+            email: "missing@ex".into(),
+            password: "pass".into(),
+            hub_id: 1,
+        };
+
+        let secret = make_secret();
+
+        let res = login_and_issue_token(form, &repo, &secret);
         assert!(matches!(res, Err(ServiceError::Unauthorized)));
     }
 
@@ -213,7 +230,7 @@ mod tests {
             password: "p".into(),
             hub_id: 1,
         };
-        let res = register_user(&form, &repo);
+        let res = register_user(form, &repo);
         assert!(res.is_ok());
     }
 
@@ -227,7 +244,7 @@ mod tests {
             password: "p".into(),
             hub_id: 1,
         };
-        let res = register_user(&form, &repo);
+        let res = register_user(form, &repo);
         assert!(res.is_err());
     }
 
@@ -240,7 +257,7 @@ mod tests {
             hub_id: 0,
         };
 
-        let res = register_user(&form, &repo);
+        let res = register_user(form, &repo);
 
         assert!(matches!(res, Err(ServiceError::Form(_))));
     }
@@ -312,7 +329,7 @@ mod tests {
             hub_id: 0,
         };
 
-        let res = login_and_issue_token(&form, &repo, "secret");
+        let res = login_and_issue_token(form, &repo, "secret");
 
         assert!(matches!(res, Err(ServiceError::Form(_))));
     }

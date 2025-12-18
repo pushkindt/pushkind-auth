@@ -64,7 +64,7 @@ pub async fn save_user(
         }
     };
 
-    match main_service::update_current_user(user_id, current_user.hub_id, &form, repo.get_ref()) {
+    match main_service::update_current_user(user_id, current_user.hub_id, form, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Параметры изменены.".to_string()).send();
         }
