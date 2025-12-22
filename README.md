@@ -1,64 +1,9 @@
 # pushkind-auth
 
-`pushkind-auth` is a single sign-on (SSO) authentication service that powers
-the Pushkind ecosystem. It provides session and token based authentication, user management and administrative endpoints for other Pushkind services. The project
-is implemented in Rust on top of Actix Web, Diesel, and Tera and integrates
-tightly with the shared `pushkind-common` crate for authentication,
-configuration, and reusable UI helpers.
+Implementation must conform to SPEC.md
 
-## Features
-
-- **Hub-aware SSO** – Password and token login flows issue signed JWT sessions through Actix Identity so every Pushkind service can trust the same authenticated user.
-- **Self-service onboarding** – Validated registration and profile forms let members join a hub, update their display name, and rotate credentials without operator help.
-- **Role-based administration** – Administrators with `SERVICE_ACCESS_ROLE` can create hubs, manage roles, and assign permissions to users via guarded endpoints with flash feedback.
-- **Configurable navigation menus** – Hub-specific menu links can be added or removed to surface curated destinations in the shared Tera layout.
-- **Password recovery links** – ZeroMQ-backed email delivery sends short-lived recovery tokens that drop users back into the login flow safely.
-- **JSON user directory** – `/api/v1` endpoints expose the hub's user list with pagination, search, and role filters for downstream integrations.
-
-## Architecture at a Glance
-
-The codebase follows a clean, layered structure so that business logic can be
-exercised and tested without going through the web framework:
-
-- **Domain (`src/domain`)** – Type-safe models for hubs, menus, roles, and users.
-  Domain types never validate or normalize; they assume inputs are already
-  cleaned and transformed by forms/services. Domain structs use strongly typed
-  fields (e.g., `UserEmail`, `HubId`, `MenuName`, `RoleName`, `UserName`) so the
-  type system enforces the invariants of each value.
-- **Models (`src/models`)** – Diesel-specific database models that mirror the
-  schema and implement conversions to domain types.
-- **Repository (`src/repository`)** – Traits that describe the persistence
-  contract and a Diesel-backed implementation (`DieselRepository`) that speaks to
-  a SQLite database. Each module translates between Diesel models and domain
-  types and exposes strongly typed query builders.
-- **Services (`src/services`)** – Application use-cases that orchestrate domain
-  logic, repository traits, and Pushkind authentication helpers. Services return
-  `ServiceResult<T>` and map infrastructure errors into well-defined service
-  errors.
-- **DTOs (`src/dto`)** – Data transfer objects that wrap domain types with
-  serialization-friendly shapes tailored to API responses and template contexts.
-- **Forms (`src/forms`)** – `serde`/`validator` powered structs that handle
-  request payload validation and transformation into domain types.
-- **Routes (`src/routes`)** – Actix Web handlers that wire HTTP requests into the
-  service layer and render Tera templates or redirect with flash messages.
-- **Templates (`templates/`)** – Server-rendered UI built with Tera and
-  Bootstrap 5.
-
-Because the repository traits live in `src/repository/mod.rs`, service functions
-accept generic parameters that implement those traits. This makes unit tests easy
-by swapping in the `mockall`-based fakes from `src/repository/mock.rs`.
-
-## Technology Stack
-
-- Rust 2024 edition
-- [Actix Web](https://actix.rs/) with identity, session, and flash message
-  middleware
-- [Diesel](https://diesel.rs/) ORM with SQLite and connection pooling via r2d2
-- [Tera](https://tera.netlify.app/) templates styled with Bootstrap 5.3
-- [`pushkind-common`](https://github.com/pushkindt/pushkind-common) shared crate
-  for authentication guards, configuration, database helpers, and reusable
-  patterns
-- Supporting crates: `chrono`, `validator`, `serde`, and `thiserror`
+`pushkind-auth` is the Pushkind single sign-on (SSO) service. See `SPEC.md` for
+architecture, routes, and operational details.
 
 ## Getting Started
 
@@ -67,32 +12,6 @@ by swapping in the `mockall`-based fakes from `src/repository/mock.rs`.
 - Rust toolchain (install via [rustup](https://www.rust-lang.org/tools/install))
 - `diesel-cli` with SQLite support (`cargo install diesel_cli --no-default-features --features sqlite`)
 - SQLite 3 installed on your system
-
-### Configuration
-
-Settings are layered via the [`config`](https://crates.io/crates/config) crate in the following order (later entries override earlier ones):
-
-1. `config/default.yaml` (checked in)
-2. `config/{APP_ENV}.yaml` where `APP_ENV` defaults to `local`
-3. Environment variables prefixed with `APP_` (loaded automatically from a `.env` file via `dotenvy`)
-
-Key settings you may want to override:
-
-| Environment variable | Description | Default |
-| --- | --- | --- |
-| `APP_SECRET` | 64-byte secret used to sign cookies and flash messages | _required_ |
-| `APP_DATABASE_URL` | Path to the SQLite database file | `app.db` |
-| `APP_ADDRESS` | Interface to bind | `127.0.0.1` |
-| `APP_PORT` | HTTP port | `8081` when `APP_ENV=local` |
-| `APP_DOMAIN` | Cookie domain (without protocol) | `test.me` when `APP_ENV=local` |
-| `APP_TEMPLATES_DIR` | Glob pattern for templates consumed by Tera | `templates/**/*` |
-| `APP_ZMQ_EMAILER_PUB` | ZeroMQ PUB endpoint for outgoing email events | `tcp://127.0.0.1:5557` |
-
-Switch to the production profile with `APP_ENV=prod` or provide your own
-`config/{env}.yaml`. Environment variables always win over YAML values, so a
-local `.env` file containing `APP_SECRET=<64-byte key>` (generate with
-`openssl rand -base64 64`) and any overrides will take effect without changing
-the checked-in config files.
 
 ### Database
 
@@ -119,44 +38,3 @@ The server listens on `http://127.0.0.1:8081` by default (from
 assets from `./assets` in addition to the Tera-powered HTML pages. Authentication
 and authorization are enforced via the Pushkind auth service and the
 `SERVICE_ACCESS_ROLE` constant.
-
-## Quality Gates
-
-The project treats formatting, linting, and tests as required gates before
-opening a pull request. Use the following commands locally:
-
-```bash
-cargo fmt --all -- --check
-cargo clippy --all-features --tests -- -Dwarnings
-cargo test --all-features --verbose
-cargo build --all-features --verbose
-```
-
-Alternatively, the `make check` target will format the codebase, run clippy, and
-execute the test suite in one step.
-
-## Testing
-
-Unit tests exercise the service and form layers directly, while integration
-tests live under `tests/`. Repository tests rely on Diesel's query builders and
-should avoid raw SQL strings whenever possible. Use the mock repository module to
-isolate services from the database when writing new tests.
-
-## Project Principles
-
-- **Domain-driven**: keep business rules in the domain and service layers and
-  translate to/from external representations at the boundaries.
-- **Boundary sanitation**: perform validation and normalization (like email
-  lowercasing) in forms/services so domain structs stay pure data.
-- **Explicit errors**: use `thiserror` to define granular error types and convert
-  them into `ServiceError`/`RepositoryError` variants instead of relying on
-  `anyhow`.
-- **No panics in production paths**: avoid `unwrap`/`expect` in request handlers,
-  services, and repositories—propagate errors instead.
-- **Security aware**: validate inputs with `validator` and always enforce role
-  checks with `pushkind_common::routes::ensure_role`.
-- **Testable**: accept traits rather than concrete types in services and prefer
-  dependency injection so the mock repositories can be used in tests.
-
-Following these guidelines will help new functionality slot seamlessly into the
-existing architecture and keep the service reliable in production.
