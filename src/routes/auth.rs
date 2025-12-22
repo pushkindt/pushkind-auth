@@ -30,7 +30,7 @@ struct LoginTokenParams {
     token: String,
 }
 
-/// Reissues a session from a one-time token via `GET /login`.
+/// Reissues a session from a short-lived token via `GET /login`.
 #[get("/login")]
 pub async fn login_token(
     request: HttpRequest,
