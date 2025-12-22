@@ -48,10 +48,9 @@ impl UserReader for DieselRepository {
                 .map(TryInto::try_into)
                 .collect::<Result<Vec<Role>, _>>()?;
 
-            let mut user: User = user.try_into()?;
-            user.roles = roles.iter().map(|role| role.id).collect();
+            let user: User = user.try_into()?;
 
-            Ok(Some(UserWithRoles { user, roles }))
+            Ok(Some(UserWithRoles::new(user, roles)))
         })
     }
 
@@ -86,10 +85,9 @@ impl UserReader for DieselRepository {
                 .map(TryInto::try_into)
                 .collect::<Result<Vec<Role>, _>>()?;
 
-            let mut user: User = user.try_into()?;
-            user.roles = roles.iter().map(|role| role.id).collect();
+            let user: User = user.try_into()?;
 
-            Ok(Some(UserWithRoles { user, roles }))
+            Ok(Some(UserWithRoles::new(user, roles)))
         })
     }
 
@@ -171,13 +169,9 @@ impl UserReader for DieselRepository {
                         .filter(|(user_id, _)| *user_id == user.id)
                         .map(|(_, role)| role.clone())
                         .collect();
-                    let mut user: User = user.try_into()?;
-                    user.roles = user_roles.iter().map(|role| role.id).collect();
+                    let user: User = user.try_into()?;
 
-                    Ok(UserWithRoles {
-                        user,
-                        roles: user_roles,
-                    })
+                    Ok(UserWithRoles::new(user, user_roles))
                 })
                 .collect::<RepositoryResult<Vec<_>>>()?;
 

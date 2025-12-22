@@ -21,9 +21,7 @@ fn test_hub_repository_crud() {
     let repo = DieselRepository::new(test_db.pool());
 
     // Create
-    let new_hub = NewHub {
-        name: HubName::new("TestHub").unwrap(),
-    };
+    let new_hub = NewHub::new(HubName::new("TestHub").unwrap());
     let hub = repo.create_hub(&new_hub).unwrap();
     assert_eq!(hub.name, HubName::new("TestHub").unwrap());
 
@@ -41,11 +39,11 @@ fn test_hub_repository_crud() {
 
     // create a menu for the hub and ensure it's deleted along with the hub
     let menu_repo = DieselRepository::new(test_db.pool());
-    let new_menu = NewMenu {
-        name: MenuName::new("TestMenu").unwrap(),
-        url: MenuUrl::new("https://app.test.me/").unwrap(),
-        hub_id: hub.id,
-    };
+    let new_menu = NewMenu::new(
+        MenuName::new("TestMenu").unwrap(),
+        MenuUrl::new("https://app.test.me/").unwrap(),
+        hub.id,
+    );
     menu_repo.create_menu(&new_menu).unwrap();
     assert_eq!(menu_repo.list_menu(hub.id).unwrap().len(), 1);
 
@@ -61,16 +59,12 @@ fn test_user_repository_crud() {
     let hub_repo = DieselRepository::new(test_db.pool());
 
     // Create Hub
-    let new_hub = NewHub {
-        name: HubName::new("TestHub").unwrap(),
-    };
+    let new_hub = NewHub::new(HubName::new("TestHub").unwrap());
     let hub = hub_repo.create_hub(&new_hub).unwrap();
 
     let role_repo = DieselRepository::new(test_db.pool());
 
-    let new_role = NewRole {
-        name: RoleName::new("TestRole").unwrap(),
-    };
+    let new_role = NewRole::new(RoleName::new("TestRole").unwrap());
 
     let role = role_repo.create_role(&new_role).unwrap();
 
@@ -115,11 +109,11 @@ fn test_user_repository_crud() {
         .update_user(
             user.id,
             hub.id,
-            &UpdateUser {
-                name: UserName::new("new name").unwrap(),
-                password: Some(UserPassword::new("new password").unwrap()),
-                roles: Some(vec![role.id]),
-            },
+            &UpdateUser::new(
+                UserName::new("new name").unwrap(),
+                Some(UserPassword::new("new password").unwrap()),
+                Some(vec![role.id]),
+            ),
         )
         .unwrap();
     assert_eq!(user.name, Some(UserName::new("new name").unwrap()));
@@ -140,9 +134,7 @@ fn test_role_repository_crud() {
     let repo = DieselRepository::new(test_db.pool());
 
     // Create
-    let new_role = NewRole {
-        name: RoleName::new("TestRole").unwrap(),
-    };
+    let new_role = NewRole::new(RoleName::new("TestRole").unwrap());
     let role = repo.create_role(&new_role).unwrap();
     assert_eq!(role.name, RoleName::new("TestRole").unwrap());
 
@@ -168,9 +160,7 @@ fn test_email_lowercase_and_login_case_insensitive() {
 
     // Create hub
     let hub = hub_repo
-        .create_hub(&NewHub {
-            name: HubName::new("CaseHub").unwrap(),
-        })
+        .create_hub(&NewHub::new(HubName::new("CaseHub").unwrap()))
         .unwrap();
 
     let user_repo = DieselRepository::new(test_db.pool());

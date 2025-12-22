@@ -71,19 +71,17 @@ mod tests {
 
     fn make_user(id: i32, email: &str, hub_id: i32) -> UserWithRoles {
         let now = Utc::now().naive_utc();
-        UserWithRoles {
-            user: User {
-                id: UserId::new(id).unwrap(),
-                email: UserEmail::new(email).unwrap(),
-                name: Some(crate::domain::types::UserName::new(format!("User{id}")).unwrap()),
-                hub_id: HubId::new(hub_id).unwrap(),
-                password_hash: "hash".into(),
-                created_at: now,
-                updated_at: now,
-                roles: vec![],
-            },
-            roles: vec![],
-        }
+        let user = User::new(
+            UserId::new(id).unwrap(),
+            UserEmail::new(email).unwrap(),
+            Some(crate::domain::types::UserName::new(format!("User{id}")).unwrap()),
+            HubId::new(hub_id).unwrap(),
+            "hash".into(),
+            now,
+            now,
+            vec![],
+        );
+        UserWithRoles::new(user, vec![])
     }
 
     #[test]
