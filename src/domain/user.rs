@@ -5,7 +5,9 @@ use pushkind_common::domain::auth::AuthenticatedUser;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::role::Role;
-use crate::domain::types::{HubId, RoleId, UserEmail, UserId, UserName, UserPassword};
+use crate::domain::types::{
+    HubId, RoleId, TypeConstraintError, UserEmail, UserId, UserName, UserPassword,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 /// Representation of a user in the system.
@@ -23,12 +25,78 @@ pub struct User {
     pub roles: Vec<RoleId>,
 }
 
+impl User {
+    /// Constructs a user from validated domain types.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        id: UserId,
+        email: UserEmail,
+        name: Option<UserName>,
+        hub_id: HubId,
+        password_hash: String,
+        created_at: NaiveDateTime,
+        updated_at: NaiveDateTime,
+        roles: Vec<RoleId>,
+    ) -> Self {
+        Self {
+            id,
+            email,
+            name,
+            hub_id,
+            password_hash,
+            created_at,
+            updated_at,
+            roles,
+        }
+    }
+
+    /// Validates raw values before constructing a user.
+    #[allow(clippy::too_many_arguments)]
+    pub fn try_new(
+        id: i32,
+        email: impl Into<String>,
+        name: Option<String>,
+        hub_id: i32,
+        password_hash: String,
+        created_at: NaiveDateTime,
+        updated_at: NaiveDateTime,
+        roles: Vec<i32>,
+    ) -> Result<Self, TypeConstraintError> {
+        let roles = roles
+            .into_iter()
+            .map(RoleId::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self::new(
+            UserId::try_from(id)?,
+            UserEmail::try_from(email.into())?,
+            name.map(UserName::try_from).transpose()?,
+            HubId::try_from(hub_id)?,
+            password_hash,
+            created_at,
+            updated_at,
+            roles,
+        ))
+    }
+}
 #[derive(Clone, Serialize)]
 /// Wrapper combining a [`User`] with the fully resolved [`Role`]s attached to
 /// the account.
 pub struct UserWithRoles {
     pub user: User,
     pub roles: Vec<Role>,
+}
+
+impl UserWithRoles {
+    /// Constructs a user-with-roles bundle, syncing role IDs on the user.
+    pub fn new(mut user: User, roles: Vec<Role>) -> Self {
+        user.roles = roles.iter().map(|role| role.id).collect();
+        Self { user, roles }
+    }
+
+    /// Builds a user-with-roles bundle without additional validation.
+    pub fn try_new(user: User, roles: Vec<Role>) -> Result<Self, TypeConstraintError> {
+        Ok(Self::new(user, roles))
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -42,7 +110,6 @@ pub struct NewUser {
 
 impl NewUser {
     /// Creates a new [`NewUser`] from already validated and normalized input.
-    #[must_use]
     pub fn new(
         email: UserEmail,
         name: Option<UserName>,
@@ -56,6 +123,21 @@ impl NewUser {
             password,
         }
     }
+
+    /// Validates raw values before constructing a new user payload.
+    pub fn try_new(
+        email: impl Into<String>,
+        name: Option<String>,
+        hub_id: i32,
+        password: impl Into<String>,
+    ) -> Result<Self, TypeConstraintError> {
+        Ok(Self::new(
+            UserEmail::try_from(email.into())?,
+            name.map(UserName::try_from).transpose()?,
+            HubId::try_from(hub_id)?,
+            UserPassword::try_from(password.into())?,
+        ))
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -64,6 +146,33 @@ pub struct UpdateUser {
     pub name: UserName,
     pub password: Option<UserPassword>,
     pub roles: Option<Vec<RoleId>>,
+}
+
+impl UpdateUser {
+    /// Constructs an update payload from validated domain types.
+    pub fn new(name: UserName, password: Option<UserPassword>, roles: Option<Vec<RoleId>>) -> Self {
+        Self {
+            name,
+            password,
+            roles,
+        }
+    }
+
+    /// Validates raw values before constructing an update payload.
+    pub fn try_new(
+        name: impl Into<String>,
+        password: Option<String>,
+        roles: Option<Vec<i32>>,
+    ) -> Result<Self, TypeConstraintError> {
+        let roles = roles
+            .map(|roles| roles.into_iter().map(RoleId::try_from).collect())
+            .transpose()?;
+        Ok(Self::new(
+            UserName::try_from(name.into())?,
+            password.map(UserPassword::try_from).transpose()?,
+            roles,
+        ))
+    }
 }
 
 impl From<User> for AuthenticatedUser {

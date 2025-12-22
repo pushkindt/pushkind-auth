@@ -197,31 +197,29 @@ mod tests {
 
     fn make_user(id: i32, email: &str, hub_id: i32) -> UserWithRoles {
         let now = Utc::now().naive_utc();
-        UserWithRoles {
-            user: User {
-                id: UserId::new(id).unwrap(),
-                email: UserEmail::new(email).unwrap(),
-                name: Some(crate::domain::types::UserName::new("User").unwrap()),
-                hub_id: HubId::new(hub_id).unwrap(),
-                password_hash: "hash".into(),
-                created_at: now,
-                updated_at: now,
-                roles: vec![],
-            },
-            roles: vec![],
-        }
+        let user = User::new(
+            UserId::new(id).unwrap(),
+            UserEmail::new(email).unwrap(),
+            Some(crate::domain::types::UserName::new("User").unwrap()),
+            HubId::new(hub_id).unwrap(),
+            "hash".into(),
+            now,
+            now,
+            vec![],
+        );
+        UserWithRoles::new(user, vec![])
     }
 
     #[test]
     fn user_modal_data_success_and_not_found() {
         let mut repo = MockRepository::new();
         let user = make_user(7, "u@e", 1);
-        let role = Role {
-            id: RoleId::new(1).unwrap(),
-            name: RoleName::new("admin").unwrap(),
-            created_at: user.user.created_at,
-            updated_at: user.user.updated_at,
-        };
+        let role = Role::new(
+            RoleId::new(1).unwrap(),
+            RoleName::new("admin").unwrap(),
+            user.user.created_at,
+            user.user.updated_at,
+        );
         repo.expect_get_user_by_id()
             .times(2)
             .returning(move |id, _| {
@@ -246,12 +244,12 @@ mod tests {
         let mut repo = MockRepository::new();
         repo.expect_create_role().returning(|new_role| {
             let now = Utc::now().naive_utc();
-            Ok(Role {
-                id: RoleId::new(2).unwrap(),
-                name: new_role.name.clone(),
-                created_at: now,
-                updated_at: now,
-            })
+            Ok(Role::new(
+                RoleId::new(2).unwrap(),
+                new_role.name.clone(),
+                now,
+                now,
+            ))
         });
         let form = AddRoleForm { name: "new".into() };
         assert!(create_role(&admin_user(), form, &repo).is_ok());
@@ -271,14 +269,8 @@ mod tests {
     fn create_and_delete_hub() {
         let mut repo = MockRepository::new();
         let now = Utc::now().naive_utc();
-        repo.expect_create_hub().returning(move |nh| {
-            Ok(Hub {
-                id: HubId::new(2).unwrap(),
-                name: nh.name.clone(),
-                created_at: now,
-                updated_at: now,
-            })
-        });
+        repo.expect_create_hub()
+            .returning(move |nh| Ok(Hub::new(HubId::new(2).unwrap(), nh.name.clone(), now, now)));
         repo.expect_delete_hub().returning(|_| Ok(1));
         let form = AddHubForm { name: "hub".into() };
         assert!(create_hub(&admin_user(), form, &repo).is_ok());
@@ -290,20 +282,20 @@ mod tests {
         let mut repo = MockRepository::new();
         // The service first fetches the menu by id and hub before deleting.
         repo.expect_get_menu_by_id().returning(|id, hub_id| {
-            Ok(Some(Menu {
-                id: MenuId::new(id.get()).unwrap(),
-                name: crate::domain::types::MenuName::new("m").unwrap(),
-                url: crate::domain::types::MenuUrl::new("https://app.test.me/").unwrap(),
+            Ok(Some(Menu::new(
+                MenuId::new(id.get()).unwrap(),
+                crate::domain::types::MenuName::new("m").unwrap(),
+                crate::domain::types::MenuUrl::new("https://app.test.me/").unwrap(),
                 hub_id,
-            }))
+            )))
         });
         repo.expect_create_menu().returning(|nm| {
-            Ok(Menu {
-                id: MenuId::new(1).unwrap(),
-                name: nm.name.clone(),
-                url: nm.url.clone(),
-                hub_id: nm.hub_id,
-            })
+            Ok(Menu::new(
+                MenuId::new(1).unwrap(),
+                nm.name.clone(),
+                nm.url.clone(),
+                nm.hub_id,
+            ))
         });
         repo.expect_delete_menu().returning(|_| Ok(1));
         let form = AddMenuForm {

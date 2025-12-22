@@ -73,28 +73,20 @@ mod tests {
     fn sample_repo() -> (MockRepository, UserWithRoles, Hub) {
         let mut repo = MockRepository::new();
         let now = Utc::now().naive_utc();
-        let hub = Hub {
-            id: HubId::new(5).unwrap(),
-            name: HubName::new("h").unwrap(),
-            created_at: now,
-            updated_at: now,
-        };
+        let hub = Hub::new(HubId::new(5).unwrap(), HubName::new("h").unwrap(), now, now);
         let hub_clone = hub.clone();
         let hub_clone2 = hub.clone();
-        let user = crate::domain::user::User {
-            id: UserId::new(9).unwrap(),
-            email: UserEmail::new("a@b").unwrap(),
-            name: Some(crate::domain::types::UserName::new("N").unwrap()),
-            hub_id: HubId::new(5).unwrap(),
-            password_hash: "".into(),
-            created_at: now,
-            updated_at: now,
-            roles: vec![],
-        };
-        let uwr = UserWithRoles {
-            user,
-            roles: vec![],
-        };
+        let user = crate::domain::user::User::new(
+            UserId::new(9).unwrap(),
+            UserEmail::new("a@b").unwrap(),
+            Some(crate::domain::types::UserName::new("N").unwrap()),
+            HubId::new(5).unwrap(),
+            "".into(),
+            now,
+            now,
+            vec![],
+        );
+        let uwr = UserWithRoles::new(user, vec![]);
         let uwr_clone = uwr.clone();
         let uwr_clone2 = uwr.clone();
 

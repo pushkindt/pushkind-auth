@@ -3,7 +3,7 @@
 use diesel::prelude::*;
 
 use crate::domain::menu::{Menu as DomainMenu, NewMenu as DomainNewMenu};
-use crate::domain::types::{HubId, MenuId, MenuName, MenuUrl, TypeConstraintError};
+use crate::domain::types::TypeConstraintError;
 use crate::models::hub::Hub;
 
 #[derive(Debug, Clone, Identifiable, Associations, Queryable)]
@@ -51,11 +51,6 @@ impl TryFrom<Menu> for DomainMenu {
     type Error = TypeConstraintError;
 
     fn try_from(menu: Menu) -> Result<Self, Self::Error> {
-        Ok(DomainMenu {
-            id: MenuId::try_from(menu.id)?,
-            name: MenuName::try_from(menu.name)?,
-            url: MenuUrl::try_from(menu.url)?,
-            hub_id: HubId::try_from(menu.hub_id)?,
-        })
+        DomainMenu::try_new(menu.id, menu.name, menu.url, menu.hub_id)
     }
 }

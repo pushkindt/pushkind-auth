@@ -104,11 +104,7 @@ impl TryFrom<SaveUserForm> for SaveUserPayload {
 
 impl From<SaveUserPayload> for DomainUpdateUser {
     fn from(payload: SaveUserPayload) -> Self {
-        Self {
-            name: payload.name,
-            password: payload.password,
-            roles: None,
-        }
+        Self::new(payload.name, payload.password, None)
     }
 }
 
@@ -137,11 +133,7 @@ impl TryFrom<UpdateUserForm> for UpdateUserPayload {
 
 impl From<UpdateUserPayload> for DomainUpdateUser {
     fn from(payload: UpdateUserPayload) -> Self {
-        Self {
-            name: payload.name,
-            password: payload.password,
-            roles: payload.roles,
-        }
+        Self::new(payload.name, payload.password, payload.roles)
     }
 }
 
@@ -158,7 +150,7 @@ impl TryFrom<AddRoleForm> for AddRolePayload {
 
 impl From<AddRolePayload> for DomainNewRole {
     fn from(payload: AddRolePayload) -> Self {
-        Self { name: payload.name }
+        Self::new(payload.name)
     }
 }
 
@@ -175,7 +167,7 @@ impl TryFrom<AddHubForm> for AddHubPayload {
 
 impl From<AddHubPayload> for DomainNewHub {
     fn from(payload: AddHubPayload) -> Self {
-        Self { name: payload.name }
+        Self::new(payload.name)
     }
 }
 
@@ -193,11 +185,7 @@ impl TryFrom<AddMenuForm> for AddMenuPayload {
 
 impl AddMenuPayload {
     pub fn into_new_menu(self, hub_id: HubId) -> DomainNewMenu {
-        DomainNewMenu {
-            name: self.name,
-            url: self.url,
-            hub_id,
-        }
+        DomainNewMenu::new(self.name, self.url, hub_id)
     }
 }
 

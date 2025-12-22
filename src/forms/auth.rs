@@ -100,12 +100,7 @@ impl TryFrom<RecoverForm> for RecoverPayload {
 
 impl From<RegisterPayload> for DomainNewUser {
     fn from(payload: RegisterPayload) -> Self {
-        Self {
-            email: payload.email,
-            name: None,
-            hub_id: payload.hub_id,
-            password: payload.password,
-        }
+        Self::new(payload.email, None, payload.hub_id, payload.password)
     }
 }
 

@@ -4,7 +4,7 @@ use chrono::NaiveDateTime;
 use diesel::prelude::*;
 
 use crate::domain::role::{NewUserRole as DomainNewUserRole, UserRole as DomainUserRole};
-use crate::domain::types::{RoleId, RoleName, TypeConstraintError, UserId};
+use crate::domain::types::TypeConstraintError;
 use crate::domain::{role::NewRole as DomainNewRole, role::Role as DomainRole};
 use crate::models::user::User;
 
@@ -48,12 +48,7 @@ impl TryFrom<Role> for DomainRole {
     type Error = TypeConstraintError;
 
     fn try_from(db: Role) -> Result<Self, Self::Error> {
-        Ok(Self {
-            id: RoleId::try_from(db.id)?,
-            name: RoleName::try_from(db.name)?,
-            created_at: db.created_at,
-            updated_at: db.updated_at,
-        })
+        DomainRole::try_new(db.id, db.name, db.created_at, db.updated_at)
     }
 }
 
@@ -69,10 +64,7 @@ impl TryFrom<UserRole> for DomainUserRole {
     type Error = TypeConstraintError;
 
     fn try_from(db: UserRole) -> Result<Self, Self::Error> {
-        Ok(Self {
-            user_id: UserId::try_from(db.user_id)?,
-            role_id: RoleId::try_from(db.role_id)?,
-        })
+        DomainUserRole::try_new(db.user_id, db.role_id)
     }
 }
 

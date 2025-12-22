@@ -141,19 +141,17 @@ mod tests {
 
     fn make_user(id: i32, email: &str, hub_id: i32) -> UserWithRoles {
         let now = Utc::now().naive_utc();
-        UserWithRoles {
-            user: User {
-                id: UserId::new(id).unwrap(),
-                email: UserEmail::new(email).unwrap(),
-                name: Some(UserName::new("User").unwrap()),
-                hub_id: HubId::new(hub_id).unwrap(),
-                password_hash: hash("pass", DEFAULT_COST).unwrap(),
-                created_at: now,
-                updated_at: now,
-                roles: vec![],
-            },
-            roles: vec![],
-        }
+        let user = User::new(
+            UserId::new(id).unwrap(),
+            UserEmail::new(email).unwrap(),
+            Some(UserName::new("User").unwrap()),
+            HubId::new(hub_id).unwrap(),
+            hash("pass", DEFAULT_COST).unwrap(),
+            now,
+            now,
+            vec![],
+        );
+        UserWithRoles::new(user, vec![])
     }
 
     #[test]
@@ -214,16 +212,16 @@ mod tests {
         let mut repo = MockRepository::new();
         repo.expect_create_user().returning(|new| {
             let now = Utc::now().naive_utc();
-            Ok(User {
-                id: UserId::new(1).unwrap(),
-                email: new.email.clone(),
-                name: new.name.clone(),
-                hub_id: new.hub_id,
-                password_hash: "".into(),
-                created_at: now,
-                updated_at: now,
-                roles: vec![],
-            })
+            Ok(User::new(
+                UserId::new(1).unwrap(),
+                new.email.clone(),
+                new.name.clone(),
+                new.hub_id,
+                "".into(),
+                now,
+                now,
+                vec![],
+            ))
         });
         let form = RegisterForm {
             email: "x@y".into(),
@@ -267,18 +265,18 @@ mod tests {
         let mut repo = MockRepository::new();
         let now = Utc::now().naive_utc();
         let hubs = vec![
-            Hub {
-                id: HubId::new(1).unwrap(),
-                name: HubName::new("h1").unwrap(),
-                created_at: now,
-                updated_at: now,
-            },
-            Hub {
-                id: HubId::new(2).unwrap(),
-                name: HubName::new("h2").unwrap(),
-                created_at: now,
-                updated_at: now,
-            },
+            Hub::new(
+                HubId::new(1).unwrap(),
+                HubName::new("h1").unwrap(),
+                now,
+                now,
+            ),
+            Hub::new(
+                HubId::new(2).unwrap(),
+                HubName::new("h2").unwrap(),
+                now,
+                now,
+            ),
         ];
         let hubs_clone = hubs.clone();
         repo.expect_list_hubs()

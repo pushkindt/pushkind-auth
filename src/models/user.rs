@@ -4,7 +4,7 @@ use bcrypt::{DEFAULT_COST, hash};
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 
-use crate::domain::types::{HubId, TypeConstraintError, UserEmail, UserId, UserName};
+use crate::domain::types::{TypeConstraintError, UserName};
 use crate::domain::user::{NewUser as DomainNewUser, User as DomainUser};
 use crate::models::hub::Hub;
 
@@ -52,16 +52,16 @@ impl TryFrom<User> for DomainUser {
     type Error = TypeConstraintError;
 
     fn try_from(db: User) -> Result<Self, Self::Error> {
-        Ok(Self {
-            id: UserId::try_from(db.id)?,
-            email: UserEmail::try_from(db.email)?,
-            name: db.name.map(UserName::try_from).transpose()?,
-            hub_id: HubId::try_from(db.hub_id)?,
-            password_hash: db.password_hash,
-            created_at: db.created_at,
-            updated_at: db.updated_at,
-            roles: vec![],
-        })
+        DomainUser::try_new(
+            db.id,
+            db.email,
+            db.name,
+            db.hub_id,
+            db.password_hash,
+            db.created_at,
+            db.updated_at,
+            vec![],
+        )
     }
 }
 
