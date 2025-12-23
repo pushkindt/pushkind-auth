@@ -18,8 +18,8 @@ use crate::repository::{
 
 /// Creates a new role when the current user is an admin.
 pub fn create_role(
-    current_user: &AuthenticatedUser,
     form: AddRoleForm,
+    current_user: &AuthenticatedUser,
     repo: &impl RoleWriter,
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
@@ -31,8 +31,8 @@ pub fn create_role(
 
 /// Retrieves the user and available roles for the modal editor.
 pub fn user_modal_data(
-    current_user: &AuthenticatedUser,
     user_id: i32,
+    current_user: &AuthenticatedUser,
     repo: &(impl UserReader + RoleReader),
 ) -> ServiceResult<UserModalData> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
@@ -45,8 +45,8 @@ pub fn user_modal_data(
 
 /// Deletes a user by ID, preventing self-deletion and non-admin access.
 pub fn delete_user_by_id(
-    current_user: &AuthenticatedUser,
     user_id: i32,
+    current_user: &AuthenticatedUser,
     repo: &(impl UserReader + UserWriter),
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
@@ -72,9 +72,9 @@ pub fn delete_user_by_id(
 
 /// Assigns roles and updates a user if they belong to the current hub.
 pub fn assign_roles_and_update_user(
-    current_user: &AuthenticatedUser,
     user_id: i32,
     form: UpdateUserForm,
+    current_user: &AuthenticatedUser,
     repo: &(impl UserWriter + UserReader),
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
@@ -96,8 +96,8 @@ pub fn assign_roles_and_update_user(
 
 /// Creates a new hub when invoked by an admin.
 pub fn create_hub(
-    current_user: &AuthenticatedUser,
     form: AddHubForm,
+    current_user: &AuthenticatedUser,
     repo: &impl HubWriter,
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
@@ -109,8 +109,8 @@ pub fn create_hub(
 
 /// Deletes a role by ID, protecting the base admin role.
 pub fn delete_role_by_id(
-    current_user: &AuthenticatedUser,
     role_id: i32,
+    current_user: &AuthenticatedUser,
     repo: &impl RoleWriter,
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
@@ -125,8 +125,8 @@ pub fn delete_role_by_id(
 
 /// Deletes a hub by ID, preventing removal of the current user's hub.
 pub fn delete_hub_by_id(
-    current_user: &AuthenticatedUser,
     hub_id: i32,
+    current_user: &AuthenticatedUser,
     repo: &impl HubWriter,
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
@@ -141,8 +141,8 @@ pub fn delete_hub_by_id(
 
 /// Creates a new menu entry for the given hub.
 pub fn create_menu(
-    current_user: &AuthenticatedUser,
     form: AddMenuForm,
+    current_user: &AuthenticatedUser,
     repo: &impl MenuWriter,
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
@@ -155,8 +155,8 @@ pub fn create_menu(
 
 /// Deletes a menu by ID if it exists for the current hub.
 pub fn delete_menu_by_id(
-    current_user: &AuthenticatedUser,
     menu_id: i32,
+    current_user: &AuthenticatedUser,
     repo: &(impl MenuReader + MenuWriter),
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
@@ -232,10 +232,10 @@ mod tests {
         repo.expect_list_roles()
             .returning(move || Ok(vec![role.clone()]));
         let current_user = admin_user();
-        let found = user_modal_data(&current_user, 7, &repo).unwrap();
+        let found = user_modal_data(7, &current_user, &repo).unwrap();
         assert!(found.user.is_some());
         assert_eq!(found.roles.len(), 1);
-        let missing = user_modal_data(&current_user, 99, &repo).unwrap();
+        let missing = user_modal_data(99, &current_user, &repo).unwrap();
         assert!(missing.user.is_none());
     }
 
@@ -252,7 +252,7 @@ mod tests {
             ))
         });
         let form = AddRoleForm { name: "new".into() };
-        assert!(create_role(&admin_user(), form, &repo).is_ok());
+        assert!(create_role(form, &admin_user(), &repo).is_ok());
     }
 
     #[test]
@@ -260,7 +260,7 @@ mod tests {
         let repo = MockRepository::new();
         let form = AddRoleForm { name: "".into() };
 
-        let res = create_role(&admin_user(), form, &repo);
+        let res = create_role(form, &admin_user(), &repo);
 
         assert!(matches!(res, Err(ServiceError::Form(_))));
     }
@@ -273,8 +273,8 @@ mod tests {
             .returning(move |nh| Ok(Hub::new(HubId::new(2).unwrap(), nh.name.clone(), now, now)));
         repo.expect_delete_hub().returning(|_| Ok(1));
         let form = AddHubForm { name: "hub".into() };
-        assert!(create_hub(&admin_user(), form, &repo).is_ok());
-        assert!(delete_hub_by_id(&admin_user(), 2, &repo).is_ok());
+        assert!(create_hub(form, &admin_user(), &repo).is_ok());
+        assert!(delete_hub_by_id(2, &admin_user(), &repo).is_ok());
     }
 
     #[test]
@@ -302,7 +302,7 @@ mod tests {
             name: "m".into(),
             url: "https://app.test.me/".into(),
         };
-        assert!(create_menu(&admin_user(), form, &repo).is_ok());
-        assert!(delete_menu_by_id(&admin_user(), 1, &repo).is_ok());
+        assert!(create_menu(form, &admin_user(), &repo).is_ok());
+        assert!(delete_menu_by_id(1, &admin_user(), &repo).is_ok());
     }
 }
