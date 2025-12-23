@@ -33,10 +33,10 @@ pub fn get_user_by_optional_id(
 /// and pagination. Returns only the users (total is ignored upstream).
 pub fn list_users(
     query: ApiV1UsersQueryParams,
-    hub_id: i32,
+    current_user: &AuthenticatedUser,
     repo: &impl UserReader,
 ) -> ServiceResult<Vec<UserDto>> {
-    let hub_id = HubId::new(hub_id)?;
+    let hub_id = HubId::new(current_user.hub_id)?;
     let mut list_query = UserListQuery::new(hub_id);
 
     if let Some(role) = &query.role {
@@ -145,7 +145,15 @@ mod tests {
             query: None,
             page: None,
         };
-        let out = list_users(params, 10, &repo).unwrap();
+        let current_user = AuthenticatedUser {
+            sub: "1".into(),
+            email: "user1@example.com".into(),
+            hub_id: 10,
+            name: "User1".into(),
+            roles: vec![],
+            exp: 0,
+        };
+        let out = list_users(params, &current_user, &repo).unwrap();
         assert_eq!(out.len(), 2);
     }
 
@@ -160,7 +168,15 @@ mod tests {
             query: Some("user1".into()),
             page: None,
         };
-        let out = list_users(params, 10, &repo).unwrap();
+        let current_user = AuthenticatedUser {
+            sub: "1".into(),
+            email: "user1@example.com".into(),
+            hub_id: 10,
+            name: "User1".into(),
+            roles: vec![],
+            exp: 0,
+        };
+        let out = list_users(params, &current_user, &repo).unwrap();
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].email, "user1@example.com");
     }
@@ -176,7 +192,15 @@ mod tests {
             query: None,
             page: Some(1),
         };
-        let out = list_users(params, 10, &repo).unwrap();
+        let current_user = AuthenticatedUser {
+            sub: "2".into(),
+            email: "user2@example.com".into(),
+            hub_id: 10,
+            name: "User2".into(),
+            roles: vec![],
+            exp: 0,
+        };
+        let out = list_users(params, &current_user, &repo).unwrap();
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].email, "user2@example.com");
     }

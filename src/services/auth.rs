@@ -43,8 +43,8 @@ pub fn issue_jwt(user: &AuthenticatedUser, secret: &str) -> ServiceResult<Sessio
 /// with the provided expiration in days.
 pub fn reissue_session_from_token(
     token: &str,
-    secret: &str,
     expiration_days: i64,
+    secret: &str,
     repo: &impl UserReader,
 ) -> ServiceResult<SessionTokenDto> {
     let mut user =
@@ -64,8 +64,8 @@ pub fn reissue_session_from_token(
 /// Performs login and issues a session JWT on success.
 pub fn login_and_issue_token(
     form: LoginForm,
-    repo: &impl UserReader,
     secret: &str,
+    repo: &impl UserReader,
 ) -> ServiceResult<SessionTokenDto> {
     let payload: LoginPayload = form.try_into()?;
 
@@ -80,11 +80,11 @@ pub fn login_and_issue_token(
 ///
 /// `base_url` should be something like `https://example.com` (scheme + host).
 pub async fn send_recovery_email(
+    form: RecoverForm,
+    base_url: &str,
     zmq_sender: &ZmqSender,
     repo: &impl UserReader,
     secret: &str,
-    form: RecoverForm,
-    base_url: &str,
 ) -> ServiceResult<()> {
     let payload: RecoverPayload = RecoverForm::try_into(form)?;
 
@@ -169,7 +169,7 @@ mod tests {
 
         let secret = make_secret();
 
-        let claims = login_and_issue_token(form, &repo, &secret).unwrap();
+        let claims = login_and_issue_token(form, &secret, &repo).unwrap();
         assert!(!claims.token.is_empty());
     }
 
@@ -186,7 +186,7 @@ mod tests {
 
         let secret = make_secret();
 
-        let res = login_and_issue_token(form, &repo, &secret);
+        let res = login_and_issue_token(form, &secret, &repo);
         assert!(matches!(res, Err(ServiceError::Unauthorized)));
     }
 
@@ -203,7 +203,7 @@ mod tests {
 
         let secret = make_secret();
 
-        let res = login_and_issue_token(form, &repo, &secret);
+        let res = login_and_issue_token(form, &secret, &repo);
         assert!(matches!(res, Err(ServiceError::Unauthorized)));
     }
 
@@ -300,7 +300,7 @@ mod tests {
         let mut user: AuthenticatedUser = make_user(1, "a@b", 2).into();
         user.set_expiration(1);
         let token = issue_jwt(&user, "secret").unwrap();
-        let res = reissue_session_from_token(&token.token, "secret", 7, &repo);
+        let res = reissue_session_from_token(&token.token, 7, "secret", &repo);
         assert!(matches!(res, Err(ServiceError::Unauthorized)));
     }
 
@@ -314,7 +314,7 @@ mod tests {
         let mut user: AuthenticatedUser = uwr.into();
         user.set_expiration(1);
         let token = issue_jwt(&user, "secret").unwrap();
-        let res = reissue_session_from_token(&token.token, "secret", 7, &repo);
+        let res = reissue_session_from_token(&token.token, 7, "secret", &repo);
         assert!(res.is_ok());
     }
 
@@ -327,7 +327,7 @@ mod tests {
             hub_id: 0,
         };
 
-        let res = login_and_issue_token(form, &repo, "secret");
+        let res = login_and_issue_token(form, "secret", &repo);
 
         assert!(matches!(res, Err(ServiceError::Form(_))));
     }

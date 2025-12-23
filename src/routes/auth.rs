@@ -33,15 +33,15 @@ struct LoginTokenParams {
 /// Reissues a session from a short-lived token via `GET /login`.
 #[get("/login")]
 pub async fn login_token(
+    query_params: web::Query<LoginTokenParams>,
     request: HttpRequest,
     repo: web::Data<DieselRepository>,
     common_config: web::Data<CommonServerConfig>,
-    query_params: web::Query<LoginTokenParams>,
 ) -> impl Responder {
     let jwt = match auth_service::reissue_session_from_token(
         &query_params.token,
-        &common_config.secret,
         7,
+        &common_config.secret,
         repo.get_ref(),
     ) {
         Ok(jwt) => jwt,
@@ -62,12 +62,12 @@ pub async fn login_token(
 /// Authenticates a user with credentials via `POST /login`.
 #[post("/login")]
 pub async fn login(
+    web::Form(form): web::Form<LoginForm>,
+    query_params: web::Query<AuthQueryParams>,
     request: HttpRequest,
     repo: web::Data<DieselRepository>,
     server_config: web::Data<ServerConfig>,
     common_config: web::Data<CommonServerConfig>,
-    web::Form(form): web::Form<LoginForm>,
-    query_params: web::Query<AuthQueryParams>,
 ) -> impl Responder {
     let (success_redirect_url, failure_redirect_url) = get_success_and_failure_redirects(
         "/auth/signin",
@@ -75,7 +75,7 @@ pub async fn login(
         &server_config.domain,
     );
 
-    let jwt = match auth_service::login_and_issue_token(form, repo.get_ref(), &common_config.secret)
+    let jwt = match auth_service::login_and_issue_token(form, &common_config.secret, repo.get_ref())
     {
         Ok(jwt) => jwt,
         Err(ServiceError::Unauthorized) => {
@@ -105,8 +105,8 @@ pub async fn login(
 /// Registers a new user account via `POST /register`.
 #[post("/register")]
 pub async fn register(
-    repo: web::Data<DieselRepository>,
     web::Form(form): web::Form<RegisterForm>,
+    repo: web::Data<DieselRepository>,
 ) -> impl Responder {
     match auth_service::register_user(form, repo.get_ref()) {
         Ok(_) => {
@@ -133,10 +133,10 @@ pub async fn register(
 /// Renders the sign-in page via `GET /signin`.
 #[get("/signin")]
 pub async fn signin_page(
+    query_params: web::Query<AuthQueryParams>,
     user: Option<Identity>,
     flash_messages: IncomingFlashMessages,
     repo: web::Data<DieselRepository>,
-    query_params: web::Query<AuthQueryParams>,
     tera: web::Data<Tera>,
 ) -> impl Responder {
     if user.is_some() {
@@ -168,10 +168,10 @@ pub async fn signin_page(
 /// Renders the registration page via `GET /signup`.
 #[get("/signup")]
 pub async fn signup_page(
+    query_params: web::Query<AuthQueryParams>,
     user: Option<Identity>,
     flash_messages: IncomingFlashMessages,
     repo: web::Data<DieselRepository>,
-    query_params: web::Query<AuthQueryParams>,
     tera: web::Data<Tera>,
 ) -> impl Responder {
     if user.is_some() {
@@ -203,11 +203,11 @@ pub async fn signup_page(
 /// Sends a recovery email and issues a passwordless login link.
 #[post("/recover")]
 pub async fn recover_password(
+    web::Form(form): web::Form<RecoverForm>,
     request: HttpRequest,
     zmq_sender: web::Data<Arc<ZmqSender>>,
     repo: web::Data<DieselRepository>,
     common_config: web::Data<CommonServerConfig>,
-    web::Form(form): web::Form<RecoverForm>,
 ) -> impl Responder {
     // Build base URL from current request: schema://host
     let base_url = {
@@ -216,11 +216,11 @@ pub async fn recover_password(
     };
 
     match auth_service::send_recovery_email(
+        form,
+        &base_url,
         zmq_sender.get_ref().as_ref(),
         repo.get_ref(),
         &common_config.secret,
-        form,
-        &base_url,
     )
     .await
     {

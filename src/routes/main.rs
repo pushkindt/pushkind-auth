@@ -16,11 +16,11 @@ use crate::services::main as main_service;
 #[get("/")]
 pub async fn show_index(
     user: AuthenticatedUser,
-    repo: web::Data<DieselRepository>,
     flash_messages: IncomingFlashMessages,
+    repo: web::Data<DieselRepository>,
     tera: web::Data<Tera>,
 ) -> impl Responder {
-    let data = match main_service::get_index_data(user.hub_id, &user.email, repo.get_ref()) {
+    let data = match main_service::get_index_data(&user, repo.get_ref()) {
         Ok(d) => d,
         Err(e) => {
             error!("Failed to build index data: {e}");
@@ -52,19 +52,11 @@ pub async fn show_index(
 /// Saves profile updates for the current user via `POST /user/save`.
 #[post("/user/save")]
 pub async fn save_user(
+    web::Form(form): web::Form<SaveUserForm>,
     current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
-    web::Form(form): web::Form<SaveUserForm>,
 ) -> impl Responder {
-    let user_id = match current_user.sub.parse() {
-        Ok(user_id) => user_id,
-        Err(e) => {
-            error!("Failed to parse user_id: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    match main_service::update_current_user(user_id, current_user.hub_id, form, repo.get_ref()) {
+    match main_service::update_current_user(form, &current_user, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Параметры изменены.".to_string()).send();
         }

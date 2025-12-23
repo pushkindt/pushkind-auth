@@ -17,11 +17,11 @@ use crate::services::admin as admin_service;
 /// Handles `POST /role/add` to create a new role and flash the outcome.
 #[post("/role/add")]
 pub async fn add_role(
+    web::Form(form): web::Form<AddRoleForm>,
     current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
-    web::Form(form): web::Form<AddRoleForm>,
 ) -> impl Responder {
-    match admin_service::create_role(&current_user, form, repo.get_ref()) {
+    match admin_service::create_role(form, &current_user, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Роль добавлена.").send();
         }
@@ -55,7 +55,7 @@ pub async fn user_modal(
 
     let user_id = user_id.into_inner();
 
-    match admin_service::user_modal_data(&current_user, user_id, repo.get_ref()) {
+    match admin_service::user_modal_data(user_id, &current_user, repo.get_ref()) {
         Ok(data) => {
             let UserModalData { user, roles } = data;
             if let Some(user) = user {
@@ -85,7 +85,7 @@ pub async fn delete_user(
 ) -> impl Responder {
     let target_id = user_id.into_inner();
 
-    match admin_service::delete_user_by_id(&current_user, target_id, repo.get_ref()) {
+    match admin_service::delete_user_by_id(target_id, &current_user, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Пользователь удалён.").send();
         }
@@ -107,9 +107,9 @@ pub async fn delete_user(
 #[post("/user/update/{user_id}")]
 pub async fn update_user(
     user_id: web::Path<i32>,
+    form: web::Bytes,
     current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
-    form: web::Bytes,
 ) -> impl Responder {
     let form: UpdateUserForm = match serde_html_form::from_bytes(&form) {
         Ok(form) => form,
@@ -122,9 +122,9 @@ pub async fn update_user(
     let target_id = user_id.into_inner();
 
     match admin_service::assign_roles_and_update_user(
-        &current_user,
         target_id,
         form,
+        &current_user,
         repo.get_ref(),
     ) {
         Ok(_) => {
@@ -151,11 +151,11 @@ pub async fn update_user(
 /// Handles `POST /hub/add` to create a hub for the current tenant.
 #[post("/hub/add")]
 pub async fn add_hub(
+    web::Form(form): web::Form<AddHubForm>,
     current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
-    web::Form(form): web::Form<AddHubForm>,
 ) -> impl Responder {
-    match admin_service::create_hub(&current_user, form, repo.get_ref()) {
+    match admin_service::create_hub(form, &current_user, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Хаб добавлен.").send();
         }
@@ -183,7 +183,7 @@ pub async fn delete_role(
 ) -> impl Responder {
     let role_id = role_id.into_inner();
 
-    match admin_service::delete_role_by_id(&current_user, role_id, repo.get_ref()) {
+    match admin_service::delete_role_by_id(role_id, &current_user, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Роль удалена.").send();
         }
@@ -210,7 +210,7 @@ pub async fn delete_hub(
 ) -> impl Responder {
     let hub_id = hub_id.into_inner();
 
-    match admin_service::delete_hub_by_id(&current_user, hub_id, repo.get_ref()) {
+    match admin_service::delete_hub_by_id(hub_id, &current_user, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Хаб удалён.").send();
         }
@@ -231,11 +231,11 @@ pub async fn delete_hub(
 /// Handles `POST /menu/add` to create a menu entry.
 #[post("/menu/add")]
 pub async fn add_menu(
+    web::Form(form): web::Form<AddMenuForm>,
     current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
-    web::Form(form): web::Form<AddMenuForm>,
 ) -> impl Responder {
-    match admin_service::create_menu(&current_user, form, repo.get_ref()) {
+    match admin_service::create_menu(form, &current_user, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Меню добавлено.").send();
         }
@@ -262,7 +262,7 @@ pub async fn delete_menu(
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
     let menu_id = menu_id.into_inner();
-    match admin_service::delete_menu_by_id(&current_user, menu_id, repo.get_ref()) {
+    match admin_service::delete_menu_by_id(menu_id, &current_user, repo.get_ref()) {
         Ok(_) => {
             FlashMessage::success("Меню удалено.").send();
         }

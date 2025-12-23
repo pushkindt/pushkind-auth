@@ -38,7 +38,7 @@ pub async fn api_v1_users(
     user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
-    let users = api_service::list_users(params.into_inner(), user.hub_id, repo.get_ref());
+    let users = api_service::list_users(params.into_inner(), &user, repo.get_ref());
 
     match users {
         Ok(users) => HttpResponse::Ok().json(users),
