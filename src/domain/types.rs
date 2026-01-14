@@ -357,3 +357,78 @@ impl From<MenuUrl> for String {
         value.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn id_newtype_rejects_non_positive_values() {
+        assert_eq!(
+            UserId::new(0).unwrap_err(),
+            TypeConstraintError::NonPositiveId
+        );
+        assert_eq!(
+            UserId::try_from(-5).unwrap_err(),
+            TypeConstraintError::NonPositiveId
+        );
+    }
+
+    #[test]
+    fn id_newtype_roundtrips_value() {
+        let id = UserId::new(42).unwrap();
+        assert_eq!(id.get(), 42);
+        assert_eq!(i32::from(id), 42);
+        assert_eq!(format!("{id}"), "42");
+    }
+
+    #[test]
+    fn user_email_normalizes_and_validates() {
+        let email = UserEmail::new("  Example@Email.com ").unwrap();
+        assert_eq!(email.as_str(), "example@email.com");
+        assert_eq!(String::from(email.clone()), "example@email.com");
+        assert_eq!(
+            UserEmail::try_from("not-an-email").unwrap_err(),
+            TypeConstraintError::InvalidEmail
+        );
+    }
+
+    #[test]
+    fn non_empty_string_trims_and_rejects_empty() {
+        let value = NonEmptyString::new("  hello ").unwrap();
+        assert_eq!(value.as_str(), "hello");
+        assert_eq!(
+            NonEmptyString::try_from("   ").unwrap_err(),
+            TypeConstraintError::EmptyString
+        );
+    }
+
+    #[test]
+    fn named_string_newtype_uses_trimmed_value() {
+        let name = HubName::new("  Alpha ").unwrap();
+        assert_eq!(name.as_str(), "Alpha");
+        assert_eq!(&*name, "Alpha");
+        assert_eq!(format!("{name}"), "Alpha");
+        assert_eq!(String::from(name.clone()), "Alpha");
+    }
+
+    #[test]
+    fn user_password_rejects_empty_values() {
+        let password = UserPassword::new("  secret ").unwrap();
+        assert_eq!(password.as_str(), "secret");
+        assert_eq!(
+            UserPassword::try_from(" ").unwrap_err(),
+            TypeConstraintError::EmptyString
+        );
+    }
+
+    #[test]
+    fn menu_url_validates_format() {
+        let url = MenuUrl::new("https://example.com/path").unwrap();
+        assert_eq!(url.as_str(), "https://example.com/path");
+        assert_eq!(
+            MenuUrl::try_from("not-a-url").unwrap_err(),
+            TypeConstraintError::InvalidUrl
+        );
+    }
+}

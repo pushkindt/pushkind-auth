@@ -107,3 +107,41 @@ impl NewUserRole {
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn role_try_new_validates_inputs() {
+        let ts = chrono::DateTime::<chrono::Utc>::from_timestamp(0, 0)
+            .unwrap()
+            .naive_utc();
+        let role = Role::try_new(1, "  admin ", ts, ts).unwrap();
+        assert_eq!(role.id.get(), 1);
+        assert_eq!(role.name.as_str(), "admin");
+    }
+
+    #[test]
+    fn role_try_new_rejects_empty_name() {
+        let ts = chrono::DateTime::<chrono::Utc>::from_timestamp(0, 0)
+            .unwrap()
+            .naive_utc();
+        assert_eq!(
+            Role::try_new(1, " ", ts, ts).unwrap_err(),
+            TypeConstraintError::EmptyString
+        );
+    }
+
+    #[test]
+    fn user_role_try_new_rejects_invalid_ids() {
+        assert_eq!(
+            UserRole::try_new(0, 1).unwrap_err(),
+            TypeConstraintError::NonPositiveId
+        );
+        assert_eq!(
+            NewUserRole::try_new(1, 0).unwrap_err(),
+            TypeConstraintError::NonPositiveId
+        );
+    }
+}

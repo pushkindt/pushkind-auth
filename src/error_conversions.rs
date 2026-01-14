@@ -31,3 +31,44 @@ impl From<TypeConstraintError> for RepositoryError {
         RepositoryError::ValidationError(val.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(feature = "data")]
+    #[test]
+    fn type_constraint_converts_to_service_error() {
+        let err: ServiceError = TypeConstraintError::InvalidEmail.into();
+        match err {
+            ServiceError::TypeConstraint(message) => {
+                assert!(message.contains("invalid email address"));
+            }
+            _ => panic!("expected TypeConstraint service error"),
+        }
+    }
+
+    #[cfg(feature = "data")]
+    #[test]
+    fn type_constraint_converts_to_repository_error() {
+        let err: RepositoryError = TypeConstraintError::EmptyString.into();
+        match err {
+            RepositoryError::ValidationError(message) => {
+                assert!(message.contains("value cannot be empty"));
+            }
+            _ => panic!("expected validation repository error"),
+        }
+    }
+
+    #[cfg(feature = "server")]
+    #[test]
+    fn form_error_converts_to_service_error() {
+        let err: ServiceError = FormError::InvalidEmail.into();
+        match err {
+            ServiceError::Form(message) => {
+                assert!(message.contains("invalid email address"));
+            }
+            _ => panic!("expected form service error"),
+        }
+    }
+}
