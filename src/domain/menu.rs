@@ -67,3 +67,33 @@ impl NewMenu {
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn menu_try_new_validates_inputs() {
+        let menu = Menu::try_new(1, "  Menu ", "https://example.com", 2).unwrap();
+        assert_eq!(menu.id.get(), 1);
+        assert_eq!(menu.name.as_str(), "Menu");
+        assert_eq!(menu.url.as_str(), "https://example.com");
+        assert_eq!(menu.hub_id.get(), 2);
+    }
+
+    #[test]
+    fn menu_try_new_rejects_invalid_url() {
+        assert_eq!(
+            Menu::try_new(1, "Menu", "not-a-url", 2).unwrap_err(),
+            TypeConstraintError::InvalidUrl
+        );
+    }
+
+    #[test]
+    fn new_menu_try_new_rejects_invalid_hub() {
+        assert_eq!(
+            NewMenu::try_new("Menu", "https://example.com", 0).unwrap_err(),
+            TypeConstraintError::NonPositiveId
+        );
+    }
+}

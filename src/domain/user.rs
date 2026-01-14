@@ -204,3 +204,149 @@ impl From<UserWithRoles> for AuthenticatedUser {
         result
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::types::RoleName;
+    use chrono::NaiveDateTime;
+
+    fn sample_timestamp() -> NaiveDateTime {
+        chrono::DateTime::<chrono::Utc>::from_timestamp(0, 0)
+            .unwrap()
+            .naive_utc()
+    }
+
+    #[test]
+    fn user_try_new_maps_roles_and_optionals() {
+        let ts = sample_timestamp();
+        let user = User::try_new(
+            1,
+            "Test@Example.com",
+            Some(" Alice ".to_string()),
+            2,
+            "hash".to_string(),
+            ts,
+            ts,
+            vec![1, 2],
+        )
+        .unwrap();
+        assert_eq!(user.email.as_str(), "test@example.com");
+        assert_eq!(user.name.as_ref().unwrap().as_str(), "Alice");
+        assert_eq!(user.roles.len(), 2);
+    }
+
+    #[test]
+    fn user_try_new_rejects_invalid_roles() {
+        let ts = sample_timestamp();
+        assert_eq!(
+            User::try_new(
+                1,
+                "test@example.com",
+                None,
+                1,
+                "hash".to_string(),
+                ts,
+                ts,
+                vec![0],
+            )
+            .unwrap_err(),
+            TypeConstraintError::NonPositiveId
+        );
+    }
+
+    #[test]
+    fn new_user_try_new_validates_inputs() {
+        let new_user = NewUser::try_new("test@example.com", None, 3, "pass").unwrap();
+        assert_eq!(new_user.email.as_str(), "test@example.com");
+        assert_eq!(new_user.hub_id.get(), 3);
+        assert_eq!(new_user.password.as_str(), "pass");
+    }
+
+    #[test]
+    fn update_user_try_new_accepts_optional_fields() {
+        let update =
+            UpdateUser::try_new("  Name ", Some("secret".to_string()), Some(vec![1, 2])).unwrap();
+        assert_eq!(update.name.as_str(), "Name");
+        assert_eq!(update.password.as_ref().unwrap().as_str(), "secret");
+        assert_eq!(update.roles.as_ref().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn user_with_roles_updates_user_role_ids() {
+        let ts = sample_timestamp();
+        let user = User::new(
+            UserId::new(1).unwrap(),
+            UserEmail::new("test@example.com").unwrap(),
+            None,
+            HubId::new(2).unwrap(),
+            "hash".to_string(),
+            ts,
+            ts,
+            vec![],
+        );
+        let roles = vec![
+            Role::new(
+                RoleId::new(10).unwrap(),
+                RoleName::new("admin").unwrap(),
+                ts,
+                ts,
+            ),
+            Role::new(
+                RoleId::new(20).unwrap(),
+                RoleName::new("viewer").unwrap(),
+                ts,
+                ts,
+            ),
+        ];
+        let bundle = UserWithRoles::new(user, roles);
+        assert_eq!(bundle.user.roles.len(), 2);
+        assert_eq!(bundle.user.roles[0].get(), 10);
+    }
+
+    #[test]
+    fn authenticated_user_from_user_sets_defaults() {
+        let ts = sample_timestamp();
+        let user = User::new(
+            UserId::new(5).unwrap(),
+            UserEmail::new("test@example.com").unwrap(),
+            None,
+            HubId::new(7).unwrap(),
+            "hash".to_string(),
+            ts,
+            ts,
+            vec![],
+        );
+        let auth: AuthenticatedUser = user.into();
+        assert_eq!(auth.sub, "5");
+        assert_eq!(auth.email, "test@example.com");
+        assert_eq!(auth.hub_id, 7);
+        assert_eq!(auth.name, "");
+        assert!(auth.exp > 0);
+    }
+
+    #[test]
+    fn authenticated_user_from_user_with_roles_maps_names() {
+        let ts = sample_timestamp();
+        let user = User::new(
+            UserId::new(1).unwrap(),
+            UserEmail::new("test@example.com").unwrap(),
+            Some(UserName::new("Alice").unwrap()),
+            HubId::new(2).unwrap(),
+            "hash".to_string(),
+            ts,
+            ts,
+            vec![],
+        );
+        let roles = vec![Role::new(
+            RoleId::new(1).unwrap(),
+            RoleName::new("admin").unwrap(),
+            ts,
+            ts,
+        )];
+        let auth: AuthenticatedUser = UserWithRoles::new(user, roles).into();
+        assert_eq!(auth.roles, vec!["admin".to_string()]);
+        assert_eq!(auth.name, "Alice");
+        assert!(auth.exp > 0);
+    }
+}

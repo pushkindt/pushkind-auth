@@ -63,3 +63,37 @@ impl NewHub {
         Ok(Self::new(HubName::try_from(name.into())?))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hub_try_new_validates_inputs() {
+        let ts = chrono::DateTime::<chrono::Utc>::from_timestamp(0, 0)
+            .unwrap()
+            .naive_utc();
+        let hub = Hub::try_new(1, "  Hub ", ts, ts).unwrap();
+        assert_eq!(hub.id.get(), 1);
+        assert_eq!(hub.name.as_str(), "Hub");
+    }
+
+    #[test]
+    fn hub_try_new_rejects_invalid_id() {
+        let ts = chrono::DateTime::<chrono::Utc>::from_timestamp(0, 0)
+            .unwrap()
+            .naive_utc();
+        assert_eq!(
+            Hub::try_new(0, "Hub", ts, ts).unwrap_err(),
+            TypeConstraintError::NonPositiveId
+        );
+    }
+
+    #[test]
+    fn new_hub_try_new_rejects_empty_name() {
+        assert_eq!(
+            NewHub::try_new("   ").unwrap_err(),
+            TypeConstraintError::EmptyString
+        );
+    }
+}
