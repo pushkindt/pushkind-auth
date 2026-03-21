@@ -4,18 +4,35 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  base: "/assets/dist/",
   plugins: [react()],
   build: {
     manifest: "manifest.json",
     outDir: resolve(__dirname, "../assets/dist"),
     emptyOutDir: true,
     rollupOptions: {
-      input: [
-        resolve(__dirname, "src/entries/auth-signin.tsx"),
-        resolve(__dirname, "src/entries/auth-signup.tsx"),
-        resolve(__dirname, "src/entries/main-admin.tsx"),
-        resolve(__dirname, "src/entries/main-basic.tsx"),
-      ],
+      input: {
+        "auth/signin.html": resolve(__dirname, "auth/signin.html"),
+        "auth/signup.html": resolve(__dirname, "auth/signup.html"),
+        "app/index-admin.html": resolve(__dirname, "app/index-admin.html"),
+        "app/index-basic.html": resolve(__dirname, "app/index-basic.html"),
+        "src/entries/auth-signin.tsx": resolve(
+          __dirname,
+          "src/entries/auth-signin.tsx",
+        ),
+        "src/entries/auth-signup.tsx": resolve(
+          __dirname,
+          "src/entries/auth-signup.tsx",
+        ),
+        "src/entries/main-admin.tsx": resolve(
+          __dirname,
+          "src/entries/main-admin.tsx",
+        ),
+        "src/entries/main-basic.tsx": resolve(
+          __dirname,
+          "src/entries/main-basic.tsx",
+        ),
+      },
     },
   },
 });

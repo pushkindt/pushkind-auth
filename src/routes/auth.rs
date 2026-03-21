@@ -16,7 +16,7 @@ use crate::dto::frontend::{
     FlashAlertDto, HubOptionDto, SharedShellBootstrap, SigninPageBootstrap, SignupPageBootstrap,
 };
 use crate::forms::auth::{LoginForm, RecoverForm, RegisterForm};
-use crate::frontend::{FrontendAssetManifest, FrontendMountLayout, render_frontend_page};
+use crate::frontend::open_frontend_html;
 use crate::models::config::ServerConfig;
 use crate::repository::DieselRepository;
 use crate::routes::get_success_and_failure_redirects;
@@ -134,15 +134,30 @@ pub async fn register(
 
 /// Renders the sign-in page via `GET /signin`.
 #[get("/signin")]
-pub async fn signin_page(
+pub async fn signin_page(request: HttpRequest, user: Option<Identity>) -> impl Responder {
+    if user.is_some() {
+        return redirect("/");
+    }
+
+    match open_frontend_html("assets/dist/auth/signin.html").await {
+        Ok(file) => file.into_response(&request),
+        Err(err) => {
+            log::error!("Failed to open sign-in frontend document: {err}");
+            HttpResponse::InternalServerError().finish()
+        }
+    }
+}
+
+/// Returns typed bootstrap data for the sign-in page via `GET /bootstrap/signin`.
+#[get("/bootstrap/signin")]
+pub async fn signin_bootstrap(
     query_params: web::Query<AuthQueryParams>,
     user: Option<Identity>,
     flash_messages: IncomingFlashMessages,
     repo: web::Data<DieselRepository>,
-    frontend_assets: web::Data<FrontendAssetManifest>,
 ) -> impl Responder {
     if user.is_some() {
-        return redirect("/");
+        return HttpResponse::Forbidden().finish();
     }
 
     let hubs = match auth_service::list_hubs(repo.get_ref()) {
@@ -157,13 +172,6 @@ pub async fn signin_page(
         .iter()
         .map(|f| (f.content(), alert_level_to_str(&f.level())))
         .collect::<Vec<_>>();
-    let frontend_assets = match frontend_assets.assets_for("src/entries/auth-signin.tsx") {
-        Ok(assets) => assets,
-        Err(err) => {
-            log::error!("Failed to resolve sign-in frontend assets: {err}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
     let frontend_bootstrap = SigninPageBootstrap {
         shell: SharedShellBootstrap {
             alerts: alerts
@@ -175,30 +183,35 @@ pub async fn signin_page(
         hubs: hubs.into_iter().map(HubOptionDto::from).collect(),
     };
 
-    match render_frontend_page(
-        &frontend_assets,
-        &frontend_bootstrap,
-        FrontendMountLayout::Bare,
-    ) {
-        Ok(response) => response,
+    HttpResponse::Ok().json(frontend_bootstrap)
+}
+
+/// Renders the registration page via `GET /signup`.
+#[get("/signup")]
+pub async fn signup_page(request: HttpRequest, user: Option<Identity>) -> impl Responder {
+    if user.is_some() {
+        return redirect("/");
+    }
+
+    match open_frontend_html("assets/dist/auth/signup.html").await {
+        Ok(file) => file.into_response(&request),
         Err(err) => {
-            log::error!("Failed to render sign-in frontend shell: {err}");
+            log::error!("Failed to open sign-up frontend document: {err}");
             HttpResponse::InternalServerError().finish()
         }
     }
 }
 
-/// Renders the registration page via `GET /signup`.
-#[get("/signup")]
-pub async fn signup_page(
+/// Returns typed bootstrap data for the sign-up page via `GET /bootstrap/signup`.
+#[get("/bootstrap/signup")]
+pub async fn signup_bootstrap(
     query_params: web::Query<AuthQueryParams>,
     user: Option<Identity>,
     flash_messages: IncomingFlashMessages,
     repo: web::Data<DieselRepository>,
-    frontend_assets: web::Data<FrontendAssetManifest>,
 ) -> impl Responder {
     if user.is_some() {
-        return redirect("/");
+        return HttpResponse::Forbidden().finish();
     }
 
     let hubs = match auth_service::list_hubs(repo.get_ref()) {
@@ -213,13 +226,6 @@ pub async fn signup_page(
         .iter()
         .map(|f| (f.content(), alert_level_to_str(&f.level())))
         .collect::<Vec<_>>();
-    let frontend_assets = match frontend_assets.assets_for("src/entries/auth-signup.tsx") {
-        Ok(assets) => assets,
-        Err(err) => {
-            log::error!("Failed to resolve sign-up frontend assets: {err}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
     let frontend_bootstrap = SignupPageBootstrap {
         shell: SharedShellBootstrap {
             alerts: alerts
@@ -231,17 +237,7 @@ pub async fn signup_page(
         hubs: hubs.into_iter().map(HubOptionDto::from).collect(),
     };
 
-    match render_frontend_page(
-        &frontend_assets,
-        &frontend_bootstrap,
-        FrontendMountLayout::Bare,
-    ) {
-        Ok(response) => response,
-        Err(err) => {
-            log::error!("Failed to render sign-up frontend shell: {err}");
-            HttpResponse::InternalServerError().finish()
-        }
-    }
+    HttpResponse::Ok().json(frontend_bootstrap)
 }
 
 /// Sends a recovery email and issues a passwordless login link.

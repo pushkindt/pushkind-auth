@@ -34,8 +34,6 @@ use pushkind_common::routes::logout;
 use pushkind_common::zmq::{ZmqSender, ZmqSenderOptions};
 
 #[cfg(feature = "server")]
-use crate::frontend::FrontendAssetManifest;
-#[cfg(feature = "server")]
 use crate::middleware::RequireUserExists;
 #[cfg(feature = "server")]
 use crate::models::config::ServerConfig;
@@ -50,10 +48,13 @@ use crate::routes::admin::{
 use crate::routes::api::{api_v1_id, api_v1_users};
 #[cfg(feature = "server")]
 use crate::routes::auth::{
-    login, login_token, recover_password, register, signin_page, signup_page,
+    login, login_token, recover_password, register, signin_bootstrap, signin_page,
+    signup_bootstrap, signup_page,
 };
 #[cfg(feature = "server")]
-use crate::routes::main::{save_user, show_index};
+use crate::routes::main::{
+    admin_dashboard_bootstrap, basic_dashboard_bootstrap, save_user, show_index,
+};
 
 #[cfg(feature = "data")]
 pub mod domain;
@@ -113,9 +114,6 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
     let message_store = CookieMessageStore::builder(secret_key.clone()).build();
     let message_framework = FlashMessagesFramework::builder(message_store).build();
 
-    let frontend_assets = FrontendAssetManifest::from_path("assets/dist/manifest.json")
-        .map_err(|e| std::io::Error::other(format!("Frontend asset manifest error: {e}")))?;
-
     let bind_address = (server_config.address.clone(), server_config.port);
 
     HttpServer::new(move || {
@@ -138,7 +136,9 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
                     .service(login)
                     .service(login_token)
                     .service(signin_page)
+                    .service(signin_bootstrap)
                     .service(signup_page)
+                    .service(signup_bootstrap)
                     .service(register)
                     .service(recover_password),
             )
@@ -163,9 +163,10 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
                     .wrap(RequireUserExists)
                     .wrap(RedirectUnauthorized)
                     .service(show_index)
+                    .service(basic_dashboard_bootstrap)
+                    .service(admin_dashboard_bootstrap)
                     .service(save_user),
             )
-            .app_data(web::Data::new(frontend_assets.clone()))
             .app_data(web::Data::new(repo.clone()))
             .app_data(web::Data::new(server_config.clone()))
             .app_data(web::Data::new(common_config.clone()))

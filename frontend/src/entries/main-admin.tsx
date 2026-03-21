@@ -1,8 +1,5 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-
 import "../styles/shell.css";
-import { readBootstrap } from "../lib/readBootstrap";
+import { loadBootstrapPage } from "../lib/loadBootstrap";
 import {
   MainAdminPage,
   type AdminDashboardBootstrap,
@@ -11,12 +8,9 @@ import {
 const rootElement = document.getElementById("react-root");
 
 if (rootElement) {
-  const bootstrap =
-    readBootstrap<AdminDashboardBootstrap>("frontend-bootstrap");
-
-  createRoot(rootElement).render(
-    <StrictMode>
-      <MainAdminPage {...bootstrap} />
-    </StrictMode>,
+  void loadBootstrapPage<AdminDashboardBootstrap>(
+    rootElement,
+    "/bootstrap/admin",
+    (bootstrap) => <MainAdminPage {...bootstrap} />,
   );
 }

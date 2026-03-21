@@ -1,8 +1,5 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-
 import "../styles/shell.css";
-import { readBootstrap } from "../lib/readBootstrap";
+import { loadBootstrapPage } from "../lib/loadBootstrap";
 import {
   AuthSignupPage,
   type SignupPageBootstrap,
@@ -11,11 +8,9 @@ import {
 const rootElement = document.getElementById("react-root");
 
 if (rootElement) {
-  const bootstrap = readBootstrap<SignupPageBootstrap>("frontend-bootstrap");
-
-  createRoot(rootElement).render(
-    <StrictMode>
-      <AuthSignupPage {...bootstrap} />
-    </StrictMode>,
+  void loadBootstrapPage<SignupPageBootstrap>(
+    rootElement,
+    "/auth/bootstrap/signup",
+    (bootstrap) => <AuthSignupPage {...bootstrap} />,
   );
 }
