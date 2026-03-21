@@ -7,14 +7,16 @@ use actix_web::{HttpMessage, HttpRequest, HttpResponse};
 use actix_web::{Responder, get, post, web};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use pushkind_common::models::config::CommonServerConfig;
-use pushkind_common::routes::render_template;
 use pushkind_common::routes::{alert_level_to_str, redirect};
 use pushkind_common::services::errors::ServiceError;
 use pushkind_common::zmq::ZmqSender;
 use serde::Deserialize;
-use tera::{Context, Tera};
 
+use crate::dto::frontend::{
+    FlashAlertDto, HubOptionDto, SharedShellBootstrap, SigninPageBootstrap, SignupPageBootstrap,
+};
 use crate::forms::auth::{LoginForm, RecoverForm, RegisterForm};
+use crate::frontend::{FrontendAssetManifest, FrontendMountLayout, render_frontend_page};
 use crate::models::config::ServerConfig;
 use crate::repository::DieselRepository;
 use crate::routes::get_success_and_failure_redirects;
@@ -137,7 +139,7 @@ pub async fn signin_page(
     user: Option<Identity>,
     flash_messages: IncomingFlashMessages,
     repo: web::Data<DieselRepository>,
-    tera: web::Data<Tera>,
+    frontend_assets: web::Data<FrontendAssetManifest>,
 ) -> impl Responder {
     if user.is_some() {
         return redirect("/");
@@ -151,18 +153,39 @@ pub async fn signin_page(
         }
     };
 
-    let mut context = Context::new();
-
     let alerts = flash_messages
         .iter()
         .map(|f| (f.content(), alert_level_to_str(&f.level())))
         .collect::<Vec<_>>();
+    let frontend_assets = match frontend_assets.assets_for("src/entries/auth-signin.tsx") {
+        Ok(assets) => assets,
+        Err(err) => {
+            log::error!("Failed to resolve sign-in frontend assets: {err}");
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    let frontend_bootstrap = SigninPageBootstrap {
+        shell: SharedShellBootstrap {
+            alerts: alerts
+                .iter()
+                .map(|(message, level)| FlashAlertDto::new(*message, *level))
+                .collect(),
+        },
+        next: query_params.next.clone(),
+        hubs: hubs.into_iter().map(HubOptionDto::from).collect(),
+    };
 
-    context.insert("alerts", &alerts);
-    context.insert("hubs", &hubs);
-    context.insert("next", &query_params.next);
-
-    render_template(&tera, "auth/login.html", &context)
+    match render_frontend_page(
+        &frontend_assets,
+        &frontend_bootstrap,
+        FrontendMountLayout::Bare,
+    ) {
+        Ok(response) => response,
+        Err(err) => {
+            log::error!("Failed to render sign-in frontend shell: {err}");
+            HttpResponse::InternalServerError().finish()
+        }
+    }
 }
 
 /// Renders the registration page via `GET /signup`.
@@ -172,7 +195,7 @@ pub async fn signup_page(
     user: Option<Identity>,
     flash_messages: IncomingFlashMessages,
     repo: web::Data<DieselRepository>,
-    tera: web::Data<Tera>,
+    frontend_assets: web::Data<FrontendAssetManifest>,
 ) -> impl Responder {
     if user.is_some() {
         return redirect("/");
@@ -186,18 +209,39 @@ pub async fn signup_page(
         }
     };
 
-    let mut context = Context::new();
-
     let alerts = flash_messages
         .iter()
         .map(|f| (f.content(), alert_level_to_str(&f.level())))
         .collect::<Vec<_>>();
+    let frontend_assets = match frontend_assets.assets_for("src/entries/auth-signup.tsx") {
+        Ok(assets) => assets,
+        Err(err) => {
+            log::error!("Failed to resolve sign-up frontend assets: {err}");
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    let frontend_bootstrap = SignupPageBootstrap {
+        shell: SharedShellBootstrap {
+            alerts: alerts
+                .iter()
+                .map(|(message, level)| FlashAlertDto::new(*message, *level))
+                .collect(),
+        },
+        next: query_params.next.clone(),
+        hubs: hubs.into_iter().map(HubOptionDto::from).collect(),
+    };
 
-    context.insert("alerts", &alerts);
-    context.insert("hubs", &hubs);
-    context.insert("next", &query_params.next);
-
-    render_template(&tera, "auth/register.html", &context)
+    match render_frontend_page(
+        &frontend_assets,
+        &frontend_bootstrap,
+        FrontendMountLayout::Bare,
+    ) {
+        Ok(response) => response,
+        Err(err) => {
+            log::error!("Failed to render sign-up frontend shell: {err}");
+            HttpResponse::InternalServerError().finish()
+        }
+    }
 }
 
 /// Sends a recovery email and issues a passwordless login link.

@@ -4,11 +4,15 @@ use actix_web::{HttpResponse, Responder, get, post, web};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use log::error;
 use pushkind_common::domain::auth::AuthenticatedUser;
-use pushkind_common::routes::render_template;
 use pushkind_common::routes::{alert_level_to_str, redirect};
-use tera::{Context, Tera};
 
+use crate::dto::frontend::{
+    AdminDashboardBootstrap, AdminHubDto, AdminMenuItemDto, AdminRoleDto, AdminUserListItemDto,
+    BasicDashboardBootstrap, CurrentHubDto, CurrentUserDto, FlashAlertDto, MenuItemDto,
+    SharedShellBootstrap,
+};
 use crate::forms::main::SaveUserForm;
+use crate::frontend::{FrontendAssetManifest, FrontendMountLayout, render_frontend_page};
 use crate::repository::DieselRepository;
 use crate::services::main as main_service;
 
@@ -18,7 +22,7 @@ pub async fn show_index(
     user: AuthenticatedUser,
     flash_messages: IncomingFlashMessages,
     repo: web::Data<DieselRepository>,
-    tera: web::Data<Tera>,
+    frontend_assets: web::Data<FrontendAssetManifest>,
 ) -> impl Responder {
     let data = match main_service::get_index_data(&user, repo.get_ref()) {
         Ok(d) => d,
@@ -35,18 +39,87 @@ pub async fn show_index(
 
     let user_name = data.user_name;
 
-    let mut context = Context::new();
-    context.insert("alerts", &alerts);
-    context.insert("current_user", &user);
-    context.insert("user_name", &user_name);
-    context.insert("current_page", "index");
-    context.insert("current_hub", &data.hub);
-    context.insert("users", &data.users);
-    context.insert("roles", &data.roles);
-    context.insert("hubs", &data.hubs);
-    context.insert("menu", &data.menu);
-
-    render_template(&tera, "main/index.html", &context)
+    if user
+        .roles
+        .iter()
+        .any(|role| role == crate::SERVICE_ACCESS_ROLE)
+    {
+        let frontend_assets = match frontend_assets.assets_for("src/entries/main-admin.tsx") {
+            Ok(assets) => assets,
+            Err(err) => {
+                error!("Failed to resolve admin dashboard frontend assets: {err}");
+                return HttpResponse::InternalServerError().finish();
+            }
+        };
+        let frontend_bootstrap = AdminDashboardBootstrap {
+            shell: SharedShellBootstrap {
+                alerts: alerts
+                    .iter()
+                    .map(|(message, level)| FlashAlertDto::new(*message, *level))
+                    .collect(),
+            },
+            current_user: CurrentUserDto::from(&user),
+            current_hub: CurrentHubDto::from(data.hub),
+            current_page: "index".to_string(),
+            menu: data
+                .menu
+                .clone()
+                .into_iter()
+                .map(MenuItemDto::from)
+                .collect(),
+            roles: data.roles.into_iter().map(AdminRoleDto::from).collect(),
+            hubs: data.hubs.into_iter().map(AdminHubDto::from).collect(),
+            admin_menu: data.menu.into_iter().map(AdminMenuItemDto::from).collect(),
+            users: data
+                .users
+                .into_iter()
+                .map(AdminUserListItemDto::from)
+                .collect(),
+        };
+        match render_frontend_page(
+            &frontend_assets,
+            &frontend_bootstrap,
+            FrontendMountLayout::Container,
+        ) {
+            Ok(response) => response,
+            Err(err) => {
+                error!("Failed to render admin frontend shell: {err}");
+                HttpResponse::InternalServerError().finish()
+            }
+        }
+    } else {
+        let frontend_assets = match frontend_assets.assets_for("src/entries/main-basic.tsx") {
+            Ok(assets) => assets,
+            Err(err) => {
+                error!("Failed to resolve basic dashboard frontend assets: {err}");
+                return HttpResponse::InternalServerError().finish();
+            }
+        };
+        let frontend_bootstrap = BasicDashboardBootstrap {
+            shell: SharedShellBootstrap {
+                alerts: alerts
+                    .iter()
+                    .map(|(message, level)| FlashAlertDto::new(*message, *level))
+                    .collect(),
+            },
+            current_user: CurrentUserDto::from(&user),
+            current_hub: CurrentHubDto::from(data.hub),
+            current_page: "index".to_string(),
+            menu: data.menu.into_iter().map(MenuItemDto::from).collect(),
+            user_name,
+        };
+        match render_frontend_page(
+            &frontend_assets,
+            &frontend_bootstrap,
+            FrontendMountLayout::Container,
+        ) {
+            Ok(response) => response,
+            Err(err) => {
+                error!("Failed to render basic frontend shell: {err}");
+                HttpResponse::InternalServerError().finish()
+            }
+        }
+    }
 }
 
 /// Saves profile updates for the current user via `POST /user/save`.

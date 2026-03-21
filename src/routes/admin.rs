@@ -5,11 +5,10 @@ use actix_web_flash_messages::FlashMessage;
 use log::error;
 use pushkind_common::domain::auth::AuthenticatedUser;
 use pushkind_common::routes::redirect;
-use pushkind_common::routes::render_template;
 use pushkind_common::services::errors::ServiceError;
-use tera::{Context, Tera};
 
 use crate::dto::admin::UserModalData;
+use crate::dto::frontend::{AdminEditableUserDto, AdminUserModalBootstrap, RoleOptionDto};
 use crate::forms::main::{AddHubForm, AddMenuForm, AddRoleForm, UpdateUserForm};
 use crate::repository::DieselRepository;
 use crate::services::admin as admin_service;
@@ -49,31 +48,26 @@ pub async fn user_modal(
     user_id: web::Path<i32>,
     current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
-    tera: web::Data<Tera>,
 ) -> impl Responder {
-    let mut context = Context::new();
-
     let user_id = user_id.into_inner();
 
     match admin_service::user_modal_data(user_id, &current_user, repo.get_ref()) {
         Ok(data) => {
             let UserModalData { user, roles } = data;
-            if let Some(user) = user {
-                context.insert("user", &user);
-            }
-            context.insert("roles", &roles);
+            HttpResponse::Ok().json(AdminUserModalBootstrap {
+                user: user.map(AdminEditableUserDto::from),
+                roles: roles.into_iter().map(RoleOptionDto::from).collect(),
+            })
         }
         Err(ServiceError::Unauthorized) => {
             FlashMessage::error("Недостаточно прав.").send();
-            return HttpResponse::Unauthorized().finish();
+            HttpResponse::Unauthorized().finish()
         }
         Err(e) => {
             error!("Failed to build user modal data: {e}");
-            return HttpResponse::InternalServerError().finish();
+            HttpResponse::InternalServerError().finish()
         }
     }
-
-    render_template(&tera, "main/modal_body.html", &context)
 }
 
 /// Deletes a user by id for `POST /user/delete/{user_id}`.

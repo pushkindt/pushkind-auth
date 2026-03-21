@@ -113,6 +113,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn can_create_new_role() {
+        let _ = NewRole::try_new("name").unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn create_new_role_reduses_invalid_strings() {
+        let _ = NewRole::try_new("").unwrap();
+    }
+
+    #[test]
     fn role_try_new_validates_inputs() {
         let ts = chrono::DateTime::<chrono::Utc>::from_timestamp(0, 0)
             .unwrap()
@@ -120,6 +131,8 @@ mod tests {
         let role = Role::try_new(1, "  admin ", ts, ts).unwrap();
         assert_eq!(role.id.get(), 1);
         assert_eq!(role.name.as_str(), "admin");
+        assert_eq!(role.created_at, ts);
+        assert_eq!(role.updated_at, ts);
     }
 
     #[test]

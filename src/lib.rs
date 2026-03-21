@@ -10,6 +10,8 @@ use std::sync::Arc;
 #[cfg(feature = "server")]
 use actix_cors::Cors;
 #[cfg(feature = "server")]
+use actix_files::Files;
+#[cfg(feature = "server")]
 use actix_identity::IdentityMiddleware;
 #[cfg(feature = "server")]
 use actix_session::{SessionMiddleware, config::PersistentSession, storage::CookieSessionStore};
@@ -30,9 +32,9 @@ use pushkind_common::models::config::CommonServerConfig;
 use pushkind_common::routes::logout;
 #[cfg(feature = "server")]
 use pushkind_common::zmq::{ZmqSender, ZmqSenderOptions};
-#[cfg(feature = "server")]
-use tera::Tera;
 
+#[cfg(feature = "server")]
+use crate::frontend::FrontendAssetManifest;
 #[cfg(feature = "server")]
 use crate::middleware::RequireUserExists;
 #[cfg(feature = "server")]
@@ -57,6 +59,8 @@ use crate::routes::main::{save_user, show_index};
 pub mod domain;
 #[cfg(feature = "server")]
 pub mod dto;
+#[cfg(feature = "server")]
+pub mod frontend;
 
 pub mod error_conversions;
 #[cfg(feature = "server")]
@@ -109,8 +113,8 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
     let message_store = CookieMessageStore::builder(secret_key.clone()).build();
     let message_framework = FlashMessagesFramework::builder(message_store).build();
 
-    let tera = Tera::new(&server_config.templates_dir)
-        .map_err(|e| std::io::Error::other(format!("Template parsing error(s): {e}")))?;
+    let frontend_assets = FrontendAssetManifest::from_path("assets/dist/manifest.json")
+        .map_err(|e| std::io::Error::other(format!("Frontend asset manifest error: {e}")))?;
 
     let bind_address = (server_config.address.clone(), server_config.port);
 
@@ -153,6 +157,7 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
                     .service(delete_menu),
             )
             .service(web::scope("/api").service(api_v1_id).service(api_v1_users))
+            .service(Files::new("/assets", "./assets").prefer_utf8(true))
             .service(
                 web::scope("")
                     .wrap(RequireUserExists)
@@ -160,7 +165,7 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
                     .service(show_index)
                     .service(save_user),
             )
-            .app_data(web::Data::new(tera.clone()))
+            .app_data(web::Data::new(frontend_assets.clone()))
             .app_data(web::Data::new(repo.clone()))
             .app_data(web::Data::new(server_config.clone()))
             .app_data(web::Data::new(common_config.clone()))
