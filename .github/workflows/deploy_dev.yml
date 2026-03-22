@@ -12,13 +12,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+      - name: Build frontend assets
+        working-directory: ./frontend
+        run: npm run build
       - uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --all-features
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pushkind-auth-frontend-dist
+          path: ./assets/dist
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: pushkind-auth
@@ -32,6 +48,10 @@ jobs:
         with:
           name: pushkind-auth
           path: ./target/release/
+      - uses: actions/download-artifact@v4
+        with:
+          name: pushkind-auth-frontend-dist
+          path: ./assets/
       - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2
         with:
