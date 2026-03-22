@@ -1,16 +1,13 @@
 import "../styles/shell.css";
 import { loadBootstrapPage } from "../lib/loadBootstrap";
-import {
-  AuthSignupPage,
-  type SignupPageBootstrap,
-} from "../pages/AuthSignupPage";
+import { AuthSignupPage, type SignupPageData } from "../pages/AuthSignupPage";
 
 const rootElement = document.getElementById("react-root");
 
 if (rootElement) {
-  void loadBootstrapPage<SignupPageBootstrap>(
+  void loadBootstrapPage<SignupPageData>(
     rootElement,
-    "/auth/bootstrap/signup",
-    (bootstrap) => <AuthSignupPage {...bootstrap} />,
+    "/api/v1/hubs",
+    (hubs) => <AuthSignupPage hubs={hubs} />,
   );
 }

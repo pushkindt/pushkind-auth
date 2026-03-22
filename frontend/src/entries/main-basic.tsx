@@ -1,16 +1,25 @@
 import "../styles/shell.css";
-import { loadBootstrapPage } from "../lib/loadBootstrap";
+import type { ApiIam, ApiMenuItem } from "../lib/api";
+import { fetchJson } from "../lib/api";
+import { loadComposedPage } from "../lib/loadBootstrap";
 import {
   MainBasicPage,
-  type BasicDashboardBootstrap,
+  type BasicDashboardPageData,
 } from "../pages/MainBasicPage";
 
 const rootElement = document.getElementById("react-root");
 
 if (rootElement) {
-  void loadBootstrapPage<BasicDashboardBootstrap>(
+  void loadComposedPage<BasicDashboardPageData>(
     rootElement,
-    "/bootstrap/basic",
-    (bootstrap) => <MainBasicPage {...bootstrap} />,
+    async () => {
+      const iam = await fetchJson<ApiIam>("/api/v1/iam");
+      const menu = await fetchJson<ApiMenuItem[]>(
+        `/api/v1/hubs/${iam.current_hub.id}/menu-items`,
+      );
+
+      return { iam, menu };
+    },
+    (pageData) => <MainBasicPage {...pageData} />,
   );
 }

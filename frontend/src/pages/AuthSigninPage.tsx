@@ -1,41 +1,23 @@
 import { useState } from "react";
+import type { FormEvent } from "react";
 
 import { AppShell } from "../components/AppShell";
-import { type AuthPageBootstrap, withNext } from "../lib/auth";
+import { postForm, toFieldErrorMap, type ApiMutationError } from "../lib/api";
+import { getNextFromLocation, type HubOption, withNext } from "../lib/auth";
 
-export interface SigninPageBootstrap extends AuthPageBootstrap {}
+export type SigninPageData = HubOption[];
 
-async function recoverPassword(email: string, hubId: string): Promise<void> {
-  const body = new URLSearchParams();
-  body.set("email", email);
-  body.set("hub_id", hubId);
-
-  const response = await fetch("/auth/recover", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-    },
-    body: body.toString(),
-    redirect: "follow",
-  });
-
-  if (response.redirected) {
-    window.location.assign(response.url);
-    return;
-  }
-
-  if (!response.ok) {
-    throw new Error("Recovery request failed");
-  }
-
-  const message = await response.text();
-  window.showFlashMessage?.(message, "success");
-}
-
-export function AuthSigninPage({ shell, next, hubs }: SigninPageBootstrap) {
+export function AuthSigninPage({ hubs }: { hubs: SigninPageData }) {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [hubId, setHubId] = useState("");
+  const [recoverErrors, setRecoverErrors] = useState<Record<string, string>>(
+    {},
+  );
+  const [loginErrors, setLoginErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const next = getNextFromLocation();
   const passwordInputType = passwordVisible ? "text" : "password";
   const passwordIconClassName = passwordVisible
     ? "bi bi-eye-slash"
@@ -64,23 +46,61 @@ export function AuthSigninPage({ shell, next, hubs }: SigninPageBootstrap) {
     }
 
     try {
-      await recoverPassword(email, hubId);
-    } catch {
-      window.showFlashMessage?.(
-        "Ошибка при отправке ссылки для входа.",
-        "danger",
-      );
+      const body = new URLSearchParams();
+      body.set("email", email);
+      body.set("hub_id", hubId);
+
+      const result = await postForm("/auth/recover", body);
+      setRecoverErrors({});
+      window.showFlashMessage?.(result.message, "success");
+    } catch (error) {
+      const mutationError = error as ApiMutationError;
+      setRecoverErrors(toFieldErrorMap(mutationError));
+      window.showFlashMessage?.(mutationError.message, "danger");
     }
   };
 
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setLoginErrors({});
+
+    const body = new URLSearchParams();
+    body.set("email", email);
+    body.set("password", password);
+    body.set("hub_id", hubId);
+
+    try {
+      const result = await postForm(withNext("/auth/login", next), body);
+      window.location.assign(result.redirect_to ?? "/");
+    } catch (error) {
+      const mutationError = error as ApiMutationError;
+      setLoginErrors(toFieldErrorMap(mutationError));
+      window.showFlashMessage?.(mutationError.message, "danger");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const emailError = recoverErrors.email || loginErrors.email;
+  const hubError = recoverErrors.hub_id || loginErrors.hub_id;
+  const passwordError = loginErrors.password;
+  const emailClassName = emailError
+    ? "form-control is-invalid"
+    : "form-control";
+  const hubClassName = hubError ? "form-select is-invalid" : "form-select";
+  const passwordClassName = passwordError
+    ? "form-control is-invalid"
+    : "form-control";
+
   return (
-    <AppShell alerts={shell.alerts}>
+    <AppShell alerts={[]}>
       <div className="row justify-content-center">
         <div className="col-md-6">
           <div className="card mt-5">
             <div className="card-header text-muted fw-bold">Авторизация</div>
             <div className="card-body">
-              <form method="POST" action={withNext("/auth/login", next)}>
+              <form onSubmit={(event) => void handleSubmit(event)}>
                 <div className="row mb-3">
                   <label className="col-md-4 col-form-label" htmlFor="email">
                     Электронная почта
@@ -88,14 +108,24 @@ export function AuthSigninPage({ shell, next, hubs }: SigninPageBootstrap) {
                   <div className="col-md-6">
                     <input
                       autoFocus
-                      className="form-control"
+                      className={emailClassName}
                       id="email"
                       name="email"
                       required
                       type="email"
                       defaultValue=""
-                      onChange={(event) => setEmail(event.target.value)}
+                      onChange={(event) => {
+                        setEmail(event.target.value);
+                        setRecoverErrors((errors) => ({
+                          ...errors,
+                          email: "",
+                        }));
+                        setLoginErrors((errors) => ({ ...errors, email: "" }));
+                      }}
                     />
+                    {emailError ? (
+                      <div className="invalid-feedback">{emailError}</div>
+                    ) : null}
                   </div>
                 </div>
                 <div className="row mb-3">
@@ -114,10 +144,18 @@ export function AuthSigninPage({ shell, next, hubs }: SigninPageBootstrap) {
                       </button>
                       <input
                         type={passwordInputType}
-                        className="form-control"
+                        className={passwordClassName}
                         id="password"
                         name="password"
                         required
+                        value={password}
+                        onChange={(event) => {
+                          setPassword(event.target.value);
+                          setLoginErrors((errors) => ({
+                            ...errors,
+                            password: "",
+                          }));
+                        }}
                       />
                       <button
                         className="btn btn-outline-secondary"
@@ -132,6 +170,11 @@ export function AuthSigninPage({ shell, next, hubs }: SigninPageBootstrap) {
                         ></i>
                       </button>
                     </div>
+                    {passwordError ? (
+                      <div className="invalid-feedback d-block">
+                        {passwordError}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 <div className="row mb-3">
@@ -140,12 +183,19 @@ export function AuthSigninPage({ shell, next, hubs }: SigninPageBootstrap) {
                   </label>
                   <div className="col-md-6">
                     <select
-                      className="form-select"
+                      className={hubClassName}
                       id="hub_id"
                       name="hub_id"
                       required
                       defaultValue=""
-                      onChange={(event) => setHubId(event.target.value)}
+                      onChange={(event) => {
+                        setHubId(event.target.value);
+                        setRecoverErrors((errors) => ({
+                          ...errors,
+                          hub_id: "",
+                        }));
+                        setLoginErrors((errors) => ({ ...errors, hub_id: "" }));
+                      }}
                     >
                       <option value="" disabled>
                         Выбор хаба
@@ -156,6 +206,9 @@ export function AuthSigninPage({ shell, next, hubs }: SigninPageBootstrap) {
                         </option>
                       ))}
                     </select>
+                    {hubError ? (
+                      <div className="invalid-feedback">{hubError}</div>
+                    ) : null}
                   </div>
                 </div>
                 <div className="row mb-3">
@@ -166,6 +219,7 @@ export function AuthSigninPage({ shell, next, hubs }: SigninPageBootstrap) {
                       name="submit"
                       type="submit"
                       value="Авторизация"
+                      disabled={isSubmitting}
                     />
                     <a
                       href={withNext("/auth/signup", next)}

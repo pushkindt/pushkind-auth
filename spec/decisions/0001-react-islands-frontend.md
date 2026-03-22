@@ -1,7 +1,7 @@
 # ADR 0001: Adopt React Incrementally Without SPA Routing
 
 ## Status
-Proposed
+Stable
 
 ## Context
 `pushkind-auth` currently renders its UI with Tera templates and augments that

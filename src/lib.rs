@@ -19,8 +19,6 @@ use actix_session::{SessionMiddleware, config::PersistentSession, storage::Cooki
 use actix_web::cookie::{Key, time::Duration};
 #[cfg(feature = "server")]
 use actix_web::{App, HttpServer, web};
-#[cfg(feature = "server")]
-use actix_web_flash_messages::{FlashMessagesFramework, storage::CookieMessageStore};
 
 #[cfg(feature = "server")]
 use pushkind_common::db::establish_connection_pool;
@@ -45,16 +43,15 @@ use crate::routes::admin::{
     user_modal,
 };
 #[cfg(feature = "server")]
-use crate::routes::api::{api_v1_id, api_v1_users};
+use crate::routes::api::{
+    api_v1_admin_dashboard, api_v1_hub_menu_items, api_v1_hubs, api_v1_iam, api_v1_id, api_v1_users,
+};
 #[cfg(feature = "server")]
 use crate::routes::auth::{
-    login, login_token, recover_password, register, signin_bootstrap, signin_page,
-    signup_bootstrap, signup_page,
+    login, login_token, recover_password, register, signin_page, signup_page,
 };
 #[cfg(feature = "server")]
-use crate::routes::main::{
-    admin_dashboard_bootstrap, basic_dashboard_bootstrap, save_user, show_index,
-};
+use crate::routes::main::{save_user, show_index};
 
 #[cfg(feature = "data")]
 pub mod domain;
@@ -108,18 +105,14 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
 
     let repo = DieselRepository::new(pool);
 
-    // Keys and stores for identity, sessions, and flash messages.
+    // Keys and stores for identity and sessions.
     let secret_key = Key::from(server_config.secret.as_bytes());
-
-    let message_store = CookieMessageStore::builder(secret_key.clone()).build();
-    let message_framework = FlashMessagesFramework::builder(message_store).build();
 
     let bind_address = (server_config.address.clone(), server_config.port);
 
     HttpServer::new(move || {
         App::new()
             .wrap(Cors::permissive())
-            .wrap(message_framework.clone())
             .wrap(IdentityMiddleware::default())
             .wrap(
                 SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
@@ -136,9 +129,7 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
                     .service(login)
                     .service(login_token)
                     .service(signin_page)
-                    .service(signin_bootstrap)
                     .service(signup_page)
-                    .service(signup_bootstrap)
                     .service(register)
                     .service(recover_password),
             )
@@ -156,15 +147,21 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
                     .service(add_menu)
                     .service(delete_menu),
             )
-            .service(web::scope("/api").service(api_v1_id).service(api_v1_users))
+            .service(
+                web::scope("/api")
+                    .service(api_v1_admin_dashboard)
+                    .service(api_v1_hub_menu_items)
+                    .service(api_v1_hubs)
+                    .service(api_v1_iam)
+                    .service(api_v1_id)
+                    .service(api_v1_users),
+            )
             .service(Files::new("/assets", "./assets").prefer_utf8(true))
             .service(
                 web::scope("")
                     .wrap(RequireUserExists)
                     .wrap(RedirectUnauthorized)
                     .service(show_index)
-                    .service(basic_dashboard_bootstrap)
-                    .service(admin_dashboard_bootstrap)
                     .service(save_user),
             )
             .app_data(web::Data::new(repo.clone()))

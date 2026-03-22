@@ -1,41 +1,68 @@
+import { useState } from "react";
+import type { FormEvent } from "react";
+
 import { AppShell } from "../components/AppShell";
 import { Navigation, type NavigationMenuItem } from "../components/Navigation";
+import type { ApiIam, ApiMutationError, ApiMutationSuccess } from "../lib/api";
 
-export interface BasicDashboardBootstrap {
-  shell: {
-    alerts: Array<{
-      message: string;
-      level: string;
-    }>;
-  };
-  current_user: {
-    email: string;
-    roles: string[];
-  };
-  current_hub: {
-    name: string;
-  };
-  current_page: string;
+export interface BasicDashboardPageData {
+  iam: ApiIam;
   menu: NavigationMenuItem[];
-  user_name: string | null;
 }
 
-export function MainBasicPage({
-  shell,
-  current_user,
-  current_hub,
-  current_page,
-  menu,
-  user_name,
-}: BasicDashboardBootstrap) {
-  const rolesValue = current_user.roles.join(" ");
+export function MainBasicPage({ iam, menu }: BasicDashboardPageData) {
+  const [name, setName] = useState(iam.editable_profile.name);
+  const [password, setPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const rolesValue = iam.user.roles.join(" ");
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setFieldErrors({});
+
+    const body = new URLSearchParams();
+    body.set("name", name);
+    body.set("password", password);
+
+    try {
+      const response = await fetch("/user/save", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        },
+        body: body.toString(),
+      });
+
+      if (!response.ok) {
+        const error = (await response.json()) as ApiMutationError;
+        const nextErrors = Object.fromEntries(
+          error.field_errors.map((fieldError) => [
+            fieldError.field,
+            fieldError.message,
+          ]),
+        );
+        setFieldErrors(nextErrors);
+        window.showFlashMessage?.(error.message, "danger");
+        return;
+      }
+
+      const result = (await response.json()) as ApiMutationSuccess;
+      setPassword("");
+      window.showFlashMessage?.(result.message, "success");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
-    <AppShell alerts={shell.alerts}>
+    <AppShell alerts={[]}>
       <Navigation
-        currentHubName={current_hub.name}
-        currentPage={current_page}
-        currentUserEmail={current_user.email}
+        currentHubName={iam.current_hub.name}
+        currentPage="index"
+        currentUserEmail={iam.user.email}
         menu={menu}
       />
       <div className="container my-2">
@@ -45,7 +72,7 @@ export function MainBasicPage({
               Для продолжения, откройте тот сайт, который вы хотели открыть,
               если это не произошло автоматически.
             </div>
-            <form method="POST" action="/user/save">
+            <form onSubmit={(event) => void handleSubmit(event)}>
               <div className="mb-3 row">
                 <label htmlFor="email" className="col-sm-2 col-form-label">
                   Электронная почта
@@ -56,7 +83,7 @@ export function MainBasicPage({
                     readOnly
                     className="form-control-plaintext"
                     id="email"
-                    value={current_user.email}
+                    value={iam.user.email}
                   />
                 </div>
               </div>
@@ -81,13 +108,24 @@ export function MainBasicPage({
                 <div className="col-sm-10">
                   <input
                     type="text"
-                    className="form-control"
+                    className={
+                      fieldErrors.name
+                        ? "form-control is-invalid"
+                        : "form-control"
+                    }
                     id="name"
                     name="name"
-                    defaultValue={user_name ?? ""}
+                    value={name}
                     placeholder="Имя"
                     required
+                    onChange={(event) => {
+                      setName(event.target.value);
+                      setFieldErrors((errors) => ({ ...errors, name: "" }));
+                    }}
                   />
+                  {fieldErrors.name ? (
+                    <div className="invalid-feedback">{fieldErrors.name}</div>
+                  ) : null}
                 </div>
               </div>
               <div className="mb-3 row">
@@ -97,14 +135,35 @@ export function MainBasicPage({
                 <div className="col-sm-10">
                   <input
                     type="password"
-                    className="form-control"
+                    className={
+                      fieldErrors.password
+                        ? "form-control is-invalid"
+                        : "form-control"
+                    }
                     id="password"
                     name="password"
                     placeholder="*****"
+                    value={password}
+                    onChange={(event) => {
+                      setPassword(event.target.value);
+                      setFieldErrors((errors) => ({
+                        ...errors,
+                        password: "",
+                      }));
+                    }}
                   />
+                  {fieldErrors.password ? (
+                    <div className="invalid-feedback">
+                      {fieldErrors.password}
+                    </div>
+                  ) : null}
                 </div>
               </div>
-              <button type="submit" className="btn btn-primary">
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={isSubmitting}
+              >
                 Изменить
               </button>
             </form>

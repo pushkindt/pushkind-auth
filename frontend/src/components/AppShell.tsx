@@ -19,6 +19,7 @@ declare global {
           element: string | Element,
           options?: object,
         ) => {
+          hide: () => void;
           show: () => void;
         };
       };

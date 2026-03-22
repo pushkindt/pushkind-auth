@@ -1,16 +1,13 @@
 import "../styles/shell.css";
 import { loadBootstrapPage } from "../lib/loadBootstrap";
-import {
-  AuthSigninPage,
-  type SigninPageBootstrap,
-} from "../pages/AuthSigninPage";
+import { AuthSigninPage, type SigninPageData } from "../pages/AuthSigninPage";
 
 const rootElement = document.getElementById("react-root");
 
 if (rootElement) {
-  void loadBootstrapPage<SigninPageBootstrap>(
+  void loadBootstrapPage<SigninPageData>(
     rootElement,
-    "/auth/bootstrap/signin",
-    (bootstrap) => <AuthSigninPage {...bootstrap} />,
+    "/api/v1/hubs",
+    (hubs) => <AuthSigninPage hubs={hubs} />,
   );
 }

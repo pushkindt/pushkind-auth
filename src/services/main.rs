@@ -1,11 +1,10 @@
 //! Services powering the main application views, such as loading index data and updating users.
 
 use pushkind_common::services::errors::ServiceResult;
-use std::convert::TryInto;
 
 use crate::domain::types::{HubId, UserEmail, UserId};
 use crate::dto::main::IndexData;
-use crate::forms::main::{SaveUserForm, SaveUserPayload};
+use crate::forms::main::SaveUserPayload;
 use crate::repository::{HubReader, MenuReader, RoleReader, UserListQuery, UserReader, UserWriter};
 use pushkind_common::domain::auth::AuthenticatedUser;
 
@@ -40,17 +39,12 @@ pub fn get_index_data(
     })
 }
 
-/// Updates the currently authenticated user with the provided changes.
-///
-/// The update is delegated to the [`UserWriter`] implementation and any
-/// repository errors are propagated to the caller.
+/// Updates the currently authenticated user using a validated payload.
 pub fn update_current_user(
-    form: SaveUserForm,
+    payload: SaveUserPayload,
     current_user: &AuthenticatedUser,
     repo: &impl UserWriter,
 ) -> ServiceResult<()> {
-    let payload: SaveUserPayload = form.try_into()?;
-
     let user_id: i32 = current_user
         .sub
         .parse()
@@ -66,9 +60,9 @@ pub fn update_current_user(
 mod tests {
     use super::*;
     use crate::domain::hub::Hub;
-    use crate::domain::types::{HubId, HubName, UserEmail, UserId};
+    use crate::domain::types::{HubId, HubName, UserEmail, UserId, UserName};
     use crate::domain::user::UserWithRoles;
-    use crate::forms::main::SaveUserForm;
+    use crate::forms::main::SaveUserPayload;
     use crate::repository::mock::MockRepository;
     use chrono::Utc;
     use pushkind_common::repository::errors::RepositoryError;
@@ -129,8 +123,8 @@ mod tests {
         let user_clone = uwr.user.clone();
         repo.expect_update_user()
             .returning(move |_, _, _| Ok(user_clone.clone()));
-        let form = SaveUserForm {
-            name: "X".into(),
+        let payload = SaveUserPayload {
+            name: UserName::new("X").unwrap(),
             password: None,
         };
         let current_user = AuthenticatedUser {
@@ -141,7 +135,7 @@ mod tests {
             roles: vec![],
             exp: 0,
         };
-        let res = update_current_user(form, &current_user, &repo);
+        let res = update_current_user(payload, &current_user, &repo);
         assert!(res.is_ok());
     }
 
@@ -150,8 +144,8 @@ mod tests {
         let (mut repo, _uwr, _hub) = sample_repo();
         repo.expect_update_user()
             .returning(|_, _, _| Err(RepositoryError::NotFound));
-        let form = SaveUserForm {
-            name: "X".into(),
+        let payload = SaveUserPayload {
+            name: UserName::new("X").unwrap(),
             password: None,
         };
         let current_user = AuthenticatedUser {
@@ -162,34 +156,10 @@ mod tests {
             roles: vec![],
             exp: 0,
         };
-        let res = update_current_user(form, &current_user, &repo);
+        let res = update_current_user(payload, &current_user, &repo);
         assert!(matches!(
             res,
             Err(pushkind_common::services::errors::ServiceError::NotFound)
-        ));
-    }
-
-    #[test]
-    fn test_update_current_user_validation_error() {
-        let repo = MockRepository::new();
-        let form = SaveUserForm {
-            name: "".into(),
-            password: None,
-        };
-        let current_user = AuthenticatedUser {
-            sub: "1".into(),
-            email: "a@b".into(),
-            hub_id: 1,
-            name: "N".into(),
-            roles: vec![],
-            exp: 0,
-        };
-
-        let res = update_current_user(form, &current_user, &repo);
-
-        assert!(matches!(
-            res,
-            Err(pushkind_common::services::errors::ServiceError::Form(_))
         ));
     }
 }

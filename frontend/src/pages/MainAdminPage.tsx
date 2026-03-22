@@ -1,32 +1,20 @@
 import { useRef, useState } from "react";
-import type { FormEvent, KeyboardEvent } from "react";
+import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
 
 import { AppShell } from "../components/AppShell";
 import { Navigation, type NavigationMenuItem } from "../components/Navigation";
-
-interface AdminRole {
-  id: number;
-  name: string;
-  can_delete: boolean;
-}
-
-interface AdminHub {
-  id: number;
-  name: string;
-  can_delete: boolean;
-}
-
-interface AdminMenuItem {
-  id: number;
-  name: string;
-}
-
-interface AdminUserListItem {
-  id: number;
-  name: string;
-  email: string;
-  roles: string[];
-}
+import {
+  fetchJson,
+  postEmpty,
+  postForm,
+  toFieldErrorMap,
+  type ApiAdminDashboard,
+  type ApiIam,
+  type ApiMenuItem,
+  type ApiMutationError,
+  type ApiUserListItem,
+  type DashboardUser,
+} from "../lib/api";
 
 interface RoleOption {
   id: number;
@@ -45,164 +33,66 @@ interface AdminUserModalBootstrap {
   roles: RoleOption[];
 }
 
-export interface AdminDashboardBootstrap {
-  shell: {
-    alerts: Array<{
-      message: string;
-      level: string;
-    }>;
-  };
-  current_user: {
-    email: string;
-    roles: string[];
-  };
-  current_hub: {
-    name: string;
-  };
-  current_page: string;
+interface AdminUserFormState {
+  id: number;
+  email: string;
+  name: string;
+  password: string;
+  roles: string[];
+}
+
+export interface AdminDashboardPageData {
+  iam: ApiIam;
   menu: NavigationMenuItem[];
-  roles: AdminRole[];
-  hubs: AdminHub[];
-  admin_menu: AdminMenuItem[];
-  users: AdminUserListItem[];
+  admin: ApiAdminDashboard;
+  users: DashboardUser[];
 }
 
-function confirmDelete(event: FormEvent<HTMLFormElement>) {
-  if (!window.confirm("Удалить?")) {
-    event.preventDefault();
-  }
-}
-
-function AdminUserModalContent({ data }: { data: AdminUserModalBootstrap }) {
-  if (!data.user) {
-    return (
-      <div className="modal-body">
-        <div className="alert alert-warning mb-0">Пользователь не найден.</div>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <div className="modal-body" key={data.user.id}>
-        <form action={`/admin/user/update/${data.user.id}`} method="POST">
-          <input type="hidden" value={data.user.id} name="id" required />
-          <div className="row mb-3">
-            <label htmlFor="modalUserEmail" className="col-md-2 col-form-label">
-              Электронный адрес
-            </label>
-            <div className="col-md-10">
-              <input
-                type="email"
-                readOnly
-                className="form-control-plaintext"
-                id="modalUserEmail"
-                value={data.user.email}
-                placeholder="Электронный адрес"
-                required
-              />
-            </div>
-          </div>
-          <div className="row mb-3">
-            <label htmlFor="modalUserName" className="col-md-2 col-form-label">
-              Имя
-            </label>
-            <div className="col-md-10">
-              <input
-                name="name"
-                type="text"
-                className="form-control"
-                id="modalUserName"
-                defaultValue={data.user.name}
-                placeholder="Имя"
-                required
-              />
-            </div>
-          </div>
-          <div className="mb-3 row">
-            <label htmlFor="password" className="col-sm-2 col-form-label">
-              Пароль
-            </label>
-            <div className="col-sm-10">
-              <input
-                type="password"
-                className="form-control"
-                id="password"
-                name="password"
-                placeholder="*****"
-              />
-            </div>
-          </div>
-          <div className="row mb-3">
-            <label
-              htmlFor="user-assign-form-role-id"
-              className="col-md-2 col-form-label"
-            >
-              Роли
-            </label>
-            <div className="col-md-10">
-              <select
-                multiple
-                className="form-control my-1"
-                name="roles"
-                id="user-assign-form-role-id"
-                defaultValue={data.user.roles.map(String)}
-              >
-                {data.roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="row mb-3">
-            <div className="col">
-              <button className="btn btn-primary" type="submit">
-                Сохранить
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-
-      <form
-        action={`/admin/user/delete/${data.user.id}`}
-        method="POST"
-        onSubmit={confirmDelete}
-      >
-        <div className="modal-footer">
-          <button className="btn btn-danger" type="submit">
-            Удалить
-          </button>
-        </div>
-      </form>
-    </>
-  );
+function mapUsers(users: ApiUserListItem[]): DashboardUser[] {
+  return users.map((user) => ({
+    id: Number(user.sub),
+    email: user.email,
+    name: user.name,
+    roles: user.roles,
+  }));
 }
 
 export function MainAdminPage({
-  shell,
-  current_user,
-  current_hub,
-  current_page,
+  iam,
   menu,
-  roles,
-  hubs,
-  admin_menu,
+  admin,
   users,
-}: AdminDashboardBootstrap) {
+}: AdminDashboardPageData) {
+  const [menuState, setMenuState] = useState(menu);
+  const [adminState, setAdminState] = useState(admin);
+  const [usersState, setUsersState] = useState(users);
   const [filterValue, setFilterValue] = useState("");
+  const [roleName, setRoleName] = useState("");
+  const [hubName, setHubName] = useState("");
+  const [menuName, setMenuName] = useState("");
+  const [menuUrl, setMenuUrl] = useState("");
+  const [roleErrors, setRoleErrors] = useState<Record<string, string>>({});
+  const [hubErrors, setHubErrors] = useState<Record<string, string>>({});
+  const [menuErrors, setMenuErrors] = useState<Record<string, string>>({});
+  const [isSubmittingRole, setIsSubmittingRole] = useState(false);
+  const [isSubmittingHub, setIsSubmittingHub] = useState(false);
+  const [isSubmittingMenu, setIsSubmittingMenu] = useState(false);
   const [isLoadingModal, setIsLoadingModal] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [modalData, setModalData] = useState<AdminUserModalBootstrap | null>(
     null,
   );
+  const [modalForm, setModalForm] = useState<AdminUserFormState | null>(null);
+  const [modalFieldErrors, setModalFieldErrors] = useState<
+    Record<string, string>
+  >({});
+  const [isSavingModal, setIsSavingModal] = useState(false);
+  const [isDeletingModal, setIsDeletingModal] = useState(false);
   const modalRef = useRef<HTMLDivElement | null>(null);
   const requestIdRef = useRef(0);
 
   const normalizedFilter = filterValue.trim().toLowerCase();
-  const filteredUsers = users.filter((user) => {
+  const filteredUsers = usersState.filter((user) => {
     if (!normalizedFilter) {
       return true;
     }
@@ -213,12 +103,74 @@ export function MainAdminPage({
       .includes(normalizedFilter);
   });
 
+  async function refreshAdminPage(): Promise<void> {
+    const [nextMenu, nextAdmin, nextUsers] = await Promise.all([
+      fetchJson<ApiMenuItem[]>(`/api/v1/hubs/${iam.current_hub.id}/menu-items`),
+      fetchJson<ApiAdminDashboard>("/api/v1/admin/dashboard"),
+      fetchJson<ApiUserListItem[]>("/api/v1/users"),
+    ]);
+
+    setMenuState(nextMenu);
+    setAdminState(nextAdmin);
+    setUsersState(mapUsers(nextUsers));
+  }
+
+  async function handleCreateMutation(
+    endpoint: string,
+    body: URLSearchParams,
+    setErrors: (errors: Record<string, string>) => void,
+    onSuccess?: () => void,
+  ): Promise<boolean> {
+    try {
+      const result = await postForm(endpoint, body);
+      setErrors({});
+      await refreshAdminPage();
+      onSuccess?.();
+      window.showFlashMessage?.(result.message, "success");
+      return true;
+    } catch (error) {
+      const mutationError = error as ApiMutationError;
+      setErrors(toFieldErrorMap(mutationError));
+      window.showFlashMessage?.(mutationError.message, "danger");
+      return false;
+    }
+  }
+
+  async function handleDeleteMutation(endpoint: string): Promise<boolean> {
+    if (!window.confirm("Удалить?")) {
+      return false;
+    }
+
+    try {
+      const result = await postEmpty(endpoint);
+      await refreshAdminPage();
+      window.showFlashMessage?.(result.message, "success");
+      return true;
+    } catch (error) {
+      const mutationError = error as ApiMutationError;
+      window.showFlashMessage?.(mutationError.message, "danger");
+      return false;
+    }
+  }
+
+  function closeModal() {
+    if (modalRef.current) {
+      window.bootstrap.Modal.getOrCreateInstance(modalRef.current).hide();
+    }
+    setModalData(null);
+    setModalForm(null);
+    setModalFieldErrors({});
+    setModalError(null);
+  }
+
   async function openUserModal(userId: number) {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     setIsLoadingModal(true);
     setModalError(null);
     setModalData(null);
+    setModalForm(null);
+    setModalFieldErrors({});
 
     if (modalRef.current) {
       window.bootstrap.Modal.getOrCreateInstance(modalRef.current).show();
@@ -243,6 +195,15 @@ export function MainAdminPage({
       }
 
       setModalData(data);
+      if (data.user) {
+        setModalForm({
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name,
+          password: "",
+          roles: data.user.roles.map(String),
+        });
+      }
     } catch (error) {
       if (requestIdRef.current !== requestId) {
         return;
@@ -257,6 +218,118 @@ export function MainAdminPage({
     }
   }
 
+  async function handleRoleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmittingRole(true);
+
+    const body = new URLSearchParams();
+    body.set("name", roleName);
+
+    const didSucceed = await handleCreateMutation(
+      "/admin/role/add",
+      body,
+      setRoleErrors,
+      () => setRoleName(""),
+    );
+
+    if (didSucceed) {
+      setRoleName("");
+    }
+
+    setIsSubmittingRole(false);
+  }
+
+  async function handleHubSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmittingHub(true);
+
+    const body = new URLSearchParams();
+    body.set("name", hubName);
+
+    const didSucceed = await handleCreateMutation(
+      "/admin/hub/add",
+      body,
+      setHubErrors,
+      () => setHubName(""),
+    );
+
+    if (didSucceed) {
+      setHubName("");
+    }
+
+    setIsSubmittingHub(false);
+  }
+
+  async function handleMenuSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmittingMenu(true);
+
+    const body = new URLSearchParams();
+    body.set("name", menuName);
+    body.set("url", menuUrl);
+
+    const didSucceed = await handleCreateMutation(
+      "/admin/menu/add",
+      body,
+      setMenuErrors,
+      () => {
+        setMenuName("");
+        setMenuUrl("");
+      },
+    );
+
+    if (didSucceed) {
+      setMenuName("");
+      setMenuUrl("");
+    }
+
+    setIsSubmittingMenu(false);
+  }
+
+  async function handleModalSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!modalForm) {
+      return;
+    }
+
+    setIsSavingModal(true);
+    const body = new URLSearchParams();
+    body.set("id", String(modalForm.id));
+    body.set("name", modalForm.name);
+    body.set("password", modalForm.password);
+    modalForm.roles.forEach((role) => body.append("roles", role));
+
+    const didSucceed = await handleCreateMutation(
+      `/admin/user/update/${modalForm.id}`,
+      body,
+      setModalFieldErrors,
+      closeModal,
+    );
+
+    if (didSucceed) {
+      closeModal();
+    }
+
+    setIsSavingModal(false);
+  }
+
+  async function handleModalDelete() {
+    if (!modalForm) {
+      return;
+    }
+
+    setIsDeletingModal(true);
+    const didSucceed = await handleDeleteMutation(
+      `/admin/user/delete/${modalForm.id}`,
+    );
+
+    if (didSucceed) {
+      closeModal();
+    }
+
+    setIsDeletingModal(false);
+  }
+
   function handleRowKeyDown(
     event: KeyboardEvent<HTMLDivElement>,
     userId: number,
@@ -267,61 +340,90 @@ export function MainAdminPage({
     }
   }
 
+  function updateModalRoles(event: ChangeEvent<HTMLSelectElement>) {
+    setModalFieldErrors((errors) => ({ ...errors, roles: "" }));
+    setModalForm((current) =>
+      current
+        ? {
+            ...current,
+            roles: Array.from(
+              event.target.selectedOptions,
+              (option) => option.value,
+            ),
+          }
+        : current,
+    );
+  }
+
   return (
-    <AppShell alerts={shell.alerts}>
+    <AppShell alerts={[]}>
       <Navigation
-        currentHubName={current_hub.name}
-        currentPage={current_page}
-        currentUserEmail={current_user.email}
-        menu={menu}
+        currentHubName={iam.current_hub.name}
+        currentPage="index"
+        currentUserEmail={iam.user.email}
+        menu={menuState}
       />
 
       <div className="container my-2">
         <div className="row">
           <div className="col-md">
             <h5>Роли</h5>
-            <form method="POST" action="/admin/role/add">
+            <form onSubmit={(event) => void handleRoleSubmit(event)}>
               <div className="row">
                 <div className="col">
                   <input
-                    className="form-control my-1"
+                    className={
+                      roleErrors.name
+                        ? "form-control my-1 is-invalid"
+                        : "form-control my-1"
+                    }
                     type="text"
                     name="name"
                     placeholder="Название"
                     required
+                    value={roleName}
+                    onChange={(event) => {
+                      setRoleName(event.target.value);
+                      setRoleErrors((errors) => ({ ...errors, name: "" }));
+                    }}
                   />
+                  {roleErrors.name ? (
+                    <div className="invalid-feedback d-block">
+                      {roleErrors.name}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="col-auto">
-                  <button className="btn btn-primary my-1" type="submit">
+                  <button
+                    className="btn btn-primary my-1"
+                    type="submit"
+                    disabled={isSubmittingRole}
+                  >
                     <i className="bi bi-plus"></i>
                   </button>
                 </div>
               </div>
             </form>
-            {roles.map((role) =>
+            {adminState.roles.map((role) =>
               role.can_delete ? (
-                <form
+                <button
                   key={role.id}
-                  action={`/admin/role/delete/${role.id}`}
-                  method="POST"
-                  style={{ display: "inline-block" }}
-                  onSubmit={confirmDelete}
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary mt-1 me-1"
+                  onClick={() =>
+                    void handleDeleteMutation(`/admin/role/delete/${role.id}`)
+                  }
                 >
-                  <button
-                    type="submit"
-                    className="btn btn-sm btn-outline-secondary mt-1"
-                  >
-                    {role.name}
-                    <span className="badge rounded-pill bg-danger">
-                      <i className="bi bi-x"></i>
-                    </span>
-                  </button>
-                </form>
+                  {role.name}
+                  <span className="badge rounded-pill bg-danger">
+                    <i className="bi bi-x"></i>
+                  </span>
+                </button>
               ) : (
                 <button
                   key={role.id}
                   type="button"
-                  className="btn btn-sm btn-outline-secondary mt-1"
+                  className="btn btn-sm btn-outline-secondary mt-1 me-1"
                 >
                   {role.name}
                 </button>
@@ -331,48 +433,62 @@ export function MainAdminPage({
 
           <div className="col-md">
             <h5>Хабы</h5>
-            <form method="POST" action="/admin/hub/add">
+            <form onSubmit={(event) => void handleHubSubmit(event)}>
               <div className="row">
                 <div className="col">
                   <input
-                    className="form-control my-1"
+                    className={
+                      hubErrors.name
+                        ? "form-control my-1 is-invalid"
+                        : "form-control my-1"
+                    }
                     type="text"
                     name="name"
                     placeholder="Название"
                     required
+                    value={hubName}
+                    onChange={(event) => {
+                      setHubName(event.target.value);
+                      setHubErrors((errors) => ({ ...errors, name: "" }));
+                    }}
                   />
+                  {hubErrors.name ? (
+                    <div className="invalid-feedback d-block">
+                      {hubErrors.name}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="col-auto">
-                  <button className="btn btn-primary my-1" type="submit">
+                  <button
+                    className="btn btn-primary my-1"
+                    type="submit"
+                    disabled={isSubmittingHub}
+                  >
                     <i className="bi bi-plus"></i>
                   </button>
                 </div>
               </div>
             </form>
-            {hubs.map((hub) =>
+            {adminState.hubs.map((hub) =>
               hub.can_delete ? (
-                <form
+                <button
                   key={hub.id}
-                  action={`/admin/hub/delete/${hub.id}`}
-                  method="POST"
-                  style={{ display: "inline-block" }}
-                  onSubmit={confirmDelete}
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary mt-1 me-1"
+                  onClick={() =>
+                    void handleDeleteMutation(`/admin/hub/delete/${hub.id}`)
+                  }
                 >
-                  <button
-                    type="submit"
-                    className="btn btn-sm btn-outline-secondary mt-1"
-                  >
-                    {hub.name}
-                    <span className="badge rounded-pill bg-danger">
-                      <i className="bi bi-x"></i>
-                    </span>
-                  </button>
-                </form>
+                  {hub.name}
+                  <span className="badge rounded-pill bg-danger">
+                    <i className="bi bi-x"></i>
+                  </span>
+                </button>
               ) : (
                 <button
                   key={hub.id}
                   type="button"
-                  className="btn btn-sm btn-outline-secondary mt-1"
+                  className="btn btn-sm btn-outline-secondary mt-1 me-1"
                 >
                   {hub.name}
                 </button>
@@ -382,57 +498,85 @@ export function MainAdminPage({
 
           <div className="col-md">
             <h5>Меню</h5>
-            <form method="POST" action="/admin/menu/add">
+            <form onSubmit={(event) => void handleMenuSubmit(event)}>
               <div className="row">
                 <div className="col">
                   <input
-                    className="form-control my-1"
+                    className={
+                      menuErrors.name
+                        ? "form-control my-1 is-invalid"
+                        : "form-control my-1"
+                    }
                     type="text"
                     name="name"
                     placeholder="Название"
                     required
+                    value={menuName}
+                    onChange={(event) => {
+                      setMenuName(event.target.value);
+                      setMenuErrors((errors) => ({ ...errors, name: "" }));
+                    }}
                   />
+                  {menuErrors.name ? (
+                    <div className="invalid-feedback d-block">
+                      {menuErrors.name}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="col">
                   <input
-                    className="form-control my-1"
+                    className={
+                      menuErrors.url
+                        ? "form-control my-1 is-invalid"
+                        : "form-control my-1"
+                    }
                     type="text"
                     name="url"
                     placeholder="URL"
                     required
+                    value={menuUrl}
+                    onChange={(event) => {
+                      setMenuUrl(event.target.value);
+                      setMenuErrors((errors) => ({ ...errors, url: "" }));
+                    }}
                   />
+                  {menuErrors.url ? (
+                    <div className="invalid-feedback d-block">
+                      {menuErrors.url}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="col-auto">
-                  <button className="btn btn-primary my-1" type="submit">
+                  <button
+                    className="btn btn-primary my-1"
+                    type="submit"
+                    disabled={isSubmittingMenu}
+                  >
                     <i className="bi bi-plus"></i>
                   </button>
                 </div>
               </div>
             </form>
-            {admin_menu.map((menuItem) => (
-              <form
+            {adminState.admin_menu.map((menuItem) => (
+              <button
                 key={menuItem.id}
-                action={`/admin/menu/delete/${menuItem.id}`}
-                method="POST"
-                style={{ display: "inline-block" }}
-                onSubmit={confirmDelete}
+                type="button"
+                className="btn btn-sm btn-outline-secondary mt-1 me-1"
+                onClick={() =>
+                  void handleDeleteMutation(`/admin/menu/delete/${menuItem.id}`)
+                }
               >
-                <button
-                  type="submit"
-                  className="btn btn-sm btn-outline-secondary mt-1"
-                >
-                  {menuItem.name}
-                  <span className="badge rounded-pill bg-danger">
-                    <i className="bi bi-x"></i>
-                  </span>
-                </button>
-              </form>
+                {menuItem.name}
+                <span className="badge rounded-pill bg-danger">
+                  <i className="bi bi-x"></i>
+                </span>
+              </button>
             ))}
           </div>
         </div>
       </div>
 
-      {users.length > 0 ? (
+      {usersState.length > 0 ? (
         <>
           <div className="container mb-1">
             <div className="row">
@@ -514,13 +658,179 @@ export function MainAdminPage({
                   <div className="modal-body">
                     <div className="alert alert-danger mb-0">{modalError}</div>
                   </div>
-                ) : modalData ? (
-                  <AdminUserModalContent
-                    key={modalData.user?.id ?? 0}
-                    data={modalData}
-                  />
+                ) : !modalData?.user || !modalForm ? (
+                  <div className="modal-body">
+                    <div className="alert alert-warning mb-0">
+                      Пользователь не найден.
+                    </div>
+                  </div>
                 ) : (
-                  <div className="modal-body"></div>
+                  <>
+                    <div className="modal-body" key={modalForm.id}>
+                      <form onSubmit={(event) => void handleModalSave(event)}>
+                        <input
+                          type="hidden"
+                          value={modalForm.id}
+                          name="id"
+                          required
+                        />
+                        <div className="row mb-3">
+                          <label
+                            htmlFor="modalUserEmail"
+                            className="col-md-2 col-form-label"
+                          >
+                            Электронный адрес
+                          </label>
+                          <div className="col-md-10">
+                            <input
+                              type="email"
+                              readOnly
+                              className="form-control-plaintext"
+                              id="modalUserEmail"
+                              value={modalForm.email}
+                              placeholder="Электронный адрес"
+                              required
+                            />
+                          </div>
+                        </div>
+                        <div className="row mb-3">
+                          <label
+                            htmlFor="modalUserName"
+                            className="col-md-2 col-form-label"
+                          >
+                            Имя
+                          </label>
+                          <div className="col-md-10">
+                            <input
+                              name="name"
+                              type="text"
+                              className={
+                                modalFieldErrors.name
+                                  ? "form-control is-invalid"
+                                  : "form-control"
+                              }
+                              id="modalUserName"
+                              value={modalForm.name}
+                              placeholder="Имя"
+                              required
+                              onChange={(event) => {
+                                setModalForm((current) =>
+                                  current
+                                    ? { ...current, name: event.target.value }
+                                    : current,
+                                );
+                                setModalFieldErrors((errors) => ({
+                                  ...errors,
+                                  name: "",
+                                }));
+                              }}
+                            />
+                            {modalFieldErrors.name ? (
+                              <div className="invalid-feedback">
+                                {modalFieldErrors.name}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="mb-3 row">
+                          <label
+                            htmlFor="modalUserPassword"
+                            className="col-sm-2 col-form-label"
+                          >
+                            Пароль
+                          </label>
+                          <div className="col-sm-10">
+                            <input
+                              type="password"
+                              className={
+                                modalFieldErrors.password
+                                  ? "form-control is-invalid"
+                                  : "form-control"
+                              }
+                              id="modalUserPassword"
+                              name="password"
+                              placeholder="*****"
+                              value={modalForm.password}
+                              onChange={(event) => {
+                                setModalForm((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        password: event.target.value,
+                                      }
+                                    : current,
+                                );
+                                setModalFieldErrors((errors) => ({
+                                  ...errors,
+                                  password: "",
+                                }));
+                              }}
+                            />
+                            {modalFieldErrors.password ? (
+                              <div className="invalid-feedback">
+                                {modalFieldErrors.password}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="row mb-3">
+                          <label
+                            htmlFor="user-assign-form-role-id"
+                            className="col-md-2 col-form-label"
+                          >
+                            Роли
+                          </label>
+                          <div className="col-md-10">
+                            <select
+                              multiple
+                              className={
+                                modalFieldErrors.roles
+                                  ? "form-control my-1 is-invalid"
+                                  : "form-control my-1"
+                              }
+                              name="roles"
+                              id="user-assign-form-role-id"
+                              value={modalForm.roles}
+                              onChange={updateModalRoles}
+                            >
+                              {modalData.roles.map((role) => (
+                                <option key={role.id} value={role.id}>
+                                  {role.name}
+                                </option>
+                              ))}
+                            </select>
+                            {modalFieldErrors.roles ? (
+                              <div className="invalid-feedback d-block">
+                                {modalFieldErrors.roles}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="row mb-3">
+                          <div className="col">
+                            <button
+                              className="btn btn-primary"
+                              type="submit"
+                              disabled={isSavingModal}
+                            >
+                              Сохранить
+                            </button>
+                          </div>
+                        </div>
+                      </form>
+                    </div>
+
+                    <div className="modal-footer">
+                      <button
+                        className="btn btn-danger"
+                        type="button"
+                        disabled={isDeletingModal}
+                        onClick={() => void handleModalDelete()}
+                      >
+                        Удалить
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             </div>

@@ -41,6 +41,31 @@ export async function loadBootstrapPage<T>(
   endpoint: string,
   renderPage: (bootstrap: T) => ReactElement,
 ): Promise<void> {
+  return loadComposedPage(
+    rootElement,
+    () =>
+      fetch(endpoint, {
+        headers: {
+          Accept: "application/json",
+        },
+      }).then(async (response) => {
+        if (!response.ok) {
+          throw new Error(
+            `Bootstrap request failed with status ${response.status}`,
+          );
+        }
+
+        return (await response.json()) as T;
+      }),
+    renderPage,
+  );
+}
+
+export async function loadComposedPage<T>(
+  rootElement: HTMLElement,
+  loadPage: () => Promise<T>,
+  renderPage: (bootstrap: T) => ReactElement,
+): Promise<void> {
   const root = createRoot(rootElement);
 
   root.render(
@@ -50,19 +75,7 @@ export async function loadBootstrapPage<T>(
   );
 
   try {
-    const response = await fetch(`${endpoint}${window.location.search}`, {
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Bootstrap request failed with status ${response.status}`,
-      );
-    }
-
-    const bootstrap = (await response.json()) as T;
+    const bootstrap = await loadPage();
 
     root.render(<StrictMode>{renderPage(bootstrap)}</StrictMode>);
   } catch (error) {

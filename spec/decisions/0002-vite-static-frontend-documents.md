@@ -1,7 +1,7 @@
 # ADR 0002: Let Vite Own Frontend Documents
 
 ## Status
-Proposed
+Stable
 
 ## Context
 The React migration removed Tera, but the backend still constructs the HTML
