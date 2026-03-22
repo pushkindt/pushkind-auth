@@ -59,7 +59,7 @@ pub fn list_users(
 
     let users = users_with_roles
         .into_iter()
-        .map(|u| UserDto::from(AuthenticatedUser::from(u.user)))
+        .map(|u| UserDto::from(AuthenticatedUser::from(u)))
         .collect();
 
     Ok(users)
