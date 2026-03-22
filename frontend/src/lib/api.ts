@@ -1,3 +1,5 @@
+import { redirectTo } from "./redirect";
+
 export interface ApiUser {
   sub: string;
   email: string;
@@ -81,6 +83,50 @@ export interface ApiMutationError {
   field_errors: ApiFieldError[];
 }
 
+export class RedirectResponseError extends Error {
+  redirectTo: string;
+
+  constructor(redirectTo: string) {
+    super(`Expected JSON response but received a redirect to ${redirectTo}`);
+    this.name = "RedirectResponseError";
+    this.redirectTo = redirectTo;
+  }
+}
+
+export function isRedirectResponseError(
+  error: unknown,
+): error is RedirectResponseError {
+  return error instanceof RedirectResponseError;
+}
+
+function isJsonResponse(response: Response): boolean {
+  return (
+    response.headers.get("content-type")?.includes("application/json") ?? false
+  );
+}
+
+function handleUnexpectedResponse(response: Response, endpoint: string): never {
+  if (response.redirected && response.url) {
+    redirectTo(response.url);
+    throw new RedirectResponseError(response.url);
+  }
+
+  throw new Error(
+    `Expected JSON response from ${endpoint} with status ${response.status}`,
+  );
+}
+
+async function readJsonResponse<T>(
+  response: Response,
+  endpoint: string,
+): Promise<T> {
+  if (!isJsonResponse(response)) {
+    handleUnexpectedResponse(response, endpoint);
+  }
+
+  return (await response.json()) as T;
+}
+
 export async function fetchJson<T>(endpoint: string): Promise<T> {
   const response = await fetch(endpoint, {
     headers: {
@@ -94,7 +140,7 @@ export async function fetchJson<T>(endpoint: string): Promise<T> {
     );
   }
 
-  return (await response.json()) as T;
+  return readJsonResponse<T>(response, endpoint);
 }
 
 export function toFieldErrorMap(
@@ -121,7 +167,7 @@ export async function postForm(
     body: body.toString(),
   });
 
-  const payload = (await response.json()) as
+  const payload = (await readJsonResponse(response, endpoint)) as
     | ApiMutationSuccess
     | ApiMutationError;
 
@@ -140,7 +186,7 @@ export async function postEmpty(endpoint: string): Promise<ApiMutationSuccess> {
     },
   });
 
-  const payload = (await response.json()) as
+  const payload = (await readJsonResponse(response, endpoint)) as
     | ApiMutationSuccess
     | ApiMutationError;
 
@@ -149,4 +195,21 @@ export async function postEmpty(endpoint: string): Promise<ApiMutationSuccess> {
   }
 
   return payload as ApiMutationSuccess;
+}
+
+export async function postJson<T>(endpoint: string): Promise<T> {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Request failed for ${endpoint} with status ${response.status}`,
+    );
+  }
+
+  return readJsonResponse<T>(response, endpoint);
 }

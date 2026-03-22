@@ -5,8 +5,10 @@ import { AppShell } from "../components/AppShell";
 import { Navigation, type NavigationMenuItem } from "../components/Navigation";
 import {
   fetchJson,
+  isRedirectResponseError,
   postEmpty,
   postForm,
+  postJson,
   toFieldErrorMap,
   type ApiAdminDashboard,
   type ApiIam,
@@ -129,6 +131,10 @@ export function MainAdminPage({
       window.showFlashMessage?.(result.message, "success");
       return true;
     } catch (error) {
+      if (isRedirectResponseError(error)) {
+        return false;
+      }
+
       const mutationError = error as ApiMutationError;
       setErrors(toFieldErrorMap(mutationError));
       window.showFlashMessage?.(mutationError.message, "danger");
@@ -147,6 +153,10 @@ export function MainAdminPage({
       window.showFlashMessage?.(result.message, "success");
       return true;
     } catch (error) {
+      if (isRedirectResponseError(error)) {
+        return false;
+      }
+
       const mutationError = error as ApiMutationError;
       window.showFlashMessage?.(mutationError.message, "danger");
       return false;
@@ -177,18 +187,9 @@ export function MainAdminPage({
     }
 
     try {
-      const response = await fetch(`/admin/user/modal/${userId}`, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
-      }
-
-      const data = (await response.json()) as AdminUserModalBootstrap;
+      const data = await postJson<AdminUserModalBootstrap>(
+        `/admin/user/modal/${userId}`,
+      );
 
       if (requestIdRef.current !== requestId) {
         return;
@@ -206,6 +207,10 @@ export function MainAdminPage({
       }
     } catch (error) {
       if (requestIdRef.current !== requestId) {
+        return;
+      }
+
+      if (isRedirectResponseError(error)) {
         return;
       }
 

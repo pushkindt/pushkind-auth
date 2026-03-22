@@ -3,7 +3,13 @@ import type { FormEvent } from "react";
 
 import { AppShell } from "../components/AppShell";
 import { Navigation, type NavigationMenuItem } from "../components/Navigation";
-import type { ApiIam, ApiMutationError, ApiMutationSuccess } from "../lib/api";
+import {
+  isRedirectResponseError,
+  postForm,
+  toFieldErrorMap,
+  type ApiIam,
+  type ApiMutationError,
+} from "../lib/api";
 
 export interface BasicDashboardPageData {
   iam: ApiIam;
@@ -27,31 +33,17 @@ export function MainBasicPage({ iam, menu }: BasicDashboardPageData) {
     body.set("password", password);
 
     try {
-      const response = await fetch("/user/save", {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        },
-        body: body.toString(),
-      });
-
-      if (!response.ok) {
-        const error = (await response.json()) as ApiMutationError;
-        const nextErrors = Object.fromEntries(
-          error.field_errors.map((fieldError) => [
-            fieldError.field,
-            fieldError.message,
-          ]),
-        );
-        setFieldErrors(nextErrors);
-        window.showFlashMessage?.(error.message, "danger");
+      const result = await postForm("/user/save", body);
+      setPassword("");
+      window.showFlashMessage?.(result.message, "success");
+    } catch (error) {
+      if (isRedirectResponseError(error)) {
         return;
       }
 
-      const result = (await response.json()) as ApiMutationSuccess;
-      setPassword("");
-      window.showFlashMessage?.(result.message, "success");
+      const mutationError = error as ApiMutationError;
+      setFieldErrors(toFieldErrorMap(mutationError));
+      window.showFlashMessage?.(mutationError.message, "danger");
     } finally {
       setIsSubmitting(false);
     }

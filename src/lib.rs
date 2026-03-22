@@ -149,6 +149,7 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
             )
             .service(
                 web::scope("/api")
+                    .wrap(RequireUserExists)
                     .service(api_v1_admin_dashboard)
                     .service(api_v1_hub_menu_items)
                     .service(api_v1_hubs)
