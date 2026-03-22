@@ -30,8 +30,9 @@ roles, hubs, menus, and user management.
   `RoleName`, `MenuName`) that assume validated inputs.
 - **Forms (`src/forms`)**: `validator`-backed structs for input validation and
   normalization.
-- **DTOs (`src/dto`)**: API/template-facing shapes.
-- **Templates (`templates/`)**: Server-rendered UI via Tera.
+- **DTOs (`src/dto`)**: API/frontend-facing shapes.
+- **Frontend assets (`frontend/`, `assets/dist/`)**: React source and compiled
+  browser bundles served by the application.
 
 ## Runtime Components
 - Actix Web server configured in `src/lib.rs::run`.
@@ -130,7 +131,7 @@ service-layer authorization checks (`pushkind_common::routes::ensure_role`).
 - Config is loaded from `config/default.yaml`, then `config/{APP_ENV}.yaml`,
   then `APP_` environment variables.
 - `ServerConfig` fields are required with no defaults: `domain`, `database_url`,
-  `address`, `port`, `zmq_emailer_pub`, `templates_dir`, `secret`.
+  `address`, `port`, `zmq_emailer_pub`, `secret`.
 - Missing or invalid configuration causes startup to log an error and exit
   with status code `1`.
 

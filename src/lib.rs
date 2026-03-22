@@ -10,6 +10,8 @@ use std::sync::Arc;
 #[cfg(feature = "server")]
 use actix_cors::Cors;
 #[cfg(feature = "server")]
+use actix_files::Files;
+#[cfg(feature = "server")]
 use actix_identity::IdentityMiddleware;
 #[cfg(feature = "server")]
 use actix_session::{SessionMiddleware, config::PersistentSession, storage::CookieSessionStore};
@@ -17,8 +19,6 @@ use actix_session::{SessionMiddleware, config::PersistentSession, storage::Cooki
 use actix_web::cookie::{Key, time::Duration};
 #[cfg(feature = "server")]
 use actix_web::{App, HttpServer, web};
-#[cfg(feature = "server")]
-use actix_web_flash_messages::{FlashMessagesFramework, storage::CookieMessageStore};
 
 #[cfg(feature = "server")]
 use pushkind_common::db::establish_connection_pool;
@@ -30,8 +30,6 @@ use pushkind_common::models::config::CommonServerConfig;
 use pushkind_common::routes::logout;
 #[cfg(feature = "server")]
 use pushkind_common::zmq::{ZmqSender, ZmqSenderOptions};
-#[cfg(feature = "server")]
-use tera::Tera;
 
 #[cfg(feature = "server")]
 use crate::middleware::RequireUserExists;
@@ -45,7 +43,9 @@ use crate::routes::admin::{
     user_modal,
 };
 #[cfg(feature = "server")]
-use crate::routes::api::{api_v1_id, api_v1_users};
+use crate::routes::api::{
+    api_v1_admin_dashboard, api_v1_hub_menu_items, api_v1_hubs, api_v1_iam, api_v1_id, api_v1_users,
+};
 #[cfg(feature = "server")]
 use crate::routes::auth::{
     login, login_token, recover_password, register, signin_page, signup_page,
@@ -57,6 +57,8 @@ use crate::routes::main::{save_user, show_index};
 pub mod domain;
 #[cfg(feature = "server")]
 pub mod dto;
+#[cfg(feature = "server")]
+pub mod frontend;
 
 pub mod error_conversions;
 #[cfg(feature = "server")]
@@ -103,21 +105,14 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
 
     let repo = DieselRepository::new(pool);
 
-    // Keys and stores for identity, sessions, and flash messages.
+    // Keys and stores for identity and sessions.
     let secret_key = Key::from(server_config.secret.as_bytes());
-
-    let message_store = CookieMessageStore::builder(secret_key.clone()).build();
-    let message_framework = FlashMessagesFramework::builder(message_store).build();
-
-    let tera = Tera::new(&server_config.templates_dir)
-        .map_err(|e| std::io::Error::other(format!("Template parsing error(s): {e}")))?;
 
     let bind_address = (server_config.address.clone(), server_config.port);
 
     HttpServer::new(move || {
         App::new()
             .wrap(Cors::permissive())
-            .wrap(message_framework.clone())
             .wrap(IdentityMiddleware::default())
             .wrap(
                 SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
@@ -152,7 +147,17 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
                     .service(add_menu)
                     .service(delete_menu),
             )
-            .service(web::scope("/api").service(api_v1_id).service(api_v1_users))
+            .service(
+                web::scope("/api")
+                    .wrap(RequireUserExists)
+                    .service(api_v1_admin_dashboard)
+                    .service(api_v1_hub_menu_items)
+                    .service(api_v1_hubs)
+                    .service(api_v1_iam)
+                    .service(api_v1_id)
+                    .service(api_v1_users),
+            )
+            .service(Files::new("/assets", "./assets").prefer_utf8(true))
             .service(
                 web::scope("")
                     .wrap(RequireUserExists)
@@ -160,7 +165,6 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
                     .service(show_index)
                     .service(save_user),
             )
-            .app_data(web::Data::new(tera.clone()))
             .app_data(web::Data::new(repo.clone()))
             .app_data(web::Data::new(server_config.clone()))
             .app_data(web::Data::new(common_config.clone()))

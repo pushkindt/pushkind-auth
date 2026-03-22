@@ -1,5 +1,4 @@
 address: 127.0.0.1
-templates_dir: templates/**/*
 secret: env::APP_SECRET
 database_url: app.db
 zmq_emailer_pub: tcp://127.0.0.1:5557

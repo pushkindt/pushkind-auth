@@ -3,27 +3,22 @@
 use pushkind_common::domain::auth::AuthenticatedUser;
 use pushkind_common::routes::ensure_role;
 use pushkind_common::services::errors::{ServiceError, ServiceResult};
-use std::convert::TryInto;
 
 use crate::SERVICE_ACCESS_ROLE;
 use crate::domain::types::{HubId, MenuId, RoleId, UserId};
 use crate::dto::admin::UserModalData;
-use crate::forms::main::{
-    AddHubForm, AddHubPayload, AddMenuForm, AddMenuPayload, AddRoleForm, AddRolePayload,
-    UpdateUserForm, UpdateUserPayload,
-};
+use crate::forms::main::{AddHubPayload, AddMenuPayload, AddRolePayload, UpdateUserPayload};
 use crate::repository::{
     HubWriter, MenuReader, MenuWriter, RoleReader, RoleWriter, UserReader, UserWriter,
 };
 
-/// Creates a new role when the current user is an admin.
+/// Creates a new role from a validated payload when the current user is an admin.
 pub fn create_role(
-    form: AddRoleForm,
+    payload: AddRolePayload,
     current_user: &AuthenticatedUser,
     repo: &impl RoleWriter,
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
-    let payload: AddRolePayload = form.try_into()?;
     let new_role = payload.into();
     repo.create_role(&new_role)?;
     Ok(())
@@ -70,16 +65,14 @@ pub fn delete_user_by_id(
     Ok(())
 }
 
-/// Assigns roles and updates a user if they belong to the current hub.
+/// Assigns roles and updates a user from a validated payload.
 pub fn assign_roles_and_update_user(
     user_id: i32,
-    form: UpdateUserForm,
+    payload: UpdateUserPayload,
     current_user: &AuthenticatedUser,
     repo: &(impl UserWriter + UserReader),
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
-    let payload: UpdateUserPayload = form.try_into()?;
-
     let user_id = UserId::new(user_id)?;
     let updates = payload.into();
 
@@ -94,14 +87,13 @@ pub fn assign_roles_and_update_user(
     Ok(())
 }
 
-/// Creates a new hub when invoked by an admin.
+/// Creates a new hub from a validated payload.
 pub fn create_hub(
-    form: AddHubForm,
+    payload: AddHubPayload,
     current_user: &AuthenticatedUser,
     repo: &impl HubWriter,
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
-    let payload: AddHubPayload = form.try_into()?;
     let new_hub = payload.into();
     repo.create_hub(&new_hub)?;
     Ok(())
@@ -139,14 +131,13 @@ pub fn delete_hub_by_id(
     Ok(())
 }
 
-/// Creates a new menu entry for the given hub.
+/// Creates a new menu entry from a validated payload.
 pub fn create_menu(
-    form: AddMenuForm,
+    payload: AddMenuPayload,
     current_user: &AuthenticatedUser,
     repo: &impl MenuWriter,
 ) -> ServiceResult<()> {
     ensure_role(current_user, SERVICE_ACCESS_ROLE)?;
-    let payload: AddMenuPayload = form.try_into()?;
     let hub_id = HubId::new(current_user.hub_id)?;
     let new_menu = payload.into_new_menu(hub_id);
     repo.create_menu(&new_menu)?;
@@ -178,11 +169,10 @@ mod tests {
     use crate::domain::role::Role;
     use crate::domain::types::{HubId, MenuId, RoleId, RoleName, UserEmail, UserId};
     use crate::domain::user::{User, UserWithRoles};
-    use crate::forms::main::{AddHubForm, AddMenuForm, AddRoleForm};
+    use crate::forms::main::{AddHubPayload, AddMenuPayload, AddRolePayload};
     use crate::repository::mock::MockRepository;
     use chrono::Utc;
     use pushkind_common::domain::auth::AuthenticatedUser;
-    use pushkind_common::services::errors::ServiceError;
 
     fn admin_user() -> AuthenticatedUser {
         AuthenticatedUser {
@@ -251,18 +241,10 @@ mod tests {
                 now,
             ))
         });
-        let form = AddRoleForm { name: "new".into() };
-        assert!(create_role(form, &admin_user(), &repo).is_ok());
-    }
-
-    #[test]
-    fn create_role_validation_error() {
-        let repo = MockRepository::new();
-        let form = AddRoleForm { name: "".into() };
-
-        let res = create_role(form, &admin_user(), &repo);
-
-        assert!(matches!(res, Err(ServiceError::Form(_))));
+        let payload = AddRolePayload {
+            name: RoleName::new("new").unwrap(),
+        };
+        assert!(create_role(payload, &admin_user(), &repo).is_ok());
     }
 
     #[test]
@@ -272,8 +254,10 @@ mod tests {
         repo.expect_create_hub()
             .returning(move |nh| Ok(Hub::new(HubId::new(2).unwrap(), nh.name.clone(), now, now)));
         repo.expect_delete_hub().returning(|_| Ok(1));
-        let form = AddHubForm { name: "hub".into() };
-        assert!(create_hub(form, &admin_user(), &repo).is_ok());
+        let payload = AddHubPayload {
+            name: crate::domain::types::HubName::new("hub").unwrap(),
+        };
+        assert!(create_hub(payload, &admin_user(), &repo).is_ok());
         assert!(delete_hub_by_id(2, &admin_user(), &repo).is_ok());
     }
 
@@ -298,11 +282,11 @@ mod tests {
             ))
         });
         repo.expect_delete_menu().returning(|_| Ok(1));
-        let form = AddMenuForm {
-            name: "m".into(),
-            url: "https://app.test.me/".into(),
+        let payload = AddMenuPayload {
+            name: crate::domain::types::MenuName::new("m").unwrap(),
+            url: crate::domain::types::MenuUrl::new("https://app.test.me/").unwrap(),
         };
-        assert!(create_menu(form, &admin_user(), &repo).is_ok());
+        assert!(create_menu(payload, &admin_user(), &repo).is_ok());
         assert!(delete_menu_by_id(1, &admin_user(), &repo).is_ok());
     }
 }

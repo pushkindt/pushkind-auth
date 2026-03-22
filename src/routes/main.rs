@@ -1,72 +1,88 @@
 //! General site routes and small API endpoints.
 
-use actix_web::{HttpResponse, Responder, get, post, web};
-use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
+use actix_web::{HttpRequest, HttpResponse, Responder, get, post, web};
 use log::error;
 use pushkind_common::domain::auth::AuthenticatedUser;
-use pushkind_common::routes::render_template;
-use pushkind_common::routes::{alert_level_to_str, redirect};
-use tera::{Context, Tera};
+use pushkind_common::routes::redirect;
 
-use crate::forms::main::SaveUserForm;
+use crate::dto::api::{ApiMutationErrorDto, ApiMutationSuccessDto};
+use crate::forms::main::{SaveUserForm, SaveUserPayload};
+use crate::frontend::open_frontend_html;
 use crate::repository::DieselRepository;
+use crate::routes::{form_error_response, wants_json};
 use crate::services::main as main_service;
+
+fn is_admin(user: &AuthenticatedUser) -> bool {
+    user.roles
+        .iter()
+        .any(|role| role == crate::SERVICE_ACCESS_ROLE)
+}
 
 /// Displays the main dashboard via `GET /` for the authenticated user.
 #[get("/")]
-pub async fn show_index(
-    user: AuthenticatedUser,
-    flash_messages: IncomingFlashMessages,
-    repo: web::Data<DieselRepository>,
-    tera: web::Data<Tera>,
-) -> impl Responder {
-    let data = match main_service::get_index_data(&user, repo.get_ref()) {
-        Ok(d) => d,
-        Err(e) => {
-            error!("Failed to build index data: {e}");
-            return HttpResponse::InternalServerError().finish();
-        }
+pub async fn show_index(request: HttpRequest, user: AuthenticatedUser) -> impl Responder {
+    let path = if is_admin(&user) {
+        "assets/dist/app/index-admin.html"
+    } else {
+        "assets/dist/app/index-basic.html"
     };
 
-    let alerts = flash_messages
-        .iter()
-        .map(|f| (f.content(), alert_level_to_str(&f.level())))
-        .collect::<Vec<_>>();
-
-    let user_name = data.user_name;
-
-    let mut context = Context::new();
-    context.insert("alerts", &alerts);
-    context.insert("current_user", &user);
-    context.insert("user_name", &user_name);
-    context.insert("current_page", "index");
-    context.insert("current_hub", &data.hub);
-    context.insert("users", &data.users);
-    context.insert("roles", &data.roles);
-    context.insert("hubs", &data.hubs);
-    context.insert("menu", &data.menu);
-
-    render_template(&tera, "main/index.html", &context)
+    match open_frontend_html(path).await {
+        Ok(file) => file.into_response(&request),
+        Err(err) => {
+            error!("Failed to open dashboard frontend document: {err}");
+            HttpResponse::InternalServerError().finish()
+        }
+    }
 }
 
 /// Saves profile updates for the current user via `POST /user/save`.
 #[post("/user/save")]
 pub async fn save_user(
+    request: HttpRequest,
     web::Form(form): web::Form<SaveUserForm>,
     current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
-    match main_service::update_current_user(form, &current_user, repo.get_ref()) {
+    let wants_json = wants_json(&request);
+    let payload = match SaveUserPayload::try_from(form) {
+        Ok(payload) => payload,
+        Err(error) => {
+            if wants_json {
+                return HttpResponse::BadRequest().json(form_error_response(&error));
+            }
+
+            log::error!("Failed to validate settings: {error}");
+            return redirect("/");
+        }
+    };
+
+    match main_service::update_current_user(payload, &current_user, repo.get_ref()) {
         Ok(_) => {
-            FlashMessage::success("Параметры изменены.".to_string()).send();
+            if wants_json {
+                return HttpResponse::Ok().json(ApiMutationSuccessDto {
+                    message: "Параметры изменены.".to_string(),
+                    redirect_to: None,
+                });
+            }
         }
         Err(pushkind_common::services::errors::ServiceError::Form(e)) => {
             log::error!("Failed to validate settings: {e}");
-            FlashMessage::error("Ошибка валидации формы").send();
+            if wants_json {
+                return HttpResponse::BadRequest().json(ApiMutationErrorDto {
+                    message: "Ошибка валидации формы.".to_string(),
+                    field_errors: Vec::new(),
+                });
+            }
         }
         Err(err) => {
             log::error!("Failed to update settings: {err}");
-            FlashMessage::error("Ошибка при изменении параметров").send();
+            if wants_json {
+                return HttpResponse::InternalServerError().json(ApiMutationErrorDto {
+                    message: "Ошибка при изменении параметров.".to_string(),
+                    field_errors: Vec::new(),
+                });
+            }
         }
     }
     redirect("/")

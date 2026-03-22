@@ -3,6 +3,7 @@
 use actix_web::{HttpResponse, Responder, get, web};
 use log::error;
 use pushkind_common::domain::auth::AuthenticatedUser;
+use pushkind_common::services::errors::ServiceError;
 use serde::Deserialize;
 
 use crate::dto::api::ApiV1UsersQueryParams;
@@ -26,6 +27,67 @@ pub async fn api_v1_id(
         Ok(None) => HttpResponse::NotFound().finish(),
         Err(e) => {
             error!("Failed to get user: {e}");
+            HttpResponse::InternalServerError().finish()
+        }
+    }
+}
+
+/// Lists hubs via `GET /v1/hubs`.
+#[get("/v1/hubs")]
+pub async fn api_v1_hubs(repo: web::Data<DieselRepository>) -> impl Responder {
+    match api_service::list_hubs(repo.get_ref()) {
+        Ok(hubs) => HttpResponse::Ok().json(hubs),
+        Err(e) => {
+            error!("Failed to list hubs: {e}");
+            HttpResponse::InternalServerError().finish()
+        }
+    }
+}
+
+/// Returns the authenticated user's IAM payload via `GET /v1/iam`.
+#[get("/v1/iam")]
+pub async fn api_v1_iam(
+    current_user: AuthenticatedUser,
+    repo: web::Data<DieselRepository>,
+) -> impl Responder {
+    match api_service::get_iam(current_user, repo.get_ref()) {
+        Ok(iam) => HttpResponse::Ok().json(iam),
+        Err(ServiceError::NotFound) => HttpResponse::NotFound().finish(),
+        Err(e) => {
+            error!("Failed to build IAM payload: {e}");
+            HttpResponse::InternalServerError().finish()
+        }
+    }
+}
+
+/// Lists menu items for the requested hub via `GET /v1/hubs/{hub_id}/menu-items`.
+#[get("/v1/hubs/{hub_id}/menu-items")]
+pub async fn api_v1_hub_menu_items(
+    hub_id: web::Path<i32>,
+    current_user: AuthenticatedUser,
+    repo: web::Data<DieselRepository>,
+) -> impl Responder {
+    match api_service::list_hub_menu_items(hub_id.into_inner(), &current_user, repo.get_ref()) {
+        Ok(menu_items) => HttpResponse::Ok().json(menu_items),
+        Err(ServiceError::Unauthorized) => HttpResponse::Forbidden().finish(),
+        Err(e) => {
+            error!("Failed to list hub menu items: {e}");
+            HttpResponse::InternalServerError().finish()
+        }
+    }
+}
+
+/// Returns admin-only dashboard collections via `GET /v1/admin/dashboard`.
+#[get("/v1/admin/dashboard")]
+pub async fn api_v1_admin_dashboard(
+    current_user: AuthenticatedUser,
+    repo: web::Data<DieselRepository>,
+) -> impl Responder {
+    match api_service::get_admin_dashboard_data(&current_user, repo.get_ref()) {
+        Ok(data) => HttpResponse::Ok().json(data),
+        Err(ServiceError::Unauthorized) => HttpResponse::Forbidden().finish(),
+        Err(e) => {
+            error!("Failed to build admin dashboard payload: {e}");
             HttpResponse::InternalServerError().finish()
         }
     }
