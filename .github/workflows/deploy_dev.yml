@@ -65,7 +65,6 @@ jobs:
           scp ./target/release/pushkind-auth cicd@users.pushkind.com:/var/www7/html/
           scp -r ./config/ cicd@users.pushkind.com:/var/www7/html/
           scp -r ./assets/ cicd@users.pushkind.com:/var/www7/html/
-          scp -r ./templates/ cicd@users.pushkind.com:/var/www7/html/
           scp -r ./migrations/ cicd@users.pushkind.com:/var/www7/html/
           ssh cicd@users.pushkind.com "cd /var/www7/html/ && /home/cicd/.cargo/bin/diesel migration run --database-url app.db"
           ssh cicd@users.pushkind.com "sudo /usr/bin/systemctl start pushkind-auth.service"
