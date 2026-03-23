@@ -8,7 +8,7 @@ use crate::dto::api::{ApiMutationErrorDto, ApiMutationSuccessDto};
 use crate::forms::main::{SaveUserForm, SaveUserPayload};
 use crate::frontend::open_frontend_html;
 use crate::repository::DieselRepository;
-use crate::routes::mutation_error_response;
+use crate::routes::{MutationResource, mutation_error_response};
 use crate::services::main as main_service;
 
 fn is_admin(user: &AuthenticatedUser) -> bool {
@@ -57,7 +57,7 @@ pub async fn save_user(
         }),
         Err(err) => {
             log::error!("Failed to update settings: {err}");
-            mutation_error_response(&err)
+            mutation_error_response(MutationResource::Settings, &err)
         }
     }
 }

@@ -18,7 +18,9 @@ use crate::forms::auth::{
 use crate::frontend::open_frontend_html;
 use crate::models::config::AppConfig;
 use crate::repository::DieselRepository;
-use crate::routes::{get_success_and_failure_redirects, mutation_error_response};
+use crate::routes::{
+    MutationResource, get_success_and_failure_redirects, mutation_error_response,
+};
 use crate::services::auth as auth_service;
 
 #[derive(Deserialize)]
@@ -93,7 +95,7 @@ pub async fn login(
             }
             Err(err) => {
                 log::error!("Login error: {err}");
-                return mutation_error_response(&err);
+                return mutation_error_response(MutationResource::Authentication, &err);
             }
         };
 
@@ -134,7 +136,7 @@ pub async fn register(
         }),
         Err(err) => {
             log::error!("Failed to create user: {err}");
-            mutation_error_response(&err)
+            mutation_error_response(MutationResource::UserRegistration, &err)
         }
     }
 }
@@ -208,7 +210,7 @@ pub async fn recover_password(
         }),
         Err(err) => {
             log::error!("Failed to send recovery email: {err}");
-            mutation_error_response(&err)
+            mutation_error_response(MutationResource::Recovery, &err)
         }
     }
 }

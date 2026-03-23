@@ -13,7 +13,7 @@ use crate::forms::main::{
     UpdateUserForm, UpdateUserPayload,
 };
 use crate::repository::DieselRepository;
-use crate::routes::mutation_error_response;
+use crate::routes::{MutationResource, mutation_error_response};
 use crate::services::admin as admin_service;
 
 /// Handles `POST /role/add` to create a new role and flash the outcome.
@@ -38,7 +38,7 @@ pub async fn add_role(
         }),
         Err(err) => {
             log::error!("Failed to add role: {err}");
-            mutation_error_response(&err)
+            mutation_error_response(MutationResource::Role, &err)
         }
     }
 }
@@ -84,7 +84,7 @@ pub async fn delete_user(
         }),
         Err(err) => {
             log::error!("Failed to delete user: {err}");
-            mutation_error_response(&err)
+            mutation_error_response(MutationResource::User, &err)
         }
     }
 }
@@ -129,7 +129,7 @@ pub async fn update_user(
         }),
         Err(err) => {
             log::error!("Failed to update user: {err}");
-            mutation_error_response(&err)
+            mutation_error_response(MutationResource::User, &err)
         }
     }
 }
@@ -156,7 +156,7 @@ pub async fn add_hub(
         }),
         Err(err) => {
             log::error!("Failed to add hub: {err}");
-            mutation_error_response(&err)
+            mutation_error_response(MutationResource::Hub, &err)
         }
     }
 }
@@ -177,7 +177,7 @@ pub async fn delete_role(
         }),
         Err(err) => {
             log::error!("Failed to delete role: {err}");
-            mutation_error_response(&err)
+            mutation_error_response(MutationResource::Role, &err)
         }
     }
 }
@@ -198,7 +198,7 @@ pub async fn delete_hub(
         }),
         Err(err) => {
             log::error!("Failed to delete hub: {err}");
-            mutation_error_response(&err)
+            mutation_error_response(MutationResource::Hub, &err)
         }
     }
 }
@@ -225,7 +225,7 @@ pub async fn add_menu(
         }),
         Err(err) => {
             log::error!("Failed to add menu: {err}");
-            mutation_error_response(&err)
+            mutation_error_response(MutationResource::Menu, &err)
         }
     }
 }
@@ -245,7 +245,7 @@ pub async fn delete_menu(
         }),
         Err(err) => {
             log::error!("Failed to delete menu: {err}");
-            mutation_error_response(&err)
+            mutation_error_response(MutationResource::Menu, &err)
         }
     }
 }

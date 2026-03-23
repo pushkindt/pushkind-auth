@@ -5,7 +5,6 @@ use crate::domain::menu::Menu;
 use crate::domain::role::Role;
 use crate::forms::FormError;
 use pushkind_common::domain::auth::AuthenticatedUser;
-use pushkind_common::services::errors::ServiceError;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
@@ -57,30 +56,6 @@ impl From<&FormError> for ApiMutationErrorDto {
                     message: error.message.into_owned(),
                 })
                 .collect(),
-        }
-    }
-}
-
-impl From<&ServiceError> for ApiMutationErrorDto {
-    fn from(error: &ServiceError) -> Self {
-        match error {
-            ServiceError::Form(_) | ServiceError::TypeConstraint(_) => Self::default(),
-            ServiceError::Unauthorized => Self {
-                message: "Недостаточно прав.".to_string(),
-                field_errors: Vec::new(),
-            },
-            ServiceError::NotFound => Self {
-                message: "Ресурс не найден.".to_string(),
-                field_errors: Vec::new(),
-            },
-            ServiceError::Conflict => Self {
-                message: "Конфликт данных.".to_string(),
-                field_errors: Vec::new(),
-            },
-            _ => Self {
-                message: "Внутренняя ошибка сервиса.".to_string(),
-                field_errors: Vec::new(),
-            },
         }
     }
 }
@@ -324,14 +299,5 @@ mod tests {
             dto.field_errors[0].message,
             "Укажите корректный электронный адрес."
         );
-    }
-
-    #[test]
-    fn mutation_error_from_service_form_error_uses_default_validation_payload() {
-        let dto = ApiMutationErrorDto::from(&ServiceError::Form(
-            "Укажите корректный электронный адрес.".to_string(),
-        ));
-
-        assert_eq!(dto, ApiMutationErrorDto::default());
     }
 }
