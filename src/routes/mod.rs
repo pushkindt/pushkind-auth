@@ -1,7 +1,6 @@
 //! HTTP handlers and helpers.
 use crate::dto::api::{ApiFieldErrorDto, ApiMutationErrorDto};
 use crate::forms::FormError;
-use actix_web::HttpRequest;
 use url::Url;
 use validator::ValidationErrors;
 
@@ -46,14 +45,6 @@ pub(crate) fn get_success_and_failure_redirects(
         .unwrap_or_else(|| base_url.to_string());
 
     (success_redirect_url, failure_redirect_url)
-}
-
-pub(crate) fn wants_json(request: &HttpRequest) -> bool {
-    request
-        .headers()
-        .get(actix_web::http::header::ACCEPT)
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|value| value.contains("application/json"))
 }
 
 fn validation_message(field: &str, code: &str) -> String {

@@ -23,6 +23,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn can_open_existing_file() {
+        let current_file_path: &'static str = file!();
+
+        let result = actix_web::rt::System::new().block_on(open_frontend_html(current_file_path));
+        assert!(result.is_ok());
+    }
+
+    #[test]
     fn missing_document_returns_read_error() {
         let error = actix_web::rt::System::new()
             .block_on(open_frontend_html("assets/dist/does-not-exist.html"))

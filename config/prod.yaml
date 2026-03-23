@@ -1,2 +1,4 @@
-domain: pushkind.com
-port: 9007
+server:
+  port: 9007
+app:
+  domain: pushkind.com

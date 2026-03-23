@@ -185,6 +185,28 @@ mod tests {
         }
     }
 
+    fn non_admin_user() -> AuthenticatedUser {
+        AuthenticatedUser {
+            sub: "2".into(),
+            email: "c@d".into(),
+            hub_id: 1,
+            name: "Test".into(),
+            roles: vec![],
+            exp: 0,
+        }
+    }
+
+    fn admin_user_different_hub() -> AuthenticatedUser {
+        AuthenticatedUser {
+            sub: "3".into(),
+            email: "e@f".into(),
+            hub_id: 2,
+            name: "Admin2".into(),
+            roles: vec!["admin".into()],
+            exp: 0,
+        }
+    }
+
     fn make_user(id: i32, email: &str, hub_id: i32) -> UserWithRoles {
         let now = Utc::now().naive_utc();
         let user = User::new(
@@ -259,6 +281,34 @@ mod tests {
         };
         assert!(create_hub(payload, &admin_user(), &repo).is_ok());
         assert!(delete_hub_by_id(2, &admin_user(), &repo).is_ok());
+    }
+
+    #[test]
+    fn delete_hub_fails_for_non_admin() {
+        let mut repo = MockRepository::new();
+        let now = Utc::now().naive_utc();
+        repo.expect_create_hub()
+            .returning(move |nh| Ok(Hub::new(HubId::new(2).unwrap(), nh.name.clone(), now, now)));
+        repo.expect_delete_hub().returning(|_| Ok(1));
+        let payload = AddHubPayload {
+            name: crate::domain::types::HubName::new("hub").unwrap(),
+        };
+        assert!(create_hub(payload, &admin_user(), &repo).is_ok());
+        assert!(delete_hub_by_id(2, &non_admin_user(), &repo).is_err());
+    }
+
+    #[test]
+    fn delete_hub_fails_for_admin_from_same_hub() {
+        let mut repo = MockRepository::new();
+        let now = Utc::now().naive_utc();
+        repo.expect_create_hub()
+            .returning(move |nh| Ok(Hub::new(HubId::new(2).unwrap(), nh.name.clone(), now, now)));
+        repo.expect_delete_hub().returning(|_| Ok(1));
+        let payload = AddHubPayload {
+            name: crate::domain::types::HubName::new("hub").unwrap(),
+        };
+        assert!(create_hub(payload, &admin_user(), &repo).is_ok());
+        assert!(delete_hub_by_id(2, &admin_user_different_hub(), &repo).is_err());
     }
 
     #[test]

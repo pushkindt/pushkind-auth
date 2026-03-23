@@ -1,2 +1,4 @@
-domain: test.me
-port: 8081
+server:
+  port: 8081
+app:
+  domain: test.me
