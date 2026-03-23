@@ -18,7 +18,7 @@ use crate::forms::FormError;
 #[derive(Deserialize, Validate, Clone)]
 /// Form used on the profile page to update the current user.
 pub struct SaveUserForm {
-    #[validate(length(min = 1))]
+    #[validate(length(min = 1, message = "Укажите имя."))]
     pub name: String,
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub password: Option<String>,
@@ -33,7 +33,7 @@ pub struct SaveUserPayload {
 #[derive(Deserialize, Validate, Clone)]
 /// Full user editing form used by administrators.
 pub struct UpdateUserForm {
-    #[validate(length(min = 1))]
+    #[validate(length(min = 1, message = "Укажите имя."))]
     pub name: String,
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub password: Option<String>,
@@ -51,7 +51,7 @@ pub struct UpdateUserPayload {
 #[derive(Deserialize, Validate, Clone)]
 /// Request payload for creating a new role via the admin interface.
 pub struct AddRoleForm {
-    #[validate(length(min = 1))]
+    #[validate(length(min = 1, message = "Укажите имя."))]
     pub name: String,
 }
 
@@ -63,7 +63,7 @@ pub struct AddRolePayload {
 #[derive(Deserialize, Validate, Clone)]
 /// Parameters for adding a new hub.
 pub struct AddHubForm {
-    #[validate(length(min = 1))]
+    #[validate(length(min = 1, message = "Укажите имя."))]
     pub name: String,
 }
 
@@ -75,9 +75,9 @@ pub struct AddHubPayload {
 #[derive(Deserialize, Validate, Clone)]
 /// Payload for adding a menu entry to a hub.
 pub struct AddMenuForm {
-    #[validate(length(min = 1))]
+    #[validate(length(min = 1, message = "Укажите имя."))]
     pub name: String,
-    #[validate(url)]
+    #[validate(url(message = "Укажите корректный URL."))]
     pub url: String,
 }
 

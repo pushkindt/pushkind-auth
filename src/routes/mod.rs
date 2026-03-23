@@ -1,16 +1,27 @@
 //! HTTP handlers and helpers.
-use crate::dto::api::{ApiFieldErrorDto, ApiMutationErrorDto};
-use crate::forms::FormError;
-use actix_web::HttpRequest;
+use crate::dto::api::ApiMutationErrorDto;
+use actix_web::{HttpResponse, http::StatusCode};
+use pushkind_common::services::errors::ServiceError;
 use url::Url;
-use validator::ValidationErrors;
 
 pub mod admin;
 pub mod api;
 pub mod auth;
 pub mod main;
 
-fn is_valid_next(next: &str, domain: &str) -> bool {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MutationResource {
+    Authentication,
+    Hub,
+    Menu,
+    Recovery,
+    Role,
+    Settings,
+    User,
+    UserRegistration,
+}
+
+pub(crate) fn is_valid_next(next: &str, domain: &str) -> bool {
     if next.starts_with("//") {
         return false;
     }
@@ -24,151 +35,173 @@ fn is_valid_next(next: &str, domain: &str) -> bool {
     }
 }
 
-pub(crate) fn get_success_and_failure_redirects(
-    base_url: &str,
-    next: Option<&str>,
-    domain: &str,
-) -> (String, String) {
-    let next_valid = next.and_then(|n| {
-        if !n.is_empty() && is_valid_next(n, domain) {
-            Some(n)
-        } else {
-            None
-        }
-    });
-
-    let success_redirect_url = next_valid
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| "/".to_string());
-
-    let failure_redirect_url = next_valid
-        .map(|s| format!("{base_url}?next={s}"))
-        .unwrap_or_else(|| base_url.to_string());
-
-    (success_redirect_url, failure_redirect_url)
-}
-
-pub(crate) fn wants_json(request: &HttpRequest) -> bool {
-    request
-        .headers()
-        .get(actix_web::http::header::ACCEPT)
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|value| value.contains("application/json"))
-}
-
-fn validation_message(field: &str, code: &str) -> String {
-    match (field, code) {
-        ("email", _) => "Укажите корректный электронный адрес.".to_string(),
-        ("hub_id", _) => "Выберите хаб.".to_string(),
-        ("name", _) => "Укажите имя.".to_string(),
-        ("password", "length") => "Введите пароль.".to_string(),
-        ("password", _) => "Пароль заполнен некорректно.".to_string(),
-        ("url", _) => "Укажите корректный URL.".to_string(),
-        ("roles", _) => "Роль заполнена некорректно.".to_string(),
-        _ => "Поле заполнено некорректно.".to_string(),
+pub(crate) fn mutation_error_status(err: &ServiceError) -> StatusCode {
+    match err {
+        ServiceError::Form(_) | ServiceError::TypeConstraint(_) => StatusCode::BAD_REQUEST,
+        ServiceError::Unauthorized => StatusCode::FORBIDDEN,
+        ServiceError::NotFound => StatusCode::NOT_FOUND,
+        ServiceError::Conflict => StatusCode::CONFLICT,
+        _ => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
-fn map_validation_errors(errors: &ValidationErrors) -> Vec<ApiFieldErrorDto> {
-    errors
-        .field_errors()
-        .iter()
-        .flat_map(|(field, field_errors)| {
-            field_errors.iter().map(|error| ApiFieldErrorDto {
-                field: (*field).to_string(),
-                message: validation_message(field, error.code.as_ref()),
-            })
-        })
-        .collect()
-}
-
-pub(crate) fn form_error_response(error: &FormError) -> ApiMutationErrorDto {
-    match error {
-        FormError::Validation(errors) => ApiMutationErrorDto {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: map_validation_errors(errors),
+fn mutation_error_dto(resource: MutationResource, err: &ServiceError) -> ApiMutationErrorDto {
+    match err {
+        ServiceError::Form(_) | ServiceError::TypeConstraint(_) => ApiMutationErrorDto::default(),
+        ServiceError::Unauthorized => ApiMutationErrorDto {
+            message: "Недостаточно прав.".to_string(),
+            field_errors: Vec::new(),
         },
-        FormError::InvalidEmail => ApiMutationErrorDto {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: vec![ApiFieldErrorDto {
-                field: "email".to_string(),
-                message: "Укажите корректный электронный адрес.".to_string(),
-            }],
+        ServiceError::NotFound => ApiMutationErrorDto {
+            message: match resource {
+                MutationResource::Hub => "Хаб не найден.",
+                MutationResource::Menu => "Меню не найдено.",
+                MutationResource::Recovery | MutationResource::User => "Пользователь не найден.",
+                MutationResource::Role => "Роль не найдена.",
+                MutationResource::Authentication
+                | MutationResource::Settings
+                | MutationResource::UserRegistration => "Ресурс не найден.",
+            }
+            .to_string(),
+            field_errors: Vec::new(),
         },
-        FormError::InvalidPassword => ApiMutationErrorDto {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: vec![ApiFieldErrorDto {
-                field: "password".to_string(),
-                message: "Пароль заполнен некорректно.".to_string(),
-            }],
+        ServiceError::Conflict => ApiMutationErrorDto {
+            message: match resource {
+                MutationResource::Role => "Роль уже существует.",
+                MutationResource::UserRegistration => "Пользователь с таким email уже существует.",
+                MutationResource::Authentication
+                | MutationResource::Hub
+                | MutationResource::Menu
+                | MutationResource::Recovery
+                | MutationResource::Settings
+                | MutationResource::User => "Конфликт данных.",
+            }
+            .to_string(),
+            field_errors: Vec::new(),
         },
-        FormError::InvalidHubId => ApiMutationErrorDto {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: vec![ApiFieldErrorDto {
-                field: "hub_id".to_string(),
-                message: "Выберите хаб.".to_string(),
-            }],
-        },
-        FormError::InvalidName => ApiMutationErrorDto {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: vec![ApiFieldErrorDto {
-                field: "name".to_string(),
-                message: "Укажите имя.".to_string(),
-            }],
-        },
-        FormError::InvalidUrl => ApiMutationErrorDto {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: vec![ApiFieldErrorDto {
-                field: "url".to_string(),
-                message: "Укажите корректный URL.".to_string(),
-            }],
-        },
-        FormError::InvalidRoleId => ApiMutationErrorDto {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: vec![ApiFieldErrorDto {
-                field: "roles".to_string(),
-                message: "Роль заполнена некорректно.".to_string(),
-            }],
+        _ => ApiMutationErrorDto {
+            message: "Внутренняя ошибка сервиса.".to_string(),
+            field_errors: Vec::new(),
         },
     }
+}
+
+pub(crate) fn mutation_error_response(
+    resource: MutationResource,
+    err: &ServiceError,
+) -> HttpResponse {
+    HttpResponse::build(mutation_error_status(err)).json(mutation_error_dto(resource, err))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pushkind_common::services::errors::ServiceError;
 
     #[test]
-    fn redirects_with_next_param() {
-        let (success, failure) =
-            get_success_and_failure_redirects("/auth/signin", Some("/dashboard"), "example.com");
-        assert_eq!(success, "/dashboard");
-        assert_eq!(failure, "/auth/signin?next=/dashboard");
+    fn relative_next_is_valid() {
+        assert!(is_valid_next("/dashboard", "example.com"));
     }
 
     #[test]
-    fn redirects_without_next_param() {
-        let (success, failure) =
-            get_success_and_failure_redirects("/auth/signup", None, "example.com");
-        assert_eq!(success, "/");
-        assert_eq!(failure, "/auth/signup");
+    fn same_domain_absolute_next_is_valid() {
+        assert!(is_valid_next(
+            "https://example.com/dashboard",
+            "example.com"
+        ));
     }
 
     #[test]
-    fn redirects_with_empty_next() {
-        let (success, failure) =
-            get_success_and_failure_redirects("/auth/signin", Some(""), "example.com");
-        assert_eq!(success, "/");
-        assert_eq!(failure, "/auth/signin");
+    fn subdomain_absolute_next_is_valid() {
+        assert!(is_valid_next(
+            "https://app.example.com/dashboard",
+            "example.com"
+        ));
     }
 
     #[test]
-    fn invalid_domain_next_defaults_to_base() {
-        let (success, failure) = get_success_and_failure_redirects(
-            "/auth/signin",
-            Some("http://evil.com"),
-            "example.com",
+    fn protocol_relative_next_is_invalid() {
+        assert!(!is_valid_next("//evil.com", "example.com"));
+    }
+
+    #[test]
+    fn external_domain_next_is_invalid() {
+        assert!(!is_valid_next("http://evil.com", "example.com"));
+    }
+
+    #[test]
+    fn mutation_error_status_uses_bad_request_for_form_errors() {
+        assert_eq!(
+            mutation_error_status(&ServiceError::Form("invalid".to_string())),
+            StatusCode::BAD_REQUEST
         );
-        assert_eq!(success, "/");
-        assert_eq!(failure, "/auth/signin");
+    }
+
+    #[test]
+    fn mutation_error_status_uses_bad_request_for_type_constraints() {
+        assert_eq!(
+            mutation_error_status(&ServiceError::TypeConstraint("invalid".to_string())),
+            StatusCode::BAD_REQUEST
+        );
+    }
+
+    #[test]
+    fn mutation_error_status_uses_forbidden_for_unauthorized_errors() {
+        assert_eq!(
+            mutation_error_status(&ServiceError::Unauthorized),
+            StatusCode::FORBIDDEN
+        );
+    }
+
+    #[test]
+    fn mutation_error_status_uses_not_found_for_missing_resources() {
+        assert_eq!(
+            mutation_error_status(&ServiceError::NotFound),
+            StatusCode::NOT_FOUND
+        );
+    }
+
+    #[test]
+    fn mutation_error_status_uses_conflict_for_conflicts() {
+        assert_eq!(
+            mutation_error_status(&ServiceError::Conflict),
+            StatusCode::CONFLICT
+        );
+    }
+
+    #[test]
+    fn mutation_error_status_uses_internal_server_error_for_other_errors() {
+        assert_eq!(
+            mutation_error_status(&ServiceError::Internal),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+
+    #[test]
+    fn mutation_error_dto_uses_contextual_not_found_messages() {
+        assert_eq!(
+            mutation_error_dto(MutationResource::User, &ServiceError::NotFound).message,
+            "Пользователь не найден."
+        );
+        assert_eq!(
+            mutation_error_dto(MutationResource::Role, &ServiceError::NotFound).message,
+            "Роль не найдена."
+        );
+        assert_eq!(
+            mutation_error_dto(MutationResource::Hub, &ServiceError::NotFound).message,
+            "Хаб не найден."
+        );
+    }
+
+    #[test]
+    fn mutation_error_dto_uses_contextual_conflict_messages() {
+        assert_eq!(
+            mutation_error_dto(MutationResource::UserRegistration, &ServiceError::Conflict).message,
+            "Пользователь с таким email уже существует."
+        );
+        assert_eq!(
+            mutation_error_dto(MutationResource::Role, &ServiceError::Conflict).message,
+            "Роль уже существует."
+        );
     }
 }

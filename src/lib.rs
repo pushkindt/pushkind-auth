@@ -5,7 +5,7 @@
 //! the Actix-Web application and can also be reused for integration tests.
 
 #[cfg(feature = "server")]
-use std::sync::Arc;
+use std::{net::TcpListener, sync::Arc};
 
 #[cfg(feature = "server")]
 use actix_cors::Cors;
@@ -18,7 +18,7 @@ use actix_session::{SessionMiddleware, config::PersistentSession, storage::Cooki
 #[cfg(feature = "server")]
 use actix_web::cookie::{Key, time::Duration};
 #[cfg(feature = "server")]
-use actix_web::{App, HttpServer, web};
+use actix_web::{App, HttpServer, dev::Server, web};
 
 #[cfg(feature = "server")]
 use pushkind_common::db::establish_connection_pool;
@@ -34,7 +34,7 @@ use pushkind_common::zmq::{ZmqSender, ZmqSenderOptions};
 #[cfg(feature = "server")]
 use crate::middleware::RequireUserExists;
 #[cfg(feature = "server")]
-use crate::models::config::ServerConfig;
+use crate::models::config::{AppConfig, Settings};
 #[cfg(feature = "server")]
 use crate::repository::DieselRepository;
 #[cfg(feature = "server")]
@@ -84,33 +84,42 @@ const AUTH_SERVICE_URL: &str = "/auth/signin";
 
 /// Builds and runs the Actix-Web HTTP server using the provided configuration.
 #[cfg(feature = "server")]
-pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
+pub async fn run(settings: Settings) -> std::io::Result<()> {
+    let bind_address = (settings.server.address.clone(), settings.server.port);
+    let listener = TcpListener::bind(bind_address)?;
+
+    build_server(listener, settings.app)?.await
+}
+
+/// Builds an Actix-Web HTTP server on a pre-bound listener.
+///
+/// This is primarily used by integration tests that need to bind to port `0`
+/// and inspect the assigned port before driving the application over HTTP.
+#[cfg(feature = "server")]
+pub fn build_server(listener: TcpListener, app_config: AppConfig) -> std::io::Result<Server> {
     let common_config = CommonServerConfig {
         auth_service_url: AUTH_SERVICE_URL.to_string(),
-        secret: server_config.secret.clone(),
+        secret: app_config.secret.clone(),
     };
 
     // Start a background ZeroMQ publisher used for outbound email notifications.
-    let zmq_sender = ZmqSender::start(ZmqSenderOptions::pub_default(
-        &server_config.zmq_emailer_pub,
-    ))
-    .map_err(|e| std::io::Error::other(format!("Failed to start ZMQ sender: {e}")))?;
+    let zmq_sender =
+        ZmqSender::start(ZmqSenderOptions::pub_default(&app_config.zmq_emailer_pub))
+            .map_err(|e| std::io::Error::other(format!("Failed to start ZMQ sender: {e}")))?;
 
     let zmq_sender = Arc::new(zmq_sender);
 
     // Establish Diesel connection pool for the SQLite database.
-    let pool = establish_connection_pool(&server_config.database_url).map_err(|e| {
+    let pool = establish_connection_pool(&app_config.database_url).map_err(|e| {
         std::io::Error::other(format!("Failed to establish database connection: {e}"))
     })?;
 
     let repo = DieselRepository::new(pool);
 
     // Keys and stores for identity and sessions.
-    let secret_key = Key::from(server_config.secret.as_bytes());
+    let secret_key = Key::from(app_config.secret.as_bytes());
 
-    let bind_address = (server_config.address.clone(), server_config.port);
-
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         App::new()
             .wrap(Cors::permissive())
             .wrap(IdentityMiddleware::default())
@@ -118,7 +127,7 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
                 SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
                     .session_lifecycle(PersistentSession::default().session_ttl(Duration::days(7)))
                     .cookie_secure(false) // set to true in prod
-                    .cookie_domain(Some(format!(".{}", server_config.domain)))
+                    .cookie_domain(Some(format!(".{}", app_config.domain)))
                     .build(),
             )
             .wrap(actix_web::middleware::Compress::default())
@@ -166,11 +175,12 @@ pub async fn run(server_config: ServerConfig) -> std::io::Result<()> {
                     .service(save_user),
             )
             .app_data(web::Data::new(repo.clone()))
-            .app_data(web::Data::new(server_config.clone()))
+            .app_data(web::Data::new(app_config.clone()))
             .app_data(web::Data::new(common_config.clone()))
             .app_data(web::Data::new(zmq_sender.clone()))
     })
-    .bind(bind_address)?
-    .run()
-    .await
+    .listen(listener)?
+    .run();
+
+    Ok(server)
 }

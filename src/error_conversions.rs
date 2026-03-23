@@ -66,7 +66,7 @@ mod tests {
         let err: ServiceError = FormError::InvalidEmail.into();
         match err {
             ServiceError::Form(message) => {
-                assert!(message.contains("invalid email address"));
+                assert!(message.contains("Укажите корректный электронный адрес."));
             }
             _ => panic!("expected form service error"),
         }

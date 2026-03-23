@@ -3,6 +3,7 @@
 use crate::domain::hub::Hub;
 use crate::domain::menu::Menu;
 use crate::domain::role::Role;
+use crate::forms::FormError;
 use pushkind_common::domain::auth::AuthenticatedUser;
 use serde::{Deserialize, Serialize};
 
@@ -32,6 +33,31 @@ pub struct ApiMutationSuccessDto {
 pub struct ApiMutationErrorDto {
     pub message: String,
     pub field_errors: Vec<ApiFieldErrorDto>,
+}
+
+impl Default for ApiMutationErrorDto {
+    fn default() -> Self {
+        Self {
+            message: "Ошибка валидации формы.".to_string(),
+            field_errors: Vec::new(),
+        }
+    }
+}
+
+impl From<&FormError> for ApiMutationErrorDto {
+    fn from(error: &FormError) -> Self {
+        Self {
+            message: "Ошибка валидации формы.".to_string(),
+            field_errors: error
+                .field_errors()
+                .into_iter()
+                .map(|error| ApiFieldErrorDto {
+                    field: error.field.to_string(),
+                    message: error.message.into_owned(),
+                })
+                .collect(),
+        }
+    }
 }
 
 /// DTO returned by API endpoints representing a user with roles and hub context.
@@ -196,6 +222,7 @@ mod tests {
     use crate::domain::menu::Menu;
     use crate::domain::role::Role;
     use crate::domain::types::{HubId, HubName, MenuId, MenuName, MenuUrl, RoleId, RoleName};
+    use crate::forms::FormError;
     use chrono::Utc;
 
     #[test]
@@ -259,5 +286,18 @@ mod tests {
         assert_eq!(dto.roles.len(), 1);
         assert_eq!(dto.hubs.len(), 1);
         assert_eq!(dto.admin_menu.len(), 1);
+    }
+
+    #[test]
+    fn mutation_error_from_form_error_preserves_field_errors() {
+        let dto = ApiMutationErrorDto::from(&FormError::InvalidEmail);
+
+        assert_eq!(dto.message, "Ошибка валидации формы.");
+        assert_eq!(dto.field_errors.len(), 1);
+        assert_eq!(dto.field_errors[0].field, "email");
+        assert_eq!(
+            dto.field_errors[0].message,
+            "Укажите корректный электронный адрес."
+        );
     }
 }
