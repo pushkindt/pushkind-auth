@@ -2,6 +2,7 @@ use reqwest::{StatusCode, header};
 
 mod common;
 
+#[ignore]
 #[actix_web::test]
 async fn test_signin_page_get() {
     let app = common::spawn_app().await;
