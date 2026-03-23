@@ -18,9 +18,7 @@ use crate::forms::auth::{
 use crate::frontend::open_frontend_html;
 use crate::models::config::AppConfig;
 use crate::repository::DieselRepository;
-use crate::routes::{
-    MutationResource, get_success_and_failure_redirects, mutation_error_response,
-};
+use crate::routes::{MutationResource, get_success_and_failure_redirects, mutation_error_response};
 use crate::services::auth as auth_service;
 
 #[derive(Deserialize)]

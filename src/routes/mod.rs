@@ -92,9 +92,7 @@ fn mutation_error_dto(resource: MutationResource, err: &ServiceError) -> ApiMuta
         ServiceError::Conflict => ApiMutationErrorDto {
             message: match resource {
                 MutationResource::Role => "Роль уже существует.",
-                MutationResource::UserRegistration => {
-                    "Пользователь с таким email уже существует."
-                }
+                MutationResource::UserRegistration => "Пользователь с таким email уже существует.",
                 MutationResource::Authentication
                 | MutationResource::Hub
                 | MutationResource::Menu
@@ -226,8 +224,7 @@ mod tests {
     #[test]
     fn mutation_error_dto_uses_contextual_conflict_messages() {
         assert_eq!(
-            mutation_error_dto(MutationResource::UserRegistration, &ServiceError::Conflict)
-                .message,
+            mutation_error_dto(MutationResource::UserRegistration, &ServiceError::Conflict).message,
             "Пользователь с таким email уже существует."
         );
         assert_eq!(
