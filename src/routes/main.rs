@@ -8,7 +8,7 @@ use crate::dto::api::{ApiMutationErrorDto, ApiMutationSuccessDto};
 use crate::forms::main::{SaveUserForm, SaveUserPayload};
 use crate::frontend::open_frontend_html;
 use crate::repository::DieselRepository;
-use crate::routes::form_error_response;
+use crate::routes::mutation_error_response;
 use crate::services::main as main_service;
 
 fn is_admin(user: &AuthenticatedUser) -> bool {
@@ -46,7 +46,7 @@ pub async fn save_user(
         Ok(payload) => payload,
         Err(error) => {
             log::error!("Failed to validate settings: {error}");
-            return HttpResponse::BadRequest().json(form_error_response(&error));
+            return HttpResponse::BadRequest().json(ApiMutationErrorDto::from(&error));
         }
     };
 
@@ -55,21 +55,9 @@ pub async fn save_user(
             message: "Параметры изменены.".to_string(),
             redirect_to: None,
         }),
-        Err(pushkind_common::services::errors::ServiceError::Form(e)) => {
-            log::error!("Failed to validate settings: {e}");
-
-            HttpResponse::BadRequest().json(ApiMutationErrorDto {
-                message: "Ошибка валидации формы.".to_string(),
-                field_errors: Vec::new(),
-            })
-        }
         Err(err) => {
             log::error!("Failed to update settings: {err}");
-
-            HttpResponse::InternalServerError().json(ApiMutationErrorDto {
-                message: "Ошибка при изменении параметров.".to_string(),
-                field_errors: Vec::new(),
-            })
+            mutation_error_response(&err)
         }
     }
 }

@@ -12,11 +12,11 @@ use crate::forms::FormError;
 #[derive(Deserialize, Validate, Clone)]
 /// Form data submitted when a user logs in.
 pub struct LoginForm {
-    #[validate(email)]
+    #[validate(email(message = "Укажите корректный электронный адрес."))]
     pub email: String,
-    #[validate(length(min = 1))]
+    #[validate(length(min = 1, message = "Введите пароль."))]
     pub password: String,
-    #[validate(range(min = 1))]
+    #[validate(range(min = 1, message = "Выберите хаб."))]
     pub hub_id: i32,
 }
 
@@ -30,11 +30,11 @@ pub struct LoginPayload {
 #[derive(Deserialize, Validate, Clone)]
 /// Form data used during user registration.
 pub struct RegisterForm {
-    #[validate(email)]
+    #[validate(email(message = "Укажите корректный электронный адрес."))]
     pub email: String,
-    #[validate(length(min = 1))]
+    #[validate(length(min = 1, message = "Введите пароль."))]
     pub password: String,
-    #[validate(range(min = 1))]
+    #[validate(range(min = 1, message = "Выберите хаб."))]
     pub hub_id: i32,
 }
 
@@ -48,9 +48,9 @@ pub struct RegisterPayload {
 #[derive(Deserialize, Validate, Clone)]
 /// Form data used to recover a forgotten password.
 pub struct RecoverForm {
-    #[validate(email)]
+    #[validate(email(message = "Укажите корректный электронный адрес."))]
     pub email: String,
-    #[validate(range(min = 1))]
+    #[validate(range(min = 1, message = "Выберите хаб."))]
     pub hub_id: i32,
 }
 

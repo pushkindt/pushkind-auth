@@ -18,7 +18,7 @@ use crate::forms::auth::{
 use crate::frontend::open_frontend_html;
 use crate::models::config::AppConfig;
 use crate::repository::DieselRepository;
-use crate::routes::{form_error_response, get_success_and_failure_redirects};
+use crate::routes::{get_success_and_failure_redirects, mutation_error_response};
 use crate::services::auth as auth_service;
 
 #[derive(Deserialize)]
@@ -78,7 +78,7 @@ pub async fn login(
         Ok(payload) => payload,
         Err(error) => {
             log::error!("Invalid login data: {error}");
-            return HttpResponse::BadRequest().json(form_error_response(&error));
+            return HttpResponse::BadRequest().json(ApiMutationErrorDto::from(&error));
         }
     };
 
@@ -91,21 +91,9 @@ pub async fn login(
                     field_errors: Vec::new(),
                 });
             }
-            Err(ServiceError::Form(e)) => {
-                log::error!("Invalid login data: {e}");
-
-                return HttpResponse::BadRequest().json(ApiMutationErrorDto {
-                    message: "Ошибка валидации формы.".to_string(),
-                    field_errors: Vec::new(),
-                });
-            }
-            Err(e) => {
-                log::error!("Login error: {e}");
-
-                return HttpResponse::InternalServerError().json(ApiMutationErrorDto {
-                    message: "Ошибка при аутентификации пользователя.".to_string(),
-                    field_errors: Vec::new(),
-                });
+            Err(err) => {
+                log::error!("Login error: {err}");
+                return mutation_error_response(&err);
             }
         };
 
@@ -135,7 +123,7 @@ pub async fn register(
         Ok(payload) => payload,
         Err(error) => {
             log::error!("Failed to convert form: {error}");
-            return HttpResponse::BadRequest().json(form_error_response(&error));
+            return HttpResponse::BadRequest().json(ApiMutationErrorDto::from(&error));
         }
     };
 
@@ -144,25 +132,9 @@ pub async fn register(
             message: "Пользователь может войти.".to_string(),
             redirect_to: Some("/auth/signin".to_string()),
         }),
-        Err(ServiceError::Conflict) => HttpResponse::Conflict().json(ApiMutationErrorDto {
-            message: "Пользователь с таким email уже существует.".to_string(),
-            field_errors: Vec::new(),
-        }),
-        Err(ServiceError::Form(e)) => {
-            log::error!("Failed to convert form: {e}");
-
-            HttpResponse::BadRequest().json(ApiMutationErrorDto {
-                message: "Ошибка валидации формы.".to_string(),
-                field_errors: Vec::new(),
-            })
-        }
         Err(err) => {
             log::error!("Failed to create user: {err}");
-
-            HttpResponse::InternalServerError().json(ApiMutationErrorDto {
-                message: "Ошибка при создании пользователя.".to_string(),
-                field_errors: Vec::new(),
-            })
+            mutation_error_response(&err)
         }
     }
 }
@@ -211,7 +183,7 @@ pub async fn recover_password(
     let payload = match RecoverPayload::try_from(form) {
         Ok(payload) => payload,
         Err(error) => {
-            return HttpResponse::BadRequest().json(form_error_response(&error));
+            return HttpResponse::BadRequest().json(ApiMutationErrorDto::from(&error));
         }
     };
 
@@ -234,25 +206,9 @@ pub async fn recover_password(
             message: "Ссылка для входа выслана на электронную почту.".to_string(),
             redirect_to: None,
         }),
-        Err(ServiceError::NotFound) => HttpResponse::NotFound().json(ApiMutationErrorDto {
-            message: "Пользователь не найден.".to_string(),
-            field_errors: Vec::new(),
-        }),
-        Err(ServiceError::Form(e)) => {
-            log::error!("Invalid recovery data: {e}");
-
-            HttpResponse::BadRequest().json(ApiMutationErrorDto {
-                message: "Ошибка валидации формы.".to_string(),
-                field_errors: Vec::new(),
-            })
-        }
         Err(err) => {
             log::error!("Failed to send recovery email: {err}");
-
-            HttpResponse::InternalServerError().json(ApiMutationErrorDto {
-                message: "Ошибка при отправке ссылки для входа.".to_string(),
-                field_errors: Vec::new(),
-            })
+            mutation_error_response(&err)
         }
     }
 }

@@ -1,8 +1,8 @@
 //! HTTP handlers and helpers.
-use crate::dto::api::{ApiFieldErrorDto, ApiMutationErrorDto};
-use crate::forms::FormError;
+use crate::dto::api::ApiMutationErrorDto;
+use actix_web::{HttpResponse, http::StatusCode};
+use pushkind_common::services::errors::ServiceError;
 use url::Url;
-use validator::ValidationErrors;
 
 pub mod admin;
 pub mod api;
@@ -47,86 +47,24 @@ pub(crate) fn get_success_and_failure_redirects(
     (success_redirect_url, failure_redirect_url)
 }
 
-fn validation_message(field: &str, code: &str) -> String {
-    match (field, code) {
-        ("email", _) => "Укажите корректный электронный адрес.".to_string(),
-        ("hub_id", _) => "Выберите хаб.".to_string(),
-        ("name", _) => "Укажите имя.".to_string(),
-        ("password", "length") => "Введите пароль.".to_string(),
-        ("password", _) => "Пароль заполнен некорректно.".to_string(),
-        ("url", _) => "Укажите корректный URL.".to_string(),
-        ("roles", _) => "Роль заполнена некорректно.".to_string(),
-        _ => "Поле заполнено некорректно.".to_string(),
+pub(crate) fn mutation_error_status(err: &ServiceError) -> StatusCode {
+    match err {
+        ServiceError::Form(_) | ServiceError::TypeConstraint(_) => StatusCode::BAD_REQUEST,
+        ServiceError::Unauthorized => StatusCode::FORBIDDEN,
+        ServiceError::NotFound => StatusCode::NOT_FOUND,
+        ServiceError::Conflict => StatusCode::CONFLICT,
+        _ => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
-fn map_validation_errors(errors: &ValidationErrors) -> Vec<ApiFieldErrorDto> {
-    errors
-        .field_errors()
-        .iter()
-        .flat_map(|(field, field_errors)| {
-            field_errors.iter().map(|error| ApiFieldErrorDto {
-                field: (*field).to_string(),
-                message: validation_message(field, error.code.as_ref()),
-            })
-        })
-        .collect()
-}
-
-pub(crate) fn form_error_response(error: &FormError) -> ApiMutationErrorDto {
-    match error {
-        FormError::Validation(errors) => ApiMutationErrorDto {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: map_validation_errors(errors),
-        },
-        FormError::InvalidEmail => ApiMutationErrorDto {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: vec![ApiFieldErrorDto {
-                field: "email".to_string(),
-                message: "Укажите корректный электронный адрес.".to_string(),
-            }],
-        },
-        FormError::InvalidPassword => ApiMutationErrorDto {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: vec![ApiFieldErrorDto {
-                field: "password".to_string(),
-                message: "Пароль заполнен некорректно.".to_string(),
-            }],
-        },
-        FormError::InvalidHubId => ApiMutationErrorDto {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: vec![ApiFieldErrorDto {
-                field: "hub_id".to_string(),
-                message: "Выберите хаб.".to_string(),
-            }],
-        },
-        FormError::InvalidName => ApiMutationErrorDto {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: vec![ApiFieldErrorDto {
-                field: "name".to_string(),
-                message: "Укажите имя.".to_string(),
-            }],
-        },
-        FormError::InvalidUrl => ApiMutationErrorDto {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: vec![ApiFieldErrorDto {
-                field: "url".to_string(),
-                message: "Укажите корректный URL.".to_string(),
-            }],
-        },
-        FormError::InvalidRoleId => ApiMutationErrorDto {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: vec![ApiFieldErrorDto {
-                field: "roles".to_string(),
-                message: "Роль заполнена некорректно.".to_string(),
-            }],
-        },
-    }
+pub(crate) fn mutation_error_response(err: &ServiceError) -> HttpResponse {
+    HttpResponse::build(mutation_error_status(err)).json(ApiMutationErrorDto::from(err))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pushkind_common::services::errors::ServiceError;
 
     #[test]
     fn redirects_with_next_param() {
@@ -161,5 +99,53 @@ mod tests {
         );
         assert_eq!(success, "/");
         assert_eq!(failure, "/auth/signin");
+    }
+
+    #[test]
+    fn mutation_error_status_uses_bad_request_for_form_errors() {
+        assert_eq!(
+            mutation_error_status(&ServiceError::Form("invalid".to_string())),
+            StatusCode::BAD_REQUEST
+        );
+    }
+
+    #[test]
+    fn mutation_error_status_uses_bad_request_for_type_constraints() {
+        assert_eq!(
+            mutation_error_status(&ServiceError::TypeConstraint("invalid".to_string())),
+            StatusCode::BAD_REQUEST
+        );
+    }
+
+    #[test]
+    fn mutation_error_status_uses_forbidden_for_unauthorized_errors() {
+        assert_eq!(
+            mutation_error_status(&ServiceError::Unauthorized),
+            StatusCode::FORBIDDEN
+        );
+    }
+
+    #[test]
+    fn mutation_error_status_uses_not_found_for_missing_resources() {
+        assert_eq!(
+            mutation_error_status(&ServiceError::NotFound),
+            StatusCode::NOT_FOUND
+        );
+    }
+
+    #[test]
+    fn mutation_error_status_uses_conflict_for_conflicts() {
+        assert_eq!(
+            mutation_error_status(&ServiceError::Conflict),
+            StatusCode::CONFLICT
+        );
+    }
+
+    #[test]
+    fn mutation_error_status_uses_internal_server_error_for_other_errors() {
+        assert_eq!(
+            mutation_error_status(&ServiceError::Internal),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
     }
 }

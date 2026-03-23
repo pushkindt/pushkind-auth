@@ -13,7 +13,7 @@ use crate::forms::main::{
     UpdateUserForm, UpdateUserPayload,
 };
 use crate::repository::DieselRepository;
-use crate::routes::form_error_response;
+use crate::routes::mutation_error_response;
 use crate::services::admin as admin_service;
 
 /// Handles `POST /role/add` to create a new role and flash the outcome.
@@ -27,7 +27,7 @@ pub async fn add_role(
         Ok(payload) => payload,
         Err(error) => {
             log::error!("Invalid role data: {error}");
-            return HttpResponse::BadRequest().json(form_error_response(&error));
+            return HttpResponse::BadRequest().json(ApiMutationErrorDto::from(&error));
         }
     };
 
@@ -36,28 +36,9 @@ pub async fn add_role(
             message: "Роль добавлена.".to_string(),
             redirect_to: None,
         }),
-        Err(ServiceError::Form(e)) => {
-            log::error!("Invalid role data: {e}");
-            HttpResponse::BadRequest().json(ApiMutationErrorDto {
-                message: "Ошибка валидации формы.".to_string(),
-                field_errors: Vec::new(),
-            })
-        }
-        Err(ServiceError::Conflict) => HttpResponse::Conflict().json(ApiMutationErrorDto {
-            message: "Роль уже существует.".to_string(),
-            field_errors: Vec::new(),
-        }),
-        Err(ServiceError::Unauthorized) => HttpResponse::Forbidden().json(ApiMutationErrorDto {
-            message: "Недостаточно прав.".to_string(),
-            field_errors: Vec::new(),
-        }),
         Err(err) => {
             log::error!("Failed to add role: {err}");
-
-            HttpResponse::InternalServerError().json(ApiMutationErrorDto {
-                message: "Ошибка при добавлении роли.".to_string(),
-                field_errors: Vec::new(),
-            })
+            mutation_error_response(&err)
         }
     }
 }
@@ -101,21 +82,9 @@ pub async fn delete_user(
             message: "Пользователь удалён.".to_string(),
             redirect_to: None,
         }),
-        Err(ServiceError::NotFound) => HttpResponse::NotFound().json(ApiMutationErrorDto {
-            message: "Пользователь не найден.".to_string(),
-            field_errors: Vec::new(),
-        }),
-        Err(ServiceError::Unauthorized) => HttpResponse::Forbidden().json(ApiMutationErrorDto {
-            message: "Недостаточно прав.".to_string(),
-            field_errors: Vec::new(),
-        }),
         Err(err) => {
             log::error!("Failed to delete user: {err}");
-
-            HttpResponse::InternalServerError().json(ApiMutationErrorDto {
-                message: "Ошибка при удалении пользователя.".to_string(),
-                field_errors: Vec::new(),
-            })
+            mutation_error_response(&err)
         }
     }
 }
@@ -144,7 +113,7 @@ pub async fn update_user(
         Ok(payload) => payload,
         Err(error) => {
             log::error!("Invalid user data: {error}");
-            return HttpResponse::BadRequest().json(form_error_response(&error));
+            return HttpResponse::BadRequest().json(ApiMutationErrorDto::from(&error));
         }
     };
 
@@ -158,29 +127,9 @@ pub async fn update_user(
             message: "Пользователь изменён.".to_string(),
             redirect_to: None,
         }),
-        Err(ServiceError::Form(e)) => {
-            log::error!("Invalid user data: {e}");
-
-            HttpResponse::BadRequest().json(ApiMutationErrorDto {
-                message: "Ошибка валидации формы.".to_string(),
-                field_errors: Vec::new(),
-            })
-        }
-        Err(ServiceError::NotFound) => HttpResponse::NotFound().json(ApiMutationErrorDto {
-            message: "Пользователь не найден.".to_string(),
-            field_errors: Vec::new(),
-        }),
-        Err(ServiceError::Unauthorized) => HttpResponse::Forbidden().json(ApiMutationErrorDto {
-            message: "Недостаточно прав.".to_string(),
-            field_errors: Vec::new(),
-        }),
         Err(err) => {
             log::error!("Failed to update user: {err}");
-
-            HttpResponse::InternalServerError().json(ApiMutationErrorDto {
-                message: "Ошибка при изменении пользователя.".to_string(),
-                field_errors: Vec::new(),
-            })
+            mutation_error_response(&err)
         }
     }
 }
@@ -196,7 +145,7 @@ pub async fn add_hub(
         Ok(payload) => payload,
         Err(error) => {
             log::error!("Invalid hub data: {error}");
-            return HttpResponse::BadRequest().json(form_error_response(&error));
+            return HttpResponse::BadRequest().json(ApiMutationErrorDto::from(&error));
         }
     };
 
@@ -205,25 +154,9 @@ pub async fn add_hub(
             message: "Хаб добавлен.".to_string(),
             redirect_to: None,
         }),
-        Err(ServiceError::Form(e)) => {
-            log::error!("Invalid hub data: {e}");
-
-            HttpResponse::BadRequest().json(ApiMutationErrorDto {
-                message: "Ошибка валидации формы.".to_string(),
-                field_errors: Vec::new(),
-            })
-        }
-        Err(ServiceError::Unauthorized) => HttpResponse::Forbidden().json(ApiMutationErrorDto {
-            message: "Недостаточно прав.".to_string(),
-            field_errors: Vec::new(),
-        }),
         Err(err) => {
             log::error!("Failed to add hub: {err}");
-
-            HttpResponse::InternalServerError().json(ApiMutationErrorDto {
-                message: "Ошибка при добавлении хаба.".to_string(),
-                field_errors: Vec::new(),
-            })
+            mutation_error_response(&err)
         }
     }
 }
@@ -242,21 +175,9 @@ pub async fn delete_role(
             message: "Роль удалена.".to_string(),
             redirect_to: None,
         }),
-        Err(ServiceError::NotFound) => HttpResponse::NotFound().json(ApiMutationErrorDto {
-            message: "Роль не найдена.".to_string(),
-            field_errors: Vec::new(),
-        }),
-        Err(ServiceError::Unauthorized) => HttpResponse::Forbidden().json(ApiMutationErrorDto {
-            message: "Недостаточно прав.".to_string(),
-            field_errors: Vec::new(),
-        }),
         Err(err) => {
             log::error!("Failed to delete role: {err}");
-
-            HttpResponse::InternalServerError().json(ApiMutationErrorDto {
-                message: "Ошибка при удалении роли.".to_string(),
-                field_errors: Vec::new(),
-            })
+            mutation_error_response(&err)
         }
     }
 }
@@ -275,21 +196,9 @@ pub async fn delete_hub(
             message: "Хаб удалён.".to_string(),
             redirect_to: None,
         }),
-        Err(ServiceError::NotFound) => HttpResponse::NotFound().json(ApiMutationErrorDto {
-            message: "Хаб не найден.".to_string(),
-            field_errors: Vec::new(),
-        }),
-        Err(ServiceError::Unauthorized) => HttpResponse::Forbidden().json(ApiMutationErrorDto {
-            message: "Недостаточно прав.".to_string(),
-            field_errors: Vec::new(),
-        }),
         Err(err) => {
             log::error!("Failed to delete hub: {err}");
-
-            HttpResponse::InternalServerError().json(ApiMutationErrorDto {
-                message: "Ошибка при удалении хаба.".to_string(),
-                field_errors: Vec::new(),
-            })
+            mutation_error_response(&err)
         }
     }
 }
@@ -305,7 +214,7 @@ pub async fn add_menu(
         Ok(payload) => payload,
         Err(error) => {
             log::error!("Invalid menu data: {error}");
-            return HttpResponse::BadRequest().json(form_error_response(&error));
+            return HttpResponse::BadRequest().json(ApiMutationErrorDto::from(&error));
         }
     };
 
@@ -314,25 +223,9 @@ pub async fn add_menu(
             message: "Меню добавлено.".to_string(),
             redirect_to: None,
         }),
-        Err(ServiceError::Form(e)) => {
-            log::error!("Invalid menu data: {e}");
-
-            HttpResponse::BadRequest().json(ApiMutationErrorDto {
-                message: "Ошибка валидации формы.".to_string(),
-                field_errors: Vec::new(),
-            })
-        }
-        Err(ServiceError::Unauthorized) => HttpResponse::Forbidden().json(ApiMutationErrorDto {
-            message: "Недостаточно прав.".to_string(),
-            field_errors: Vec::new(),
-        }),
         Err(err) => {
             log::error!("Failed to add menu: {err}");
-
-            HttpResponse::InternalServerError().json(ApiMutationErrorDto {
-                message: "Ошибка при добавлении меню.".to_string(),
-                field_errors: Vec::new(),
-            })
+            mutation_error_response(&err)
         }
     }
 }
@@ -350,21 +243,9 @@ pub async fn delete_menu(
             message: "Меню удалено.".to_string(),
             redirect_to: None,
         }),
-        Err(ServiceError::NotFound) => HttpResponse::NotFound().json(ApiMutationErrorDto {
-            message: "Меню не найдено.".to_string(),
-            field_errors: Vec::new(),
-        }),
-        Err(ServiceError::Unauthorized) => HttpResponse::Forbidden().json(ApiMutationErrorDto {
-            message: "Недостаточно прав.".to_string(),
-            field_errors: Vec::new(),
-        }),
         Err(err) => {
             log::error!("Failed to delete menu: {err}");
-
-            HttpResponse::InternalServerError().json(ApiMutationErrorDto {
-                message: "Ошибка при удалении меню.".to_string(),
-                field_errors: Vec::new(),
-            })
+            mutation_error_response(&err)
         }
     }
 }
