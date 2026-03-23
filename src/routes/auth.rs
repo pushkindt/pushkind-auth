@@ -18,7 +18,7 @@ use crate::forms::auth::{
 use crate::frontend::open_frontend_html;
 use crate::models::config::AppConfig;
 use crate::repository::DieselRepository;
-use crate::routes::{MutationResource, get_success_and_failure_redirects, mutation_error_response};
+use crate::routes::{MutationResource, is_valid_next, mutation_error_response};
 use crate::services::auth as auth_service;
 
 #[derive(Deserialize)]
@@ -68,11 +68,12 @@ pub async fn login(
     server_config: web::Data<AppConfig>,
     common_config: web::Data<CommonServerConfig>,
 ) -> impl Responder {
-    let (success_redirect_url, _) = get_success_and_failure_redirects(
-        "/auth/signin",
-        query_params.next.as_deref(),
-        &server_config.domain,
-    );
+    let success_redirect_url = query_params
+        .next
+        .as_deref()
+        .filter(|next| !next.is_empty() && is_valid_next(next, &server_config.domain))
+        .map(str::to_owned)
+        .unwrap_or_else(|| "/".to_string());
 
     let payload = match LoginPayload::try_from(form) {
         Ok(payload) => payload,

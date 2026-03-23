@@ -21,7 +21,7 @@ pub(crate) enum MutationResource {
     UserRegistration,
 }
 
-fn is_valid_next(next: &str, domain: &str) -> bool {
+pub(crate) fn is_valid_next(next: &str, domain: &str) -> bool {
     if next.starts_with("//") {
         return false;
     }
@@ -33,30 +33,6 @@ fn is_valid_next(next: &str, domain: &str) -> bool {
     } else {
         true
     }
-}
-
-pub(crate) fn get_success_and_failure_redirects(
-    base_url: &str,
-    next: Option<&str>,
-    domain: &str,
-) -> (String, String) {
-    let next_valid = next.and_then(|n| {
-        if !n.is_empty() && is_valid_next(n, domain) {
-            Some(n)
-        } else {
-            None
-        }
-    });
-
-    let success_redirect_url = next_valid
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| "/".to_string());
-
-    let failure_redirect_url = next_valid
-        .map(|s| format!("{base_url}?next={s}"))
-        .unwrap_or_else(|| base_url.to_string());
-
-    (success_redirect_url, failure_redirect_url)
 }
 
 pub(crate) fn mutation_error_status(err: &ServiceError) -> StatusCode {
@@ -123,38 +99,28 @@ mod tests {
     use pushkind_common::services::errors::ServiceError;
 
     #[test]
-    fn redirects_with_next_param() {
-        let (success, failure) =
-            get_success_and_failure_redirects("/auth/signin", Some("/dashboard"), "example.com");
-        assert_eq!(success, "/dashboard");
-        assert_eq!(failure, "/auth/signin?next=/dashboard");
+    fn relative_next_is_valid() {
+        assert!(is_valid_next("/dashboard", "example.com"));
     }
 
     #[test]
-    fn redirects_without_next_param() {
-        let (success, failure) =
-            get_success_and_failure_redirects("/auth/signup", None, "example.com");
-        assert_eq!(success, "/");
-        assert_eq!(failure, "/auth/signup");
+    fn same_domain_absolute_next_is_valid() {
+        assert!(is_valid_next("https://example.com/dashboard", "example.com"));
     }
 
     #[test]
-    fn redirects_with_empty_next() {
-        let (success, failure) =
-            get_success_and_failure_redirects("/auth/signin", Some(""), "example.com");
-        assert_eq!(success, "/");
-        assert_eq!(failure, "/auth/signin");
+    fn subdomain_absolute_next_is_valid() {
+        assert!(is_valid_next("https://app.example.com/dashboard", "example.com"));
     }
 
     #[test]
-    fn invalid_domain_next_defaults_to_base() {
-        let (success, failure) = get_success_and_failure_redirects(
-            "/auth/signin",
-            Some("http://evil.com"),
-            "example.com",
-        );
-        assert_eq!(success, "/");
-        assert_eq!(failure, "/auth/signin");
+    fn protocol_relative_next_is_invalid() {
+        assert!(!is_valid_next("//evil.com", "example.com"));
+    }
+
+    #[test]
+    fn external_domain_next_is_invalid() {
+        assert!(!is_valid_next("http://evil.com", "example.com"));
     }
 
     #[test]
