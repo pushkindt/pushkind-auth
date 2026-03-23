@@ -105,12 +105,18 @@ mod tests {
 
     #[test]
     fn same_domain_absolute_next_is_valid() {
-        assert!(is_valid_next("https://example.com/dashboard", "example.com"));
+        assert!(is_valid_next(
+            "https://example.com/dashboard",
+            "example.com"
+        ));
     }
 
     #[test]
     fn subdomain_absolute_next_is_valid() {
-        assert!(is_valid_next("https://app.example.com/dashboard", "example.com"));
+        assert!(is_valid_next(
+            "https://app.example.com/dashboard",
+            "example.com"
+        ));
     }
 
     #[test]
