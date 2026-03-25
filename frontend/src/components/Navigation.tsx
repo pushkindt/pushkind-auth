@@ -1,7 +1,9 @@
-export interface NavigationMenuItem {
-  name: string;
-  url: string;
-}
+import {
+  UserMenuDropdown,
+  type UserMenuItem as NavigationMenuItem,
+} from "./UserMenuDropdown";
+
+export type { NavigationMenuItem };
 
 interface NavigationProps {
   currentHubName: string;
@@ -56,32 +58,13 @@ export function Navigation({
               ))}
             </ul>
           </div>
-          <div className="dropdown-center">
-            <button
-              className="btn btn-link nav-link align-items-center text-muted dropdown-toggle"
-              type="button"
-              data-bs-toggle="dropdown"
-              aria-expanded="false"
-            >
-              <i className="bi bi-person-circle fs-4"></i>
-            </button>
-            <ul className="dropdown-menu dropdown-menu-end">
-              <li>
-                <h6 className="dropdown-header">{currentUserEmail}</h6>
-              </li>
-              <li>
-                <hr className="dropdown-divider" />
-              </li>
-              <li>
-                <form method="POST" action="/auth/logout">
-                  <button type="submit" className="dropdown-item icon-link">
-                    <i className="bi bi-box-arrow-right mb-2"></i>
-                    Выйти
-                  </button>
-                </form>
-              </li>
-            </ul>
-          </div>
+          <UserMenuDropdown
+            currentUserEmail={currentUserEmail}
+            items={menu}
+            homeUrl="/"
+            homeLabel="Главная"
+            logoutAction="/auth/logout"
+          />
         </div>
       </nav>
     </div>
