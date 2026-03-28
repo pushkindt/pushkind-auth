@@ -5,3 +5,4 @@ tarpaulin-report*
 frontend/node_modules
 frontend/.vite
 assets/dist
+.codex
