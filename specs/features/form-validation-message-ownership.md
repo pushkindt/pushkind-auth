@@ -3,6 +3,9 @@
 ## Status
 Stable
 
+## Date
+2026-03-27
+
 ## Summary
 Move field-level validation messages out of `src/routes/mod.rs` and into the
 form layer so each form owns the copy returned for its validation failures.

@@ -3,6 +3,9 @@
 ## Status
 Stable
 
+## Date
+2026-03-27
+
 ## Summary
 Move the frontend runtime to Vite-built static HTML, JavaScript, and CSS so
 `pushkind-auth` no longer assembles HTML documents in Rust. Rust MUST continue

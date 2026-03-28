@@ -21,6 +21,14 @@ use tempfile::NamedTempFile;
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!(); // assumes migrations/ exists
 pub const ADMIN_EMAIL: &str = "admin@hub";
 pub const ADMIN_PASSWORD: &str = "password";
+pub const USER_EMAIL: &str = "user@hub";
+pub const USER_PASSWORD: &str = "password";
+
+pub struct SeededUsers {
+    pub hub_id: i32,
+    pub admin_user_id: i32,
+    pub user_id: i32,
+}
 
 /// Temporary database used in integration tests.
 pub struct TestDb {
@@ -119,30 +127,48 @@ pub fn build_reqwest_client() -> reqwest::Client {
 }
 
 pub fn setup_hub_with_admin(db_pool: DbPool) {
+    let _ = setup_hub_with_users(db_pool);
+}
+
+pub fn setup_hub_with_users(db_pool: DbPool) -> SeededUsers {
     let repo = DieselRepository::new(db_pool);
 
     // Create hub
     let hub = repo.get_hub_by_name("default").unwrap().unwrap();
 
-    // Create admin
-
     let admin_name = UserName::new("Admin").unwrap();
     let admin_password = UserPassword::new(ADMIN_PASSWORD).unwrap();
-
     let admin = NewUser::new(
         UserEmail::new(ADMIN_EMAIL).unwrap(),
         Some(admin_name.clone()),
         hub.id,
-        admin_password.clone(),
+        admin_password,
     );
-    let admin = repo.create_user(&admin).expect("Can't create a test user");
+    let admin = repo
+        .create_user(&admin)
+        .expect("Can't create admin test user");
 
-    // Assign the admin role to the Admin user
     let admin_role = repo.get_role_by_name("admin").unwrap().unwrap();
-
     let updates = UpdateUser::new(admin_name.clone(), None, Some(vec![admin_role.id]));
-
     let _ = repo
         .update_user(admin.id, hub.id, &updates)
         .expect("Can't assign the admin role to the test user");
+
+    let user_name = UserName::new("User").unwrap();
+    let user_password = UserPassword::new(USER_PASSWORD).unwrap();
+    let user = NewUser::new(
+        UserEmail::new(USER_EMAIL).unwrap(),
+        Some(user_name),
+        hub.id,
+        user_password,
+    );
+    let user = repo
+        .create_user(&user)
+        .expect("Can't create regular test user");
+
+    SeededUsers {
+        hub_id: hub.id.get(),
+        admin_user_id: admin.id.get(),
+        user_id: user.id.get(),
+    }
 }

@@ -3,6 +3,9 @@
 ## Status
 Stable
 
+## Date
+2026-03-27
+
 ## Summary
 Replace route-specific bootstrap endpoints with narrower client data APIs that
 React pages fetch client-side. The backend MUST continue to own auth,

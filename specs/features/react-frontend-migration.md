@@ -3,6 +3,9 @@
 ## Status
 Stable
 
+## Date
+2026-03-27
+
 ## Summary
 Migrate the current Tera-based frontend to React-managed UI components while
 preserving the existing Bootstrap styling, route structure, copy, and user
@@ -24,6 +27,8 @@ especially on the admin dashboard.
 - Replace inline JavaScript and HTMX-driven interactions with React where those
   pages or widgets are migrated.
 - Keep business logic in Rust service modules; React MUST remain a view layer.
+- Move page initialization away from page-specific bootstrap transport toward
+  narrower resource-style client data APIs under `/api/v1/`.
 
 ## Non-Goals
 - Introducing client-side routing or SPA navigation.
@@ -115,14 +120,22 @@ Current client behavior is a mix of:
   equivalent structured responses. HTML partial compatibility MAY be retained
   temporarily during migration.
 
-### 5. Progressive Enhancement
+### 5. Client Data API Model
+- React-owned page initialization MUST prefer typed GET APIs under `/api/v1/`
+  rather than HTML-embedded bootstrap payloads.
+- The target state SHOULD prefer reusable resource-style APIs over one-off
+  page-shaped bootstrap endpoints.
+- Shared shell data such as identity, available hubs, and hub-scoped menu
+  items SHOULD come from narrower reusable resource endpoints.
+
+### 6. Progressive Enhancement
 - Native HTML form submission and redirect flows SHOULD remain the default for
   create/update/delete operations unless a specific interaction benefits from
   asynchronous React behavior.
 - The migration SHOULD preserve graceful degradation for critical flows such as
   sign-in, sign-up, logout, and profile updates.
 
-### 6. Frontend Tooling
+### 7. Frontend Tooling
 - The repository MUST gain a supported frontend toolchain for React and
   TypeScript source code.
 - Production builds MUST emit versioned static assets that can be referenced by
@@ -134,6 +147,9 @@ Current client behavior is a mix of:
 ## Page Data Requirements
 - Each migrated page MUST receive a typed bootstrap payload containing only the
   validated data needed for rendering.
+- That transport is transitional only; the long-term target is composition from
+  reusable resource-style `/api/v1/...` endpoints instead of page-shaped
+  bootstrap payloads.
 - Bootstrap payloads SHOULD include:
   current user data, hub/menu lists, flash messages, page identity, and any
   form-select options required by the page.
