@@ -9,7 +9,9 @@
 ## Objective
 Introduce React for the frontend while preserving the current UI structure,
 styling, routes, and backend-owned business logic. The migration remains
-server-routed, non-SPA, and ends with Tera removed from the frontend runtime.
+server-routed, non-SPA, ends with Tera removed from the frontend runtime, and
+converges on resource-style `/api/v1/...` client data APIs instead of
+page-shaped bootstrap endpoints.
 
 ## Fixed Implementation Decisions
 - Frontend source code WILL live in `frontend/`.
@@ -22,6 +24,8 @@ server-routed, non-SPA, and ends with Tera removed from the frontend runtime.
 - Tera WILL be used only as a temporary migration wrapper and WILL be removed
   after all frontend pages have been migrated and verified.
 - Visual parity in CI WILL use Playwright screenshot comparisons.
+- React page initialization SHOULD move to reusable resource-style `/api/v1/...`
+  endpoints rather than route-specific bootstrap transport.
 
 ## Repository Layout
 The implementation MUST create and use the following structure:
@@ -126,6 +130,9 @@ The frontend package MUST expose at least these scripts:
   provides the mount node for React.
 - That shell MUST NOT contain duplicated page markup once a page is owned by
   React.
+- Page bootstrap transport is transitional only. The target state for migrated
+  pages is composition from narrower resource-style `/api/v1/...` APIs, as
+  defined in the generic client data API work.
 
 ## Frontend Runtime Requirements
 

@@ -82,6 +82,15 @@ service-layer authorization checks (`pushkind_common::routes::ensure_role`).
 | GET | `/api/v1/id` | Get current user or a user by `id` query param. |
 | GET | `/api/v1/users` | List users for the current hub with filters. |
 
+## React Client Data API Direction
+- React-owned pages SHOULD initialize from narrower resource-style `/api/v1/...`
+  endpoints rather than page-shaped bootstrap transport.
+- Shared concerns such as identity, hub lists, and hub-scoped menu items SHOULD
+  come from reusable resource endpoints.
+- Route-specific bootstrap endpoints MAY exist temporarily during migration, but
+  they are transitional and SHOULD be removed once resource-style APIs reach
+  parity.
+
 ## Authentication and Authorization
 - Actix Identity stores a JWT token issued from `AuthenticatedUser`.
 - `/` and `/admin` scopes MUST use `RequireUserExists` +
