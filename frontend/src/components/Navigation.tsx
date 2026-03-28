@@ -18,6 +18,14 @@ export function Navigation({
   currentUserEmail,
   menu,
 }: NavigationProps) {
+  const localUserMenuItems: NavigationMenuItem[] = [
+    {
+      name: "Главная",
+      url: "/",
+      iconClass: "bi bi-house",
+    },
+  ];
+
   return (
     <div className="container">
       <nav className="navbar navbar-expand-sm bg-body-tertiary">
@@ -60,9 +68,8 @@ export function Navigation({
           </div>
           <UserMenuDropdown
             currentUserEmail={currentUserEmail}
-            items={menu}
-            homeUrl="/"
-            homeLabel="Главная"
+            localItems={localUserMenuItems}
+            fetchedItems={menu}
             logoutAction="/auth/logout"
           />
         </div>
