@@ -1,24 +1,23 @@
 export interface UserMenuItem {
   name: string;
   url: string;
+  iconClass?: string;
 }
 
 type UserMenuDropdownProps = {
   currentUserEmail: string;
-  items: UserMenuItem[];
+  localItems?: UserMenuItem[];
+  fetchedItems: UserMenuItem[];
   logoutAction: string;
-  homeUrl?: string;
-  homeLabel?: string;
 };
 
 export function UserMenuDropdown({
   currentUserEmail,
-  items,
+  localItems = [],
+  fetchedItems,
   logoutAction,
-  homeUrl,
-  homeLabel = "Домой",
 }: UserMenuDropdownProps) {
-  const hasNavigationItems = Boolean(homeUrl) || items.length > 0;
+  const hasNavigationItems = localItems.length > 0 || fetchedItems.length > 0;
 
   return (
     <div className="dropdown-center">
@@ -39,18 +38,18 @@ export function UserMenuDropdown({
             <hr className="dropdown-divider" />
           </li>
         ) : null}
-        {homeUrl ? (
-          <li>
-            <a className="dropdown-item icon-link" href={homeUrl}>
-              <i className="bi bi-house mb-2"></i>
-              {homeLabel}
+        {localItems.map((item) => (
+          <li key={`local-${item.url}-${item.name}`}>
+            <a className="dropdown-item icon-link" href={item.url}>
+              <i className={`${item.iconClass ?? "bi bi-grid"} mb-2`}></i>
+              {item.name}
             </a>
           </li>
-        ) : null}
-        {items.map((item) => (
-          <li key={`${item.url}-${item.name}`}>
+        ))}
+        {fetchedItems.map((item) => (
+          <li key={`fetched-${item.url}-${item.name}`}>
             <a className="dropdown-item icon-link" href={item.url}>
-              <i className="bi bi-grid mb-2"></i>
+              <i className={`${item.iconClass ?? "bi bi-grid"} mb-2`}></i>
               {item.name}
             </a>
           </li>
