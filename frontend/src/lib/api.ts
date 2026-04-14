@@ -1,4 +1,15 @@
+import {
+  fetchHubMenuItems as fetchSharedHubMenuItems,
+  fetchJson as fetchSharedJson,
+  isJsonResponse,
+  parseCurrentUser,
+  parseMenuItems,
+  parseNavigationItems,
+  readJsonResponse as readSharedJsonResponse,
+} from "../../../../pushkind-common/frontend/src/shellApi";
+
 import { redirectTo } from "./redirect";
+import type { ShellData, UserMenuItem } from "./models";
 
 export interface ApiUser {
   sub: string;
@@ -9,19 +20,12 @@ export interface ApiUser {
   exp: number;
 }
 
-export interface ApiHubSummary {
-  id: number;
-  name: string;
-}
-
-export interface ApiEditableProfile {
-  name: string;
-}
-
-export interface ApiIam {
-  user: ApiUser;
-  current_hub: ApiHubSummary;
-  editable_profile: ApiEditableProfile;
+export interface ApiShellPayload {
+  current_user: ApiUser;
+  home_url: string;
+  navigation: ApiMenuItem[];
+  local_menu_items: ApiMenuItem[];
+  hub_name: string;
 }
 
 export interface ApiMenuItem {
@@ -99,12 +103,6 @@ export function isRedirectResponseError(
   return error instanceof RedirectResponseError;
 }
 
-function isJsonResponse(response: Response): boolean {
-  return (
-    response.headers.get("content-type")?.includes("application/json") ?? false
-  );
-}
-
 function handleUnexpectedResponse(response: Response, endpoint: string): never {
   if (response.redirected && response.url) {
     redirectTo(response.url);
@@ -124,7 +122,7 @@ async function readJsonResponse<T>(
     handleUnexpectedResponse(response, endpoint);
   }
 
-  return (await response.json()) as T;
+  return await readSharedJsonResponse<T>(response, endpoint);
 }
 
 export async function fetchJson<T>(endpoint: string): Promise<T> {
@@ -141,6 +139,30 @@ export async function fetchJson<T>(endpoint: string): Promise<T> {
   }
 
   return readJsonResponse<T>(response, endpoint);
+}
+
+export async function fetchShellData(): Promise<ShellData> {
+  const payload = (await fetchSharedJson("/api/v1/iam", {
+    unauthorizedMessage: "Сессия истекла.",
+  })) as ApiShellPayload;
+
+  return {
+    currentUser: parseCurrentUser(payload.current_user),
+    homeUrl: payload.home_url,
+    navigation: parseNavigationItems(payload.navigation),
+    localMenuItems: parseMenuItems(payload.local_menu_items),
+    hubName: payload.hub_name,
+  };
+}
+
+export async function fetchHubMenuItems(
+  _homeUrl: string,
+  hubId: number,
+): Promise<UserMenuItem[]> {
+  return fetchSharedHubMenuItems<UserMenuItem>(
+    `/api/v1/hubs/${hubId}/menu-items`,
+    "Сессия истекла.",
+  );
 }
 
 export function toFieldErrorMap(

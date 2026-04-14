@@ -17,6 +17,12 @@ fn is_admin(user: &AuthenticatedUser) -> bool {
         .any(|role| role == crate::SERVICE_ACCESS_ROLE)
 }
 
+/// Health check
+#[get("/health")]
+pub async fn health() -> impl Responder {
+    HttpResponse::Ok()
+}
+
 /// Displays the main dashboard via `GET /` for the authenticated user.
 #[get("/")]
 pub async fn show_index(request: HttpRequest, user: AuthenticatedUser) -> impl Responder {

@@ -48,7 +48,21 @@ async fn login_as(
     assert_eq!(login_payload["redirect_to"], "/");
 }
 
-#[ignore = "local-only end-to-end test"]
+#[actix_web::test]
+async fn test_health() {
+    let app = common::spawn_app().await;
+
+    let client = common::build_reqwest_client();
+
+    let response = client
+        .get(format!("{}/health", app.address()))
+        .send()
+        .await
+        .expect("Failed to request the health page.");
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
 #[actix_web::test]
 async fn test_signin_page_get_for_logged_out_user() {
     let app = common::spawn_app().await;
@@ -73,7 +87,6 @@ async fn test_signin_page_get_for_logged_out_user() {
     assert!(content_type.starts_with("text/html"));
 }
 
-#[ignore = "local-only end-to-end test"]
 #[actix_web::test]
 async fn test_admin_user_full_management_story() {
     let app = common::spawn_app().await;
@@ -291,7 +304,6 @@ async fn test_admin_user_full_management_story() {
     );
 }
 
-#[ignore = "local-only end-to-end test"]
 #[actix_web::test]
 async fn test_non_admin_user_self_service_story() {
     let app = common::spawn_app().await;

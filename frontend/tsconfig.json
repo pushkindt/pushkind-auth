@@ -11,6 +11,12 @@
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "paths": {
+      "@pushkind/frontend-shell": [
+        "../../pushkind-common/frontend/src/index.ts"
+      ],
+      "@pushkind/frontend-shell/*": ["../../pushkind-common/frontend/src/*"]
+    },
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,

@@ -71,6 +71,31 @@ pub struct UserDto {
     pub exp: usize,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct CurrentUserDto {
+    pub email: String,
+    pub name: String,
+    pub hub_id: i32,
+    pub roles: Vec<String>,
+}
+
+impl From<AuthenticatedUser> for CurrentUserDto {
+    fn from(user: AuthenticatedUser) -> Self {
+        Self {
+            email: user.email,
+            name: user.name,
+            hub_id: user.hub_id,
+            roles: user.roles,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct NavigationItemDto {
+    pub name: String,
+    pub url: String,
+}
+
 impl From<AuthenticatedUser> for UserDto {
     fn from(user: AuthenticatedUser) -> Self {
         Self {
@@ -100,38 +125,14 @@ impl From<Hub> for HubListItemDto {
     }
 }
 
-/// Hub summary embedded into IAM responses.
+/// Shared shell payload for React-owned auth pages.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct HubSummaryDto {
-    pub id: i32,
-    pub name: String,
-}
-
-impl From<Hub> for HubSummaryDto {
-    fn from(hub: Hub) -> Self {
-        Self {
-            id: hub.id.get(),
-            name: hub.name.into_inner(),
-        }
-    }
-}
-
-/// Editable current-user profile fields exposed via the IAM contract.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct EditableProfileDto {
-    pub name: String,
-}
-
-/// IAM-style response shape built on top of the existing current-user DTO.
-///
-/// This intentionally reuses [`UserDto`] as its identity core so the existing
-/// `/api/v1/id` route can be assessed for reuse before introducing a separate
-/// `/api/v1/iam` endpoint.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct IamDto {
-    pub user: UserDto,
-    pub current_hub: HubSummaryDto,
-    pub editable_profile: EditableProfileDto,
+pub struct ShellDataDto {
+    pub current_user: CurrentUserDto,
+    pub home_url: String,
+    pub navigation: Vec<NavigationItemDto>,
+    pub local_menu_items: Vec<NavigationItemDto>,
+    pub hub_name: String,
 }
 
 /// Menu item exposed by hub-scoped menu APIs.

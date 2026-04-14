@@ -51,7 +51,7 @@ use crate::routes::auth::{
     login, login_token, recover_password, register, signin_page, signup_page,
 };
 #[cfg(feature = "server")]
-use crate::routes::main::{save_user, show_index};
+use crate::routes::main::{health, save_user, show_index};
 
 #[cfg(feature = "data")]
 pub mod domain;
@@ -172,6 +172,7 @@ pub fn build_server(listener: TcpListener, app_config: AppConfig) -> std::io::Re
                     .wrap(RequireUserExists)
                     .wrap(RedirectUnauthorized)
                     .service(show_index)
+                    .service(health)
                     .service(save_user),
             )
             .app_data(web::Data::new(repo.clone()))

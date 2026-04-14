@@ -44,17 +44,17 @@ pub async fn api_v1_hubs(repo: web::Data<DieselRepository>) -> impl Responder {
     }
 }
 
-/// Returns the authenticated user's IAM payload via `GET /v1/iam`.
+/// Returns shared shell data for React-owned auth pages via `GET /v1/iam`.
 #[get("/v1/iam")]
 pub async fn api_v1_iam(
     current_user: AuthenticatedUser,
     repo: web::Data<DieselRepository>,
 ) -> impl Responder {
-    match api_service::get_iam(current_user, repo.get_ref()) {
-        Ok(iam) => HttpResponse::Ok().json(iam),
+    match api_service::get_shell_data(current_user, repo.get_ref()) {
+        Ok(shell) => HttpResponse::Ok().json(shell),
         Err(ServiceError::NotFound) => HttpResponse::NotFound().finish(),
         Err(e) => {
-            error!("Failed to build IAM payload: {e}");
+            error!("Failed to build auth shell payload: {e}");
             HttpResponse::InternalServerError().finish()
         }
     }

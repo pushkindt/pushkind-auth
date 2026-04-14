@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 
-import { AppShell } from "../components/AppShell";
+import { AuthModalFlashShell } from "../components/AuthModalFlashShell";
 import { postForm, toFieldErrorMap, type ApiMutationError } from "../lib/api";
 import { getNextFromLocation, type HubOption, withNext } from "../lib/auth";
 
@@ -94,7 +94,7 @@ export function AuthSigninPage({ hubs }: { hubs: SigninPageData }) {
     : "form-control";
 
   return (
-    <AppShell alerts={[]}>
+    <AuthModalFlashShell>
       <div className="row justify-content-center">
         <div className="col-md-6">
           <div className="card mt-5">
@@ -234,6 +234,6 @@ export function AuthSigninPage({ hubs }: { hubs: SigninPageData }) {
           </div>
         </div>
       </div>
-    </AppShell>
+    </AuthModalFlashShell>
   );
 }
