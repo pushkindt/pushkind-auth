@@ -1,17 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./redirect", () => ({
-  redirectTo: vi.fn(),
-}));
-
 import {
-  RedirectResponseError,
+  postEmpty,
   postForm,
   postJson,
   toFieldErrorMap,
   type ApiMutationError,
 } from "./api";
-import { redirectTo } from "./redirect";
 
 function makeResponse({
   contentType = "application/json",
@@ -99,18 +94,58 @@ describe("postForm", () => {
     const response = makeResponse({
       contentType: "text/html; charset=utf-8",
       redirected: true,
-      url: "http://localhost/auth/signin?next=%2F",
+      url: "http://localhost/auth/signin?next=%2Fuser%2Fsave",
+    });
+
+    vi.mocked(fetch).mockResolvedValue(response);
+
+    const shellApi = await import("@pushkind/frontend-shell/shellApi");
+    shellApi.browserLocation.assign = vi.fn();
+
+    await expect(postForm("/user/save", new URLSearchParams())).rejects.toThrow(
+      "Сессия истекла",
+    );
+
+    expect(vi.mocked(shellApi.browserLocation.assign)).toHaveBeenCalledWith(
+      "http://localhost/auth/signin?next=%2Fuser%2Fsave",
+    );
+    expect(response.json).not.toHaveBeenCalled();
+  });
+
+  it("throws a mutation error for direct unauthenticated responses", async () => {
+    const response = makeResponse({
+      contentType: "text/plain; charset=utf-8",
+      status: 401,
     });
 
     vi.mocked(fetch).mockResolvedValue(response);
 
     await expect(
-      postForm("/user/save", new URLSearchParams()),
-    ).rejects.toBeInstanceOf(RedirectResponseError);
-    expect(vi.mocked(redirectTo)).toHaveBeenCalledWith(
-      "http://localhost/auth/signin?next=%2F",
-    );
+      postForm("/admin/role/add", new URLSearchParams()),
+    ).rejects.toEqual({
+      message: "Сессия истекла. Войдите снова и повторите действие.",
+      field_errors: [],
+    });
     expect(response.json).not.toHaveBeenCalled();
+  });
+
+  it("keeps server-provided validation errors", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      makeResponse({
+        status: 400,
+        payload: {
+          message: "Validation failed.",
+          field_errors: [{ field: "name", message: "Required." }],
+        },
+      }),
+    );
+
+    await expect(
+      postForm("/admin/role/add", new URLSearchParams()),
+    ).rejects.toEqual({
+      message: "Validation failed.",
+      field_errors: [{ field: "name", message: "Required." }],
+    });
   });
 });
 
@@ -124,12 +159,33 @@ describe("postJson", () => {
 
     vi.mocked(fetch).mockResolvedValue(response);
 
-    await expect(postJson("/admin/user/modal/1")).rejects.toBeInstanceOf(
-      RedirectResponseError,
+    const shellApi = await import("@pushkind/frontend-shell/shellApi");
+    shellApi.browserLocation.assign = vi.fn();
+
+    await expect(postJson("/admin/user/modal/1")).rejects.toThrow(
+      "Сессия истекла",
     );
-    expect(vi.mocked(redirectTo)).toHaveBeenCalledWith(
+
+    expect(vi.mocked(shellApi.browserLocation.assign)).toHaveBeenCalledWith(
       "http://localhost/auth/signin?next=%2Fadmin%2Fuser%2Fmodal%2F1",
     );
+    expect(response.json).not.toHaveBeenCalled();
+  });
+});
+
+describe("postEmpty", () => {
+  it("throws a mutation error for direct forbidden responses", async () => {
+    const response = makeResponse({
+      contentType: "text/plain; charset=utf-8",
+      status: 403,
+    });
+
+    vi.mocked(fetch).mockResolvedValue(response);
+
+    await expect(postEmpty("/admin/role/delete/1")).rejects.toEqual({
+      message: "Недостаточно прав для выполнения действия.",
+      field_errors: [],
+    });
     expect(response.json).not.toHaveBeenCalled();
   });
 });

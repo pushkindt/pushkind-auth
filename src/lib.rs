@@ -51,14 +51,12 @@ use crate::routes::auth::{
     login, login_token, recover_password, register, signin_page, signup_page,
 };
 #[cfg(feature = "server")]
-use crate::routes::main::{save_user, show_index};
+use crate::routes::main::{health, save_user, show_index};
 
 #[cfg(feature = "data")]
 pub mod domain;
 #[cfg(feature = "server")]
 pub mod dto;
-#[cfg(feature = "server")]
-pub mod frontend;
 
 pub mod error_conversions;
 #[cfg(feature = "server")]
@@ -145,7 +143,6 @@ pub fn build_server(listener: TcpListener, app_config: AppConfig) -> std::io::Re
             .service(
                 web::scope("/admin")
                     .wrap(RequireUserExists)
-                    .wrap(RedirectUnauthorized)
                     .service(add_role)
                     .service(user_modal)
                     .service(delete_user)
@@ -168,11 +165,16 @@ pub fn build_server(listener: TcpListener, app_config: AppConfig) -> std::io::Re
             )
             .service(Files::new("/assets", "./assets").prefer_utf8(true))
             .service(
+                web::scope("/user")
+                    .wrap(RequireUserExists)
+                    .service(save_user),
+            )
+            .service(
                 web::scope("")
                     .wrap(RequireUserExists)
                     .wrap(RedirectUnauthorized)
                     .service(show_index)
-                    .service(save_user),
+                    .service(health),
             )
             .app_data(web::Data::new(repo.clone()))
             .app_data(web::Data::new(app_config.clone()))

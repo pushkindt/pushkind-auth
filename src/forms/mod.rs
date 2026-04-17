@@ -5,6 +5,7 @@
 
 use std::borrow::Cow;
 
+use pushkind_common::dto::mutation::{ApiFieldErrorDto, ApiMutationErrorDto};
 use thiserror::Error;
 use validator::{ValidationError, ValidationErrors};
 
@@ -107,9 +108,25 @@ fn field_error(field: &'static str, message: impl Into<Cow<'static, str>>) -> Fo
     }
 }
 
+impl From<&FormError> for ApiMutationErrorDto {
+    fn from(error: &FormError) -> Self {
+        Self {
+            message: "Ошибка валидации формы.".to_string(),
+            field_errors: error
+                .field_errors()
+                .into_iter()
+                .map(|error| ApiFieldErrorDto {
+                    field: error.field.to_string(),
+                    message: error.message.into_owned(),
+                })
+                .collect(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::FormError;
+    use super::*;
     use crate::forms::auth::RegisterForm;
     use crate::forms::main::AddMenuForm;
     use validator::Validate;
@@ -195,6 +212,19 @@ mod tests {
         assert!(message.contains("Выберите хаб."));
         assert_eq!(
             FormError::InvalidEmail.to_string(),
+            "Укажите корректный электронный адрес."
+        );
+    }
+
+    #[test]
+    fn mutation_error_from_form_error_preserves_field_errors() {
+        let dto = ApiMutationErrorDto::from(&FormError::InvalidEmail);
+
+        assert_eq!(dto.message, "Ошибка валидации формы.");
+        assert_eq!(dto.field_errors.len(), 1);
+        assert_eq!(dto.field_errors[0].field, "email");
+        assert_eq!(
+            dto.field_errors[0].message,
             "Укажите корректный электронный адрес."
         );
     }

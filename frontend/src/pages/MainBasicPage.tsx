@@ -1,27 +1,59 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
-import { AppShell } from "../components/AppShell";
-import { Navigation, type NavigationMenuItem } from "../components/Navigation";
+import { AuthShell } from "../components/AuthShell";
+import { AuthShellFatalState } from "../components/AuthShellFatalState";
 import {
+  fetchHubMenuItems,
+  fetchShellData,
+  isApiMutationError,
   isRedirectResponseError,
   postForm,
   toFieldErrorMap,
-  type ApiIam,
   type ApiMutationError,
 } from "../lib/api";
+import type { ShellData, UserMenuItem } from "../lib/models";
+import { useServiceShell } from "@pushkind/frontend-shell/useServiceShell";
 
-export interface BasicDashboardPageData {
-  iam: ApiIam;
-  menu: NavigationMenuItem[];
+function toMutationError(error: unknown): ApiMutationError {
+  if (isApiMutationError(error)) {
+    return error;
+  }
+
+  return {
+    message: "Не удалось сохранить изменения.",
+    field_errors: [],
+  };
 }
 
-export function MainBasicPage({ iam, menu }: BasicDashboardPageData) {
-  const [name, setName] = useState(iam.editable_profile.name);
+export function MainBasicPage() {
+  const shellState = useServiceShell<ShellData, UserMenuItem>({
+    errorMessage: "Не удалось загрузить оболочку Auth.",
+    menuLoadWarning:
+      "Failed to load auth navigation menu. Falling back to local Auth menu only.",
+    fetchShellData,
+    fetchHubMenuItems,
+  });
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const rolesValue = iam.user.roles.join(" ");
+
+  useEffect(() => {
+    if (shellState.status === "ready") {
+      setName(shellState.shell.currentUser.name);
+    }
+  }, [shellState]);
+
+  if (shellState.status === "loading") {
+    return null;
+  }
+
+  if (shellState.status === "error") {
+    return <AuthShellFatalState message={shellState.message} />;
+  }
+
+  const rolesValue = shellState.shell.currentUser.roles.join(" ");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,7 +73,7 @@ export function MainBasicPage({ iam, menu }: BasicDashboardPageData) {
         return;
       }
 
-      const mutationError = error as ApiMutationError;
+      const mutationError = toMutationError(error);
       setFieldErrors(toFieldErrorMap(mutationError));
       window.showFlashMessage?.(mutationError.message, "danger");
     } finally {
@@ -50,13 +82,14 @@ export function MainBasicPage({ iam, menu }: BasicDashboardPageData) {
   }
 
   return (
-    <AppShell alerts={[]}>
-      <Navigation
-        currentHubName={iam.current_hub.name}
-        currentPage="index"
-        currentUserEmail={iam.user.email}
-        menu={menu}
-      />
+    <AuthShell
+      navigation={shellState.shell.navigation}
+      currentUserEmail={shellState.shell.currentUser.email}
+      homeUrl={shellState.shell.homeUrl}
+      localMenuItems={shellState.shell.localMenuItems}
+      fetchedMenuItems={shellState.authMenuItems}
+      hubName={shellState.shell.hubName}
+    >
       <div className="container my-2">
         <div className="row">
           <div className="col">
@@ -75,7 +108,7 @@ export function MainBasicPage({ iam, menu }: BasicDashboardPageData) {
                     readOnly
                     className="form-control-plaintext"
                     id="email"
-                    value={iam.user.email}
+                    value={shellState.shell.currentUser.email}
                   />
                 </div>
               </div>
@@ -162,6 +195,6 @@ export function MainBasicPage({ iam, menu }: BasicDashboardPageData) {
           </div>
         </div>
       </div>
-    </AppShell>
+    </AuthShell>
   );
 }

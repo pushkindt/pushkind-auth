@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 
-import { AppShell } from "../components/AppShell";
+import { AuthModalFlashShell } from "../components/AuthModalFlashShell";
 import { postForm, toFieldErrorMap, type ApiMutationError } from "../lib/api";
 import { getNextFromLocation, type HubOption, withNext } from "../lib/auth";
 
@@ -53,7 +53,7 @@ export function AuthSignupPage({ hubs }: { hubs: SignupPageData }) {
   }
 
   return (
-    <AppShell alerts={[]}>
+    <AuthModalFlashShell>
       <div className="row justify-content-center">
         <div className="col-md-6">
           <div className="card mt-5">
@@ -199,6 +199,6 @@ export function AuthSignupPage({ hubs }: { hubs: SignupPageData }) {
           </div>
         </div>
       </div>
-    </AppShell>
+    </AuthModalFlashShell>
   );
 }

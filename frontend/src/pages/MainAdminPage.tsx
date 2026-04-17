@@ -1,22 +1,29 @@
-import { useRef, useState } from "react";
-import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
 
-import { AppShell } from "../components/AppShell";
-import { Navigation, type NavigationMenuItem } from "../components/Navigation";
+import { AuthShell } from "../components/AuthShell";
+import { AuthShellFatalState } from "../components/AuthShellFatalState";
 import {
+  DropdownMultiSelect,
+  type DropdownMultiSelectOption,
+} from "@pushkind/frontend-shell/DropdownMultiSelect";
+import {
+  fetchHubMenuItems,
   fetchJson,
+  fetchShellData,
+  isApiMutationError,
   isRedirectResponseError,
   postEmpty,
   postForm,
   postJson,
   toFieldErrorMap,
   type ApiAdminDashboard,
-  type ApiIam,
-  type ApiMenuItem,
   type ApiMutationError,
   type ApiUserListItem,
   type DashboardUser,
 } from "../lib/api";
+import type { ShellData, UserMenuItem } from "../lib/models";
+import { useServiceShell } from "@pushkind/frontend-shell/useServiceShell";
 
 interface RoleOption {
   id: number;
@@ -43,11 +50,23 @@ interface AdminUserFormState {
   roles: string[];
 }
 
-export interface AdminDashboardPageData {
-  iam: ApiIam;
-  menu: NavigationMenuItem[];
-  admin: ApiAdminDashboard;
-  users: DashboardUser[];
+type AdminPageState =
+  | { status: "loading" }
+  | { status: "ready"; admin: ApiAdminDashboard; users: DashboardUser[] }
+  | { status: "error"; message: string };
+
+function toMutationError(
+  error: unknown,
+  fallbackMessage: string,
+): ApiMutationError {
+  if (isApiMutationError(error)) {
+    return error;
+  }
+
+  return {
+    message: fallbackMessage,
+    field_errors: [],
+  };
 }
 
 function mapUsers(users: ApiUserListItem[]): DashboardUser[] {
@@ -59,15 +78,18 @@ function mapUsers(users: ApiUserListItem[]): DashboardUser[] {
   }));
 }
 
-export function MainAdminPage({
-  iam,
-  menu,
-  admin,
-  users,
-}: AdminDashboardPageData) {
-  const [menuState, setMenuState] = useState(menu);
-  const [adminState, setAdminState] = useState(admin);
-  const [usersState, setUsersState] = useState(users);
+export function MainAdminPage() {
+  const shellState = useServiceShell<ShellData, UserMenuItem>({
+    errorMessage: "Не удалось загрузить оболочку Auth.",
+    menuLoadWarning:
+      "Failed to load auth navigation menu. Falling back to local Auth menu only.",
+    fetchShellData,
+    fetchHubMenuItems,
+  });
+  const [menuState, setMenuState] = useState<UserMenuItem[]>([]);
+  const [pageState, setPageState] = useState<AdminPageState>({
+    status: "loading",
+  });
   const [filterValue, setFilterValue] = useState("");
   const [roleName, setRoleName] = useState("");
   const [hubName, setHubName] = useState("");
@@ -93,8 +115,69 @@ export function MainAdminPage({
   const modalRef = useRef<HTMLDivElement | null>(null);
   const requestIdRef = useRef(0);
 
+  useEffect(() => {
+    if (shellState.status === "ready") {
+      setMenuState(shellState.authMenuItems);
+    }
+  }, [shellState]);
+
+  useEffect(() => {
+    if (shellState.status !== "ready") {
+      return;
+    }
+
+    let active = true;
+
+    void Promise.all([
+      fetchJson<ApiAdminDashboard>("/api/v1/admin/dashboard"),
+      fetchJson<ApiUserListItem[]>("/api/v1/users"),
+    ])
+      .then(([admin, users]) => {
+        if (!active) {
+          return;
+        }
+
+        setPageState({
+          status: "ready",
+          admin,
+          users: mapUsers(users),
+        });
+      })
+      .catch((error) => {
+        if (!active) {
+          return;
+        }
+
+        setPageState({
+          status: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Не удалось загрузить административные данные Auth.",
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [shellState]);
+
+  if (shellState.status === "error") {
+    return <AuthShellFatalState message={shellState.message} />;
+  }
+
+  if (shellState.status === "loading" || pageState.status === "loading") {
+    return null;
+  }
+
+  if (pageState.status === "error") {
+    return <AuthShellFatalState message={pageState.message} />;
+  }
+
+  const shell = shellState.shell;
+
   const normalizedFilter = filterValue.trim().toLowerCase();
-  const filteredUsers = usersState.filter((user) => {
+  const filteredUsers = pageState.users.filter((user) => {
     if (!normalizedFilter) {
       return true;
     }
@@ -107,14 +190,17 @@ export function MainAdminPage({
 
   async function refreshAdminPage(): Promise<void> {
     const [nextMenu, nextAdmin, nextUsers] = await Promise.all([
-      fetchJson<ApiMenuItem[]>(`/api/v1/hubs/${iam.current_hub.id}/menu-items`),
+      fetchHubMenuItems(shell.homeUrl, shell.currentUser.hubId),
       fetchJson<ApiAdminDashboard>("/api/v1/admin/dashboard"),
       fetchJson<ApiUserListItem[]>("/api/v1/users"),
     ]);
 
     setMenuState(nextMenu);
-    setAdminState(nextAdmin);
-    setUsersState(mapUsers(nextUsers));
+    setPageState({
+      status: "ready",
+      admin: nextAdmin,
+      users: mapUsers(nextUsers),
+    });
   }
 
   async function handleCreateMutation(
@@ -135,7 +221,10 @@ export function MainAdminPage({
         return false;
       }
 
-      const mutationError = error as ApiMutationError;
+      const mutationError = toMutationError(
+        error,
+        "Не удалось сохранить изменения.",
+      );
       setErrors(toFieldErrorMap(mutationError));
       window.showFlashMessage?.(mutationError.message, "danger");
       return false;
@@ -157,7 +246,10 @@ export function MainAdminPage({
         return false;
       }
 
-      const mutationError = error as ApiMutationError;
+      const mutationError = toMutationError(
+        error,
+        "Не удалось удалить запись.",
+      );
       window.showFlashMessage?.(mutationError.message, "danger");
       return false;
     }
@@ -165,7 +257,7 @@ export function MainAdminPage({
 
   function closeModal() {
     if (modalRef.current) {
-      window.bootstrap.Modal.getOrCreateInstance(modalRef.current).hide();
+      window.bootstrap?.Modal.getOrCreateInstance(modalRef.current).hide();
     }
     setModalData(null);
     setModalForm(null);
@@ -183,7 +275,7 @@ export function MainAdminPage({
     setModalFieldErrors({});
 
     if (modalRef.current) {
-      window.bootstrap.Modal.getOrCreateInstance(modalRef.current).show();
+      window.bootstrap?.Modal.getOrCreateInstance(modalRef.current).show();
     }
 
     try {
@@ -345,30 +437,27 @@ export function MainAdminPage({
     }
   }
 
-  function updateModalRoles(event: ChangeEvent<HTMLSelectElement>) {
+  function updateModalRoles(values: string[]) {
     setModalFieldErrors((errors) => ({ ...errors, roles: "" }));
     setModalForm((current) =>
       current
         ? {
             ...current,
-            roles: Array.from(
-              event.target.selectedOptions,
-              (option) => option.value,
-            ),
+            roles: values,
           }
         : current,
     );
   }
 
   return (
-    <AppShell alerts={[]}>
-      <Navigation
-        currentHubName={iam.current_hub.name}
-        currentPage="index"
-        currentUserEmail={iam.user.email}
-        menu={menuState}
-      />
-
+    <AuthShell
+      navigation={shell.navigation}
+      currentUserEmail={shell.currentUser.email}
+      homeUrl={shell.homeUrl}
+      localMenuItems={shell.localMenuItems}
+      fetchedMenuItems={menuState}
+      hubName={shell.hubName}
+    >
       <div className="container my-2">
         <div className="row">
           <div className="col-md">
@@ -409,7 +498,7 @@ export function MainAdminPage({
                 </div>
               </div>
             </form>
-            {adminState.roles.map((role) =>
+            {pageState.admin.roles.map((role) =>
               role.can_delete ? (
                 <button
                   key={role.id}
@@ -474,7 +563,7 @@ export function MainAdminPage({
                 </div>
               </div>
             </form>
-            {adminState.hubs.map((hub) =>
+            {pageState.admin.hubs.map((hub) =>
               hub.can_delete ? (
                 <button
                   key={hub.id}
@@ -562,7 +651,7 @@ export function MainAdminPage({
                 </div>
               </div>
             </form>
-            {adminState.admin_menu.map((menuItem) => (
+            {pageState.admin.admin_menu.map((menuItem) => (
               <button
                 key={menuItem.id}
                 type="button"
@@ -581,7 +670,7 @@ export function MainAdminPage({
         </div>
       </div>
 
-      {usersState.length > 0 ? (
+      {pageState.users.length > 0 ? (
         <>
           <div className="container mb-1">
             <div className="row">
@@ -786,24 +875,22 @@ export function MainAdminPage({
                             Роли
                           </label>
                           <div className="col-md-10">
-                            <select
-                              multiple
-                              className={
-                                modalFieldErrors.roles
-                                  ? "form-control my-1 is-invalid"
-                                  : "form-control my-1"
-                              }
-                              name="roles"
+                            <DropdownMultiSelect
                               id="user-assign-form-role-id"
-                              value={modalForm.roles}
+                              options={modalData.roles.map(
+                                (role): DropdownMultiSelectOption => ({
+                                  value: String(role.id),
+                                  label: role.name,
+                                }),
+                              )}
+                              selectedValues={modalForm.roles}
                               onChange={updateModalRoles}
-                            >
-                              {modalData.roles.map((role) => (
-                                <option key={role.id} value={role.id}>
-                                  {role.name}
-                                </option>
-                              ))}
-                            </select>
+                              className="my-1"
+                              menuHeightClassName="auth-dropdown-multiselect-options-md"
+                              searchPlaceholder="Поиск ролей"
+                              clearable
+                              clearLabel="Очистить выбранные роли"
+                            />
                             {modalFieldErrors.roles ? (
                               <div className="invalid-feedback d-block">
                                 {modalFieldErrors.roles}
@@ -842,6 +929,6 @@ export function MainAdminPage({
           </div>
         </>
       ) : null}
-    </AppShell>
+    </AuthShell>
   );
 }

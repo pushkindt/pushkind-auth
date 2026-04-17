@@ -3,7 +3,6 @@
 use crate::domain::hub::Hub;
 use crate::domain::menu::Menu;
 use crate::domain::role::Role;
-use crate::forms::FormError;
 use pushkind_common::domain::auth::AuthenticatedUser;
 use serde::{Deserialize, Serialize};
 
@@ -12,52 +11,6 @@ pub struct ApiV1UsersQueryParams {
     pub role: Option<String>,
     pub query: Option<String>,
     pub page: Option<usize>,
-}
-
-/// Field-level validation error returned by JSON mutation endpoints.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct ApiFieldErrorDto {
-    pub field: String,
-    pub message: String,
-}
-
-/// Successful JSON mutation response.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct ApiMutationSuccessDto {
-    pub message: String,
-    pub redirect_to: Option<String>,
-}
-
-/// Failed JSON mutation response with optional field-level errors.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct ApiMutationErrorDto {
-    pub message: String,
-    pub field_errors: Vec<ApiFieldErrorDto>,
-}
-
-impl Default for ApiMutationErrorDto {
-    fn default() -> Self {
-        Self {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: Vec::new(),
-        }
-    }
-}
-
-impl From<&FormError> for ApiMutationErrorDto {
-    fn from(error: &FormError) -> Self {
-        Self {
-            message: "Ошибка валидации формы.".to_string(),
-            field_errors: error
-                .field_errors()
-                .into_iter()
-                .map(|error| ApiFieldErrorDto {
-                    field: error.field.to_string(),
-                    message: error.message.into_owned(),
-                })
-                .collect(),
-        }
-    }
 }
 
 /// DTO returned by API endpoints representing a user with roles and hub context.
@@ -98,40 +51,6 @@ impl From<Hub> for HubListItemDto {
             name: hub.name.into_inner(),
         }
     }
-}
-
-/// Hub summary embedded into IAM responses.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct HubSummaryDto {
-    pub id: i32,
-    pub name: String,
-}
-
-impl From<Hub> for HubSummaryDto {
-    fn from(hub: Hub) -> Self {
-        Self {
-            id: hub.id.get(),
-            name: hub.name.into_inner(),
-        }
-    }
-}
-
-/// Editable current-user profile fields exposed via the IAM contract.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct EditableProfileDto {
-    pub name: String,
-}
-
-/// IAM-style response shape built on top of the existing current-user DTO.
-///
-/// This intentionally reuses [`UserDto`] as its identity core so the existing
-/// `/api/v1/id` route can be assessed for reuse before introducing a separate
-/// `/api/v1/iam` endpoint.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct IamDto {
-    pub user: UserDto,
-    pub current_hub: HubSummaryDto,
-    pub editable_profile: EditableProfileDto,
 }
 
 /// Menu item exposed by hub-scoped menu APIs.
@@ -222,7 +141,6 @@ mod tests {
     use crate::domain::menu::Menu;
     use crate::domain::role::Role;
     use crate::domain::types::{HubId, HubName, MenuId, MenuName, MenuUrl, RoleId, RoleName};
-    use crate::forms::FormError;
     use chrono::Utc;
 
     #[test]
@@ -286,18 +204,5 @@ mod tests {
         assert_eq!(dto.roles.len(), 1);
         assert_eq!(dto.hubs.len(), 1);
         assert_eq!(dto.admin_menu.len(), 1);
-    }
-
-    #[test]
-    fn mutation_error_from_form_error_preserves_field_errors() {
-        let dto = ApiMutationErrorDto::from(&FormError::InvalidEmail);
-
-        assert_eq!(dto.message, "Ошибка валидации формы.");
-        assert_eq!(dto.field_errors.len(), 1);
-        assert_eq!(dto.field_errors[0].field, "email");
-        assert_eq!(
-            dto.field_errors[0].message,
-            "Укажите корректный электронный адрес."
-        );
     }
 }

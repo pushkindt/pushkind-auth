@@ -48,7 +48,21 @@ async fn login_as(
     assert_eq!(login_payload["redirect_to"], "/");
 }
 
-#[ignore = "local-only end-to-end test"]
+#[actix_web::test]
+async fn test_health() {
+    let app = common::spawn_app().await;
+
+    let client = common::build_reqwest_client();
+
+    let response = client
+        .get(format!("{}/health", app.address()))
+        .send()
+        .await
+        .expect("Failed to request the health page.");
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
 #[actix_web::test]
 async fn test_signin_page_get_for_logged_out_user() {
     let app = common::spawn_app().await;
@@ -73,7 +87,55 @@ async fn test_signin_page_get_for_logged_out_user() {
     assert!(content_type.starts_with("text/html"));
 }
 
-#[ignore = "local-only end-to-end test"]
+#[actix_web::test]
+async fn test_unauthenticated_html_page_redirects_to_signin() {
+    let app = common::spawn_app().await;
+    common::setup_hub_with_users(app.db_pool());
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .expect("Failed to create no-redirect client.");
+
+    let response = client
+        .get(format!("{}/", app.address()))
+        .send()
+        .await
+        .expect("Failed to request dashboard.");
+
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    let location = response
+        .headers()
+        .get(header::LOCATION)
+        .and_then(|value| value.to_str().ok())
+        .expect("Redirect should include a location header.");
+    assert!(location.starts_with("/auth/signin?next="));
+}
+
+#[actix_web::test]
+async fn test_unauthenticated_json_routes_return_unauthorized() {
+    let app = common::spawn_app().await;
+    common::setup_hub_with_users(app.db_pool());
+    let client = common::build_reqwest_client();
+
+    let modal_response = client
+        .post(format!("{}/admin/user/modal/1", app.address()))
+        .send()
+        .await
+        .expect("Failed to request admin modal JSON.");
+
+    assert_eq!(modal_response.status(), StatusCode::UNAUTHORIZED);
+
+    let save_response = client
+        .post(format!("{}/user/save", app.address()))
+        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+        .body(mutation_form_body(&[("name", "User")]))
+        .send()
+        .await
+        .expect("Failed to request user save JSON.");
+
+    assert_eq!(save_response.status(), StatusCode::UNAUTHORIZED);
+}
+
 #[actix_web::test]
 async fn test_admin_user_full_management_story() {
     let app = common::spawn_app().await;
@@ -291,7 +353,6 @@ async fn test_admin_user_full_management_story() {
     );
 }
 
-#[ignore = "local-only end-to-end test"]
 #[actix_web::test]
 async fn test_non_admin_user_self_service_story() {
     let app = common::spawn_app().await;

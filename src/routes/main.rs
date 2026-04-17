@@ -3,10 +3,10 @@
 use actix_web::{HttpRequest, HttpResponse, Responder, get, post, web};
 use log::error;
 use pushkind_common::domain::auth::AuthenticatedUser;
+use pushkind_common::dto::mutation::{ApiMutationErrorDto, ApiMutationSuccessDto};
+use pushkind_common::frontend::open_frontend_html;
 
-use crate::dto::api::{ApiMutationErrorDto, ApiMutationSuccessDto};
 use crate::forms::main::{SaveUserForm, SaveUserPayload};
-use crate::frontend::open_frontend_html;
 use crate::repository::DieselRepository;
 use crate::routes::{MutationResource, mutation_error_response};
 use crate::services::main as main_service;
@@ -15,6 +15,12 @@ fn is_admin(user: &AuthenticatedUser) -> bool {
     user.roles
         .iter()
         .any(|role| role == crate::SERVICE_ACCESS_ROLE)
+}
+
+/// Health check
+#[get("/health")]
+pub async fn health() -> impl Responder {
+    HttpResponse::Ok()
 }
 
 /// Displays the main dashboard via `GET /` for the authenticated user.
@@ -36,7 +42,7 @@ pub async fn show_index(request: HttpRequest, user: AuthenticatedUser) -> impl R
 }
 
 /// Saves profile updates for the current user via `POST /user/save`.
-#[post("/user/save")]
+#[post("/save")]
 pub async fn save_user(
     web::Form(form): web::Form<SaveUserForm>,
     current_user: AuthenticatedUser,

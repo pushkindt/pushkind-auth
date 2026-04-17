@@ -2,7 +2,10 @@
 
 //! Helpers for integration tests.
 
+use std::fs;
 use std::net::TcpListener;
+use std::path::Path;
+use std::sync::Once;
 use std::time::Duration;
 
 use actix_web::rt::time::sleep;
@@ -23,6 +26,8 @@ pub const ADMIN_EMAIL: &str = "admin@hub";
 pub const ADMIN_PASSWORD: &str = "password";
 pub const USER_EMAIL: &str = "user@hub";
 pub const USER_PASSWORD: &str = "password";
+
+static FRONTEND_ASSETS: Once = Once::new();
 
 pub struct SeededUsers {
     pub hub_id: i32,
@@ -81,20 +86,58 @@ async fn wait_until_server_is_ready(address: &str) {
         .timeout(Duration::from_millis(100))
         .build()
         .expect("Failed to create the test HTTP client.");
-    let signin_url = format!("{address}/auth/signin");
+    let health_url = format!("{address}/health");
 
     for _ in 0..20 {
-        match client.get(&signin_url).send().await {
+        match client.get(&health_url).send().await {
             Ok(response) if response.status() == StatusCode::OK => return,
             Ok(_) | Err(_) => sleep(Duration::from_millis(25)).await,
         }
     }
 
-    panic!("Test server did not become ready at {signin_url}");
+    panic!("Test server did not become ready at {health_url}");
+}
+
+fn ensure_test_frontend_assets() {
+    FRONTEND_ASSETS.call_once(|| {
+        let fixtures = [
+            (
+                "assets/dist/auth/signin.html",
+                "<!doctype html><html><body>auth-signin.tsx</body></html>",
+            ),
+            (
+                "assets/dist/auth/signup.html",
+                "<!doctype html><html><body>auth-signup.tsx</body></html>",
+            ),
+            (
+                "assets/dist/app/index-admin.html",
+                "<!doctype html><html><body>main-admin.tsx</body></html>",
+            ),
+            (
+                "assets/dist/app/index-basic.html",
+                "<!doctype html><html><body>main-basic.tsx</body></html>",
+            ),
+        ];
+
+        for (path, contents) in fixtures {
+            let path = Path::new(path);
+            if path.exists() {
+                continue;
+            }
+
+            let parent = path
+                .parent()
+                .expect("frontend fixture path should include a parent directory");
+            fs::create_dir_all(parent).expect("failed to create frontend fixture directory");
+            fs::write(path, contents).expect("failed to write frontend fixture file");
+        }
+    });
 }
 
 /// Launch the application in the background and return a handle for driving it.
 pub async fn spawn_app() -> TestApp {
+    ensure_test_frontend_assets();
+
     let test_db = TestDb::new();
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind a random local port.");
     let port = listener
