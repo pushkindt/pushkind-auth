@@ -3,10 +3,11 @@
 use actix_web::{HttpResponse, Responder, post, web};
 use log::error;
 use pushkind_common::domain::auth::AuthenticatedUser;
+use pushkind_common::dto::mutation::{ApiMutationErrorDto, ApiMutationSuccessDto};
 use pushkind_common::services::errors::ServiceError;
 
 use crate::dto::admin::UserModalData;
-use crate::dto::api::{ApiMutationErrorDto, ApiMutationSuccessDto};
+
 use crate::dto::frontend::{AdminEditableUserDto, AdminUserModalBootstrap, RoleOptionDto};
 use crate::forms::main::{
     AddHubForm, AddHubPayload, AddMenuForm, AddMenuPayload, AddRoleForm, AddRolePayload,

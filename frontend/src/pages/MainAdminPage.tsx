@@ -6,10 +6,12 @@ import { AuthShellFatalState } from "../components/AuthShellFatalState";
 import {
   DropdownMultiSelect,
   type DropdownMultiSelectOption,
-} from "../components/DropdownMultiSelect";
+} from "@pushkind/frontend-shell/DropdownMultiSelect";
 import {
   fetchHubMenuItems,
   fetchJson,
+  fetchShellData,
+  isApiMutationError,
   isRedirectResponseError,
   postEmpty,
   postForm,
@@ -20,8 +22,8 @@ import {
   type ApiUserListItem,
   type DashboardUser,
 } from "../lib/api";
-import type { UserMenuItem } from "../lib/models";
-import { useAuthShell } from "../lib/useAuthShell";
+import type { ShellData, UserMenuItem } from "../lib/models";
+import { useServiceShell } from "@pushkind/frontend-shell/useServiceShell";
 
 interface RoleOption {
   id: number;
@@ -53,6 +55,20 @@ type AdminPageState =
   | { status: "ready"; admin: ApiAdminDashboard; users: DashboardUser[] }
   | { status: "error"; message: string };
 
+function toMutationError(
+  error: unknown,
+  fallbackMessage: string,
+): ApiMutationError {
+  if (isApiMutationError(error)) {
+    return error;
+  }
+
+  return {
+    message: fallbackMessage,
+    field_errors: [],
+  };
+}
+
 function mapUsers(users: ApiUserListItem[]): DashboardUser[] {
   return users.map((user) => ({
     id: Number(user.sub),
@@ -63,7 +79,13 @@ function mapUsers(users: ApiUserListItem[]): DashboardUser[] {
 }
 
 export function MainAdminPage() {
-  const shellState = useAuthShell("Не удалось загрузить оболочку Auth.");
+  const shellState = useServiceShell<ShellData, UserMenuItem>({
+    errorMessage: "Не удалось загрузить оболочку Auth.",
+    menuLoadWarning:
+      "Failed to load auth navigation menu. Falling back to local Auth menu only.",
+    fetchShellData,
+    fetchHubMenuItems,
+  });
   const [menuState, setMenuState] = useState<UserMenuItem[]>([]);
   const [pageState, setPageState] = useState<AdminPageState>({
     status: "loading",
@@ -199,7 +221,10 @@ export function MainAdminPage() {
         return false;
       }
 
-      const mutationError = error as ApiMutationError;
+      const mutationError = toMutationError(
+        error,
+        "Не удалось сохранить изменения.",
+      );
       setErrors(toFieldErrorMap(mutationError));
       window.showFlashMessage?.(mutationError.message, "danger");
       return false;
@@ -221,7 +246,10 @@ export function MainAdminPage() {
         return false;
       }
 
-      const mutationError = error as ApiMutationError;
+      const mutationError = toMutationError(
+        error,
+        "Не удалось удалить запись.",
+      );
       window.showFlashMessage?.(mutationError.message, "danger");
       return false;
     }

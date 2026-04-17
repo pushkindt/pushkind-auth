@@ -2,11 +2,21 @@ import {
   fetchHubMenuItems as fetchSharedHubMenuItems,
   fetchJson as fetchSharedJson,
   isJsonResponse,
+  ensureResponseIsNotAuthRedirect,
   parseCurrentUser,
   parseMenuItems,
   parseNavigationItems,
   readJsonResponse as readSharedJsonResponse,
-} from "../../../../pushkind-common/frontend/src/shellApi";
+} from "@pushkind/frontend-shell/shellApi";
+export {
+  type ApiFieldError,
+  type ApiMutationError,
+  type ApiMutationSuccess,
+  isApiMutationError,
+  postEmpty,
+  postForm,
+  toFieldErrorMap,
+} from "@pushkind/frontend-shell/mutations";
 
 import { redirectTo } from "./redirect";
 import type { ShellData, UserMenuItem } from "./models";
@@ -70,21 +80,6 @@ export interface DashboardUser {
   email: string;
   name: string;
   roles: string[];
-}
-
-export interface ApiFieldError {
-  field: string;
-  message: string;
-}
-
-export interface ApiMutationSuccess {
-  message: string;
-  redirect_to: string | null;
-}
-
-export interface ApiMutationError {
-  message: string;
-  field_errors: ApiFieldError[];
 }
 
 export class RedirectResponseError extends Error {
@@ -165,60 +160,6 @@ export async function fetchHubMenuItems(
   );
 }
 
-export function toFieldErrorMap(
-  error: ApiMutationError,
-): Record<string, string> {
-  return Object.fromEntries(
-    error.field_errors.map((fieldError) => [
-      fieldError.field,
-      fieldError.message,
-    ]),
-  );
-}
-
-export async function postForm(
-  endpoint: string,
-  body: URLSearchParams,
-): Promise<ApiMutationSuccess> {
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-    },
-    body: body.toString(),
-  });
-
-  const payload = (await readJsonResponse(response, endpoint)) as
-    | ApiMutationSuccess
-    | ApiMutationError;
-
-  if (!response.ok) {
-    throw payload as ApiMutationError;
-  }
-
-  return payload as ApiMutationSuccess;
-}
-
-export async function postEmpty(endpoint: string): Promise<ApiMutationSuccess> {
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-    },
-  });
-
-  const payload = (await readJsonResponse(response, endpoint)) as
-    | ApiMutationSuccess
-    | ApiMutationError;
-
-  if (!response.ok) {
-    throw payload as ApiMutationError;
-  }
-
-  return payload as ApiMutationSuccess;
-}
-
 export async function postJson<T>(endpoint: string): Promise<T> {
   const response = await fetch(endpoint, {
     method: "POST",
@@ -233,5 +174,7 @@ export async function postJson<T>(endpoint: string): Promise<T> {
     );
   }
 
-  return readJsonResponse<T>(response, endpoint);
+  ensureResponseIsNotAuthRedirect(response);
+
+  return readSharedJsonResponse<T>(response, endpoint);
 }

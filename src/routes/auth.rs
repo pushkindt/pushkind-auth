@@ -5,17 +5,17 @@ use std::sync::Arc;
 use actix_identity::Identity;
 use actix_web::{HttpMessage, HttpRequest, HttpResponse};
 use actix_web::{Responder, get, post, web};
+use pushkind_common::dto::mutation::{ApiMutationErrorDto, ApiMutationSuccessDto};
+use pushkind_common::frontend::open_frontend_html;
 use pushkind_common::models::config::CommonServerConfig;
 use pushkind_common::routes::redirect;
 use pushkind_common::services::errors::ServiceError;
 use pushkind_common::zmq::ZmqSender;
 use serde::Deserialize;
 
-use crate::dto::api::{ApiMutationErrorDto, ApiMutationSuccessDto};
 use crate::forms::auth::{
     LoginForm, LoginPayload, RecoverForm, RecoverPayload, RegisterForm, RegisterPayload,
 };
-use crate::frontend::open_frontend_html;
 use crate::models::config::AppConfig;
 use crate::repository::DieselRepository;
 use crate::routes::{MutationResource, is_valid_next, mutation_error_response};

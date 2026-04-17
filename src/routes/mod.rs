@@ -1,6 +1,6 @@
 //! HTTP handlers and helpers.
-use crate::dto::api::ApiMutationErrorDto;
 use actix_web::{HttpResponse, http::StatusCode};
+use pushkind_common::dto::mutation::ApiMutationErrorDto;
 use pushkind_common::services::errors::ServiceError;
 use url::Url;
 

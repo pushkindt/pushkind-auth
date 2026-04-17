@@ -3,7 +3,7 @@ import type {
   FrontendShellData,
   FrontendShellNavigationItem,
   FrontendShellUserMenuItem,
-} from "../../../../pushkind-common/frontend/src/types";
+} from "@pushkind/frontend-shell/types";
 
 export type NavigationItem = FrontendShellNavigationItem;
 export type UserMenuItem = FrontendShellUserMenuItem;

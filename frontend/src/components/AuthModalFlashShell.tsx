@@ -1,4 +1,4 @@
-import { ModalFlashShell } from "../../../../pushkind-common/frontend/src/ModalFlashShell";
+import { ModalFlashShell } from "@pushkind/frontend-shell/ModalFlashShell";
 import type { ReactNode } from "react";
 
 type AuthModalFlashShellProps = {

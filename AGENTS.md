@@ -6,10 +6,10 @@ architecture and conventions.
 
 ## Project Context
 
-`pushkind-auth` is a Rust 2024 Actix Web application that uses Diesel with
-SQLite, Tera templates, and the shared `pushkind-common` crate. The codebase is
+`pushkind-auth` is a Rust 2024 Actix Web application that uses Diesel with
+SQLite, React-frontend, and the shared `pushkind-common` crate. The codebase is
 layered into domain models, repository traits and implementations, service
-modules, Actix routes, forms, and templates. Business logic belongs in the
+modules, Actix routes, and forms. Business logic belongs in the
 service layer; handlers and repositories should stay thin and focused on I/O
 concerns.
 
@@ -52,7 +52,8 @@ cargo fmt --all -- --check
   functions.
 - Services should return DTO-level structs when handing data to routes or other
   crates; perform domain-to-DTO conversion inside the service layer to keep
-  handlers thin.
+  handlers thin. DTOs are optimized for JSON serialization for the
+  React-frontend.
 - Service functions should accept trait bounds (e.g., `UserReader + UserWriter`)
   so the `DieselRepository` and `mockall`-powered fakes remain interchangeable.
 - Sanitize and validate user input early using `validator` helpers from the
@@ -74,14 +75,14 @@ cargo fmt --all -- --check
 - Check related records (e.g., users) before inserts or updates and convert
   missing dependencies into `RepositoryError::NotFound` instead of panicking.
 
-## HTTP and Template Guidelines
+## HTTP and Frontend Guidelines
 
 - Keep Actix handlers in `src/routes` focused on extracting inputs, invoking a
-  service, and returning an HTTP response.
+  service, and returning a JSON response.
 - Use the `RedirectSuccess` helper when services need to trigger a redirect with
-  flash messaging.
-- Render templates with Tera contexts that only expose validated data. Use the
-  existing component templates under `templates/` for shared UI.
+  flash messaging or handle successful UI state transitions.
+- Return DTOs to the React-frontend that only expose validated data. Use the
+  shared component library in the frontend for a consistent UI.
 - Respect the authorization checks via `pushkind_common::routes::ensure_role` and
   the `SERVICE_ACCESS_ROLE` constant.
 

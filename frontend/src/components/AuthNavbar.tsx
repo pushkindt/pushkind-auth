@@ -1,4 +1,4 @@
-import { ServiceNavbar } from "../../../../pushkind-common/frontend/src/ServiceNavbar";
+import { ServiceNavbar } from "@pushkind/frontend-shell/ServiceNavbar";
 
 import type { NavigationItem, UserMenuItem } from "../lib/models";
 

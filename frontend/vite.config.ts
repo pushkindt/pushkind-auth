@@ -19,11 +19,11 @@ export default defineConfig({
     dedupe: ["react", "react-dom"],
     alias: [
       { find: "react", replacement: resolve(__dirname, "node_modules/react") },
-      { find: "react-dom", replacement: resolve(__dirname, "node_modules/react-dom") }
-    ]
-  },
-  optimizeDeps: {
-    exclude: ["@pushkind/frontend-shell"]
+      {
+        find: "react-dom",
+        replacement: resolve(__dirname, "node_modules/react-dom"),
+      },
+    ],
   },
   build: {
     manifest: "manifest.json",

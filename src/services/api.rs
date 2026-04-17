@@ -1,6 +1,7 @@
 //! API services for retrieving and listing users.
 
 use pushkind_common::domain::auth::AuthenticatedUser;
+use pushkind_common::dto::shell::{CurrentUserDto, IamDto, NavigationItemDto};
 use pushkind_common::pagination::DEFAULT_ITEMS_PER_PAGE;
 use pushkind_common::routes::ensure_role;
 use pushkind_common::services::errors::{ServiceError, ServiceResult};
@@ -9,7 +10,7 @@ use crate::SERVICE_ACCESS_ROLE;
 use crate::domain::types::{HubId, UserId};
 use crate::dto::api::{
     AdminDashboardDto, AdminHubItemDto, AdminMenuItemDto, AdminRoleItemDto, ApiV1UsersQueryParams,
-    CurrentUserDto, HubListItemDto, HubMenuItemDto, NavigationItemDto, ShellDataDto, UserDto,
+    HubListItemDto, HubMenuItemDto, UserDto,
 };
 use crate::repository::{HubReader, MenuReader, RoleReader, UserListQuery, UserReader};
 
@@ -75,11 +76,11 @@ pub fn list_hubs(repo: &impl HubReader) -> ServiceResult<Vec<HubListItemDto>> {
 pub fn get_shell_data(
     current_user: AuthenticatedUser,
     repo: &impl HubReader,
-) -> ServiceResult<ShellDataDto> {
+) -> ServiceResult<IamDto> {
     let hub_id = HubId::new(current_user.hub_id)?;
     let hub = repo.get_hub_by_id(hub_id)?.ok_or(ServiceError::NotFound)?;
 
-    Ok(ShellDataDto {
+    Ok(IamDto {
         current_user: CurrentUserDto::from(current_user),
         home_url: "/".to_string(),
         navigation: vec![NavigationItemDto {

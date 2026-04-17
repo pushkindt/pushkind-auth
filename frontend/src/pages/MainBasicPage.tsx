@@ -4,15 +4,36 @@ import type { FormEvent } from "react";
 import { AuthShell } from "../components/AuthShell";
 import { AuthShellFatalState } from "../components/AuthShellFatalState";
 import {
+  fetchHubMenuItems,
+  fetchShellData,
+  isApiMutationError,
   isRedirectResponseError,
   postForm,
   toFieldErrorMap,
   type ApiMutationError,
 } from "../lib/api";
-import { useAuthShell } from "../lib/useAuthShell";
+import type { ShellData, UserMenuItem } from "../lib/models";
+import { useServiceShell } from "@pushkind/frontend-shell/useServiceShell";
+
+function toMutationError(error: unknown): ApiMutationError {
+  if (isApiMutationError(error)) {
+    return error;
+  }
+
+  return {
+    message: "Не удалось сохранить изменения.",
+    field_errors: [],
+  };
+}
 
 export function MainBasicPage() {
-  const shellState = useAuthShell("Не удалось загрузить оболочку Auth.");
+  const shellState = useServiceShell<ShellData, UserMenuItem>({
+    errorMessage: "Не удалось загрузить оболочку Auth.",
+    menuLoadWarning:
+      "Failed to load auth navigation menu. Falling back to local Auth menu only.",
+    fetchShellData,
+    fetchHubMenuItems,
+  });
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -52,7 +73,7 @@ export function MainBasicPage() {
         return;
       }
 
-      const mutationError = error as ApiMutationError;
+      const mutationError = toMutationError(error);
       setFieldErrors(toFieldErrorMap(mutationError));
       window.showFlashMessage?.(mutationError.message, "danger");
     } finally {

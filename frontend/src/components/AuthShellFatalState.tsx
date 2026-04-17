@@ -1,4 +1,4 @@
-import { ShellFatalState } from "../../../../pushkind-common/frontend/src/ShellFatalState";
+import { ShellFatalState } from "@pushkind/frontend-shell/ShellFatalState";
 
 type AuthShellFatalStateProps = {
   message: string;
