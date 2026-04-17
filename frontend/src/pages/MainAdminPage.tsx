@@ -162,12 +162,12 @@ export function MainAdminPage() {
     };
   }, [shellState]);
 
-  if (shellState.status === "loading" || pageState.status === "loading") {
-    return null;
-  }
-
   if (shellState.status === "error") {
     return <AuthShellFatalState message={shellState.message} />;
+  }
+
+  if (shellState.status === "loading" || pageState.status === "loading") {
+    return null;
   }
 
   if (pageState.status === "error") {
