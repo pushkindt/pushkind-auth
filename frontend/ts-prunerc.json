@@ -1,0 +1,8 @@
+{
+    "project": "tsconfig.json",
+    "skip": [
+        "**/*.test.ts",
+        "**/*.test.tsx"
+    ],
+    "ignore": "Api(FieldError|MutationSuccess|User|ShellPayload|MenuItem|AdminRole|AdminHub|AdminMenuItem|AdminDashboard|UserListItem)|DashboardUser|NavigationItem|CurrentUser"
+}
