@@ -11,7 +11,11 @@
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
     "format:check": "prettier --check .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "depcheck": "depcheck --skip-missing",
+    "ts-prune": "ts-prune",
+    "knip": "knip",
+    "check:deps": "npm run depcheck && npm run ts-prune && npm run knip"
   },
   "dependencies": {
     "@pushkind/frontend-shell": "github:pushkindt/pushkind-common#main",
@@ -22,8 +26,11 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "depcheck": "^1.4.7",
     "jsdom": "^29.0.2",
+    "knip": "^6.6.0",
     "prettier": "^3.8.2",
+    "ts-prune": "^0.10.3",
     "typescript": "^6.0.2",
     "vite": "^8.0.2",
     "vitest": "^4.1.4"

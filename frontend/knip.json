@@ -1,0 +1,14 @@
+{
+  "entry": [
+    "src/entries/main-basic.tsx",
+    "src/entries/main-admin.tsx",
+    "src/entries/auth-signin.tsx",
+    "src/entries/auth-signup.tsx"
+  ],
+  "project": ["src/**/*.{ts,tsx,js,jsx}", "app/**/*.html", "auth/**/*.html"],
+  "includeEntryExports": true,
+  "ignoreIssues": {
+    "src/lib/api.ts": ["types", "exports"],
+    "src/lib/models.ts": ["types"]
+  }
+}
