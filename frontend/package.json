@@ -28,7 +28,7 @@
     "@vitejs/plugin-react": "^6.0.1",
     "depcheck": "^1.4.7",
     "jsdom": "^29.0.2",
-    "knip": "^6.5.0",
+    "knip": "^6.6.0",
     "prettier": "^3.8.2",
     "ts-prune": "^0.10.3",
     "typescript": "^6.0.2",

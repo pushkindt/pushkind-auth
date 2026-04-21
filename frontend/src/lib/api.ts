@@ -9,7 +9,10 @@ import {
   readJsonResponse as readSharedJsonResponse,
 } from "@pushkind/frontend-shell/shellApi";
 // ts-prune-ignore-next
-export type { ApiFieldError, ApiMutationSuccess } from "@pushkind/frontend-shell/mutations";
+export type {
+  ApiFieldError,
+  ApiMutationSuccess,
+} from "@pushkind/frontend-shell/mutations";
 export type { ApiMutationError } from "@pushkind/frontend-shell/mutations";
 export {
   isApiMutationError,

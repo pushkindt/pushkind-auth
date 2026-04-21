@@ -5,11 +5,7 @@
     "src/entries/auth-signin.tsx",
     "src/entries/auth-signup.tsx"
   ],
-  "project": [
-    "src/**/*.{ts,tsx,js,jsx}",
-    "app/**/*.html",
-    "auth/**/*.html"
-  ],
+  "project": ["src/**/*.{ts,tsx,js,jsx}", "app/**/*.html", "auth/**/*.html"],
   "includeEntryExports": true,
   "ignoreIssues": {
     "src/lib/api.ts": ["types", "exports"],
